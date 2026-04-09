@@ -18,7 +18,7 @@ function App() {
         <div>
           <h1>Get started</h1>
           <p>
-            Edit <code>src/App.jsx</code> and save to testhgghj <code>HMR</code>
+            Edit <code>src/App.jsx</code> and save to testhgghjasdadsda <code>HMR</code>
           </p>
         </div>
         <button
