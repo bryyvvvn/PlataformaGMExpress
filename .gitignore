@@ -1,18 +1,18 @@
---- Dependencias
+# Dependencias
 node_modules/
 **/node_modules/
 
---- Next.js
+# Next.js
 .next/
 out/
 build/
 
---- Vite
+# Vite
 dist/
 dist-ssr/
 .local
 
---- Variables de Entorno
+# Variables de Entorno
 .env
 .env.local
 .env.development.local
