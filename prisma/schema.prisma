@@ -1,14 +1,106 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
-  provider = "prisma-client"
+  provider = "prisma-client-js"
   output   = "../generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+
+// --- ENUMS ---
+
+enum Rol {
+  ADMIN
+  REPRESENTANTE
+}
+
+enum EstadoPedido {
+  PENDIENTE
+  ENTREGADO
+  CANCELADO
+}
+
+// Categoría física del plato
+enum CategoriaPlato {
+  ALMUERZO
+  ENSALADA
+  POSTRE
+  BEBESTIBLE
+}
+
+// Variante nutricional/especial
+enum VarianteMenu {
+  NORMAL
+  VEGANO
+  HIPOCALORICO
+  SIN_GLUTEN
+}
+
+// Tablas
+
+model Empresa {
+  id              Int       @id @default(autoincrement())
+  nombre          String    @unique @db.VarChar(100)
+  correo_contacto String?   @db.VarChar(100)
+  usuarios        Usuario[]
+  pedidos         Pedido[]
+}
+
+model Usuario {
+  id        String   @id // ID de Clerk
+  nombre    String   @db.VarChar(100)
+  rol       Rol      @default(REPRESENTANTE)
+  empresaId Int
+  empresa   Empresa  @relation(fields: [empresaId], references: [id])
+  pedidos   Pedido[]
+}
+
+model Plato {
+  id           Int            @id @default(autoincrement())
+  nombre       String         @unique @db.VarChar(100)
+  url_imagen   String?        @db.Text
+  categoria    CategoriaPlato @default(ALMUERZO) // Almuerzo, Postre, etc.
+  menuDetalles MenuDetalle[]
+  detallesPedido DetallePedido[]
+}
+
+model MenuSemanal {
+  id           Int           @id @default(autoincrement())
+  fecha_inicio DateTime
+  fecha_fin    DateTime
+  creado_en    DateTime      @default(now())
+  detalles     MenuDetalle[]
+}
+
+model MenuDetalle {
+  id            Int          @id @default(autoincrement())
+  dia_semana    String       // Ej: "Lunes"
+  variante      VarianteMenu @default(NORMAL) // Vegano, Hipocalórico, etc.
+  menuSemanalId Int
+  platoId       Int
+  menuSemanal   MenuSemanal  @relation(fields: [menuSemanalId], references: [id], onDelete: Cascade)
+  plato         Plato        @relation(fields: [platoId], references: [id])
+}
+
+model Pedido {
+  id        Int          @id @default(autoincrement())
+  fecha     DateTime     @default(now())
+  estado    EstadoPedido @default(PENDIENTE)
+  empresaId Int
+  usuarioId String
+  empresa   Empresa      @relation(fields: [empresaId], references: [id])
+  usuario   Usuario      @relation(fields: [usuarioId], references: [id])
+  detalles  DetallePedido[]
+}
+
+model DetallePedido {
+  id       Int          @id @default(autoincrement())
+  pedidoId Int
+  platoId  Int
+  cantidad Int
+  variante VarianteMenu @default(NORMAL) // Se guarda la variante elegida
+  pedido   Pedido       @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  plato    Plato        @relation(fields: [platoId], references: [id])
 }
