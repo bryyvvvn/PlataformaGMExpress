@@ -4,7 +4,7 @@ import { THEME, DEADLINE_HOUR } from '../constants/theme';
 import { WEEKLY_MENU, MenuItemType } from '../constants/menu';
 
 /**
- * HomePage: Weekly meal selection interface
+ * HomePage: Weekly meal selection interface.
  * Displays current day's menu with countdown to order deadline.
  * Supports menu exploration, nutritional info, and order status tracking.
  */
