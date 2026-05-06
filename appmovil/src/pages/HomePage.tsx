@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Clock, AlertCircle } from 'lucide-react';
 import { THEME, DEADLINE_HOUR } from '../constants/theme';
 import { API_BASE_URL } from '../constants/api';
-import { useUser } from '@clerk/clerk-react';
+import { useUser } from '@clerk/clerk-react'; // <-- Vuelve a dejarlo así
+// ─── Tipos ────────────────────────────────────────────────────────────────────
+// ... (el resto de tu código queda exactamente igual hacia abajo)
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -165,7 +167,7 @@ const HomePage: React.FC = () => {
       <div className="p-6 text-white rounded-b-4xl shadow-lg"
         style={{ backgroundColor: THEME.colors.secondary }}>
         <h2 className="text-lg font-bold opacity-90 tracking-tight">
-          Bienvenido, {user?.firstName || 'Usuario'}
+          Bienvenido, {user?.firstName || user?.username || user?.primaryEmailAddress?.emailAddress?.split('@')[0] || 'Usuario'}
         </h2>
       </div>
 

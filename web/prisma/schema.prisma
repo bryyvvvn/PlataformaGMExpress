@@ -12,8 +12,8 @@ datasource db {
 // --- ENUMS ---
 
 enum Rol {
-  ADMIN
   REPRESENTANTE
+  TRABAJADOR
 }
 
 enum EstadoPedido {
@@ -52,8 +52,8 @@ model Usuario {
   id        String   @id // ID de Clerk
   nombre    String   @db.VarChar(100)
   rol       Rol      @default(REPRESENTANTE)
-  empresaId Int
-  empresa   Empresa  @relation(fields: [empresaId], references: [id])
+  empresaId Int?
+  empresa   Empresa?  @relation(fields: [empresaId], references: [id])
   pedidos   Pedido[]
 }
 
