@@ -1,112 +1,40 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, AlertCircle } from 'lucide-react';
+import { Clock, CheckCircle2 } from 'lucide-react';
 import { THEME, DEADLINE_HOUR } from '../constants/theme';
-import { API_BASE_URL } from '../constants/api';
-import { useUser } from '@clerk/clerk-react'; // <-- Vuelve a dejarlo así
-// ─── Tipos ────────────────────────────────────────────────────────────────────
-// ... (el resto de tu código queda exactamente igual hacia abajo)
+import { useUser } from '@clerk/clerk-react';
 
-// ─── Tipos ────────────────────────────────────────────────────────────────────
-
-interface Plato {
-  id: number;
-  nombre: string;
-  url_imagen: string | null;
-  categoria: string;
-}
-
-interface MenuDetalle {
-  id: number;
-  dia_semana: string;
-  variante: string;
-  plato: Plato;
-}
-
-interface MenuSemanal {
-  id: number;
-  fecha_inicio: string;
-  fecha_fin: string;
-  detalles: MenuDetalle[];
-}
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const ORDEN_DIAS = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes'];
-const DIAS_ABREV = ['L', 'M', 'M', 'J', 'V'];
-
-const normalize = (s: string) =>
-  s.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-
-function ordenarDetalles(detalles: MenuDetalle[]): (MenuDetalle | null)[] {
-  return ORDEN_DIAS.map((dia) =>
-    detalles.find((d) => normalize(d.dia_semana) === dia) ?? null
-  );
-}
-
-function numerosDelMes(fechaInicio: string): number[] {
-  const base = new Date(fechaInicio);
-  return ORDEN_DIAS.map((_, i) => {
-    const d = new Date(base);
-    d.setUTCDate(base.getUTCDate() + i);
-    return d.getUTCDate();
-  });
-}
-
-function labelDia(fechaInicio: string, index: number): string {
-  const base = new Date(fechaInicio);
-  const d = new Date(base);
-  d.setUTCDate(base.getUTCDate() + index);
-  return d.toLocaleDateString('es-CL', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    timeZone: 'UTC',
-  });
-}
-
-// ─── Componente ───────────────────────────────────────────────────────────────
+// --- DATOS SIMULADOS (Con imágenes de prueba agregadas) ---
+const MENU_HOY = {
+  entradas: [
+    { id: 1, nombre: 'Salad Bar: Chilena', tipo: 'Ensalada', url_imagen: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=200' },
+    { id: 2, nombre: 'Salad Bar: Lechuga Escarola', tipo: 'Ensalada', url_imagen: 'https://images.unsplash.com/photo-1540420773420-3366772f4999?w=200' },
+    { id: 3, nombre: 'Sopa de Pollo con Verduras', tipo: 'Sopa', url_imagen: 'https://images.unsplash.com/photo-1547592166-23ac45744acd?w=200' }
+  ],
+  fondos: [
+    { id: 4, nombre: 'Pollo al Coñac', guarnicion: 'Arroz graneado', tipo: 'NORMAL', url_imagen: 'https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?w=200' },
+    { id: 5, nombre: 'Garbanzos con Sofrito', tipo: 'NORMAL', url_imagen: 'https://images.unsplash.com/photo-1585238342024-78d387f4a707?w=200' },
+    { id: 6, nombre: 'Pollo Asado + Ensalada', tipo: 'HIPOCALORICO', url_imagen: 'https://images.unsplash.com/photo-1598514982205-f36b96d1e8d4?w=200' },
+    { id: 7, nombre: 'Garbanzos (Sin chorizo)', tipo: 'VEGANO', url_imagen: 'https://images.unsplash.com/photo-1585238342024-78d387f4a707?w=200' }
+  ],
+  postres: [
+    { id: 8, nombre: 'Jalea del Día', tipo: 'Postre', url_imagen: 'https://images.unsplash.com/photo-1551024506-0bccd828d307?w=200' },
+    { id: 9, nombre: 'Fruta de la Estación', tipo: 'Postre', url_imagen: 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=200' }
+  ]
+};
 
 const HomePage: React.FC = () => {
   const { user } = useUser();
+  const nombreUsuario = user?.firstName || user?.username || user?.primaryEmailAddress?.emailAddress?.split('@')[0] || 'Usuario';
 
-  const [timeRemaining, setTimeRemaining]       = useState('');
+  const [pedido, setPedido] = useState({
+    entradaId: null as number | null,
+    fondoId: null as number | null,
+    postreId: null as number | null,
+  });
+
+  const [timeRemaining, setTimeRemaining] = useState('');
   const [isDeadlinePassed, setIsDeadlinePassed] = useState(false);
-  const [selectedDayIndex, setSelectedDayIndex] = useState(0);
 
-  const [weeklyMenu, setWeeklyMenu] = useState<MenuSemanal | null>(null);
-  const [loading, setLoading]       = useState(true);
-  const [fetchError, setFetchError] = useState(false);
-
-  // ── Fetch ─────────────────────────────────────────────────────────────────
-  useEffect(() => {
-    const fetchMenu = async () => {
-      const url = `${API_BASE_URL}/api/menu-semanal`;
-      console.log('[HomePage] Fetching:', url);
-      
-      try {
-        const res = await fetch(url);
-        console.log('[HomePage] Status:', res.status);
-
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-        const data = await res.json();
-        console.log('[HomePage] Detalles recibidos:', data?.detalles?.length ?? 0);
-
-        if (!data) throw new Error('Respuesta vacía');
-
-        setWeeklyMenu(Array.isArray(data) ? data[0] ?? null : data);
-      } catch (err) {
-        console.error('[HomePage] Error al cargar menú:', err);
-        setFetchError(true);
-      } finally {
-        setLoading(false);
-      }
-      
-    };
-    fetchMenu();
-  }, []);
-
-  // ── Countdown ─────────────────────────────────────────────────────────────
   useEffect(() => {
     const tick = () => {
       const now = new Date();
@@ -130,48 +58,77 @@ const HomePage: React.FC = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // ── Datos derivados ───────────────────────────────────────────────────────
-  const detallesOrdenados = weeklyMenu ? ordenarDetalles(weeklyMenu.detalles) : [];
-  const currentDetail     = detallesOrdenados[selectedDayIndex] ?? null;
-  const platoReal         = currentDetail?.plato ?? null;
-  const numDias           = weeklyMenu ? numerosDelMes(weeklyMenu.fecha_inicio) : [4, 5, 6, 7, 8];
-  const diaLabel          = weeklyMenu ? labelDia(weeklyMenu.fecha_inicio, selectedDayIndex) : '';
+  const seleccionarPlato = (categoria: 'entradaId' | 'fondoId' | 'postreId', id: number) => {
+    setPedido(prev => ({ ...prev, [categoria]: id }));
+  };
 
-  // ── Loading / Error ───────────────────────────────────────────────────────
-  if (loading) {
+  const estaCompleto = pedido.entradaId && pedido.fondoId && pedido.postreId;
+
+  const manejarEnvioPedido = () => {
+    if (!estaCompleto) return;
+    console.log("Enviando pedido a Neon:", pedido);
+    alert("¡Pedido guardado con éxito!");
+  };
+
+  // Pequeño componente interno para no repetir el código del diseño de la tarjeta
+  const TarjetaPlato = ({ plato, categoriaKey }: { plato: any, categoriaKey: 'entradaId' | 'fondoId' | 'postreId' }) => {
+    const isSelected = pedido[categoriaKey] === plato.id;
     return (
-      <div className="min-h-screen flex items-center justify-center"
-        style={{ backgroundColor: THEME.colors.background }}>
-        <p className="font-bold text-gray-400 animate-pulse">Sincronizando con Neon...</p>
-      </div>
-    );
-  }
+      <button
+        onClick={() => seleccionarPlato(categoriaKey, plato.id)}
+        disabled={isDeadlinePassed}
+        className={`p-3 rounded-2xl border-2 text-left transition-all flex items-center gap-4 ${
+          isSelected 
+            ? 'border-green-500 bg-green-50 shadow-md scale-[1.01]' 
+            : 'border-gray-100 bg-white shadow-sm'
+        } ${isDeadlinePassed ? 'opacity-50 cursor-not-allowed' : ''}`}
+      >
+        {/* Imagen del Plato */}
+        <img 
+          src={plato.url_imagen || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c'} 
+          alt={plato.nombre} 
+          className="w-20 h-20 rounded-xl object-cover bg-gray-100 flex-shrink-0 shadow-sm"
+          onError={(e) => { (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c'; }}
+        />
 
-  if (fetchError || !weeklyMenu) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center px-8 gap-2"
-        style={{ backgroundColor: THEME.colors.background }}>
-        <p className="font-bold text-red-400 text-lg">Sin menú disponible</p>
-        <p className="text-gray-400 text-sm text-center">
-          No se encontró un menú activo. Contacta al administrador.
-        </p>
-      </div>
-    );
-  }
+        {/* Info del Plato */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${
+              plato.tipo === 'VEGANO' ? 'bg-green-100 text-green-700' :
+              plato.tipo === 'HIPOCALORICO' ? 'bg-blue-100 text-blue-700' :
+              plato.tipo === 'NORMAL' ? 'bg-orange-100 text-orange-700' :
+              'bg-gray-100 text-gray-600'
+            }`}>
+              {plato.tipo}
+            </span>
+          </div>
+          <p className="font-bold text-gray-800 text-sm leading-tight truncate">{plato.nombre}</p>
+          {plato.guarnicion && <p className="text-xs text-gray-500 mt-1 truncate">+ {plato.guarnicion}</p>}
+        </div>
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+        {/* Icono de Selección (Check o Círculo vacío) */}
+        <div className="flex-shrink-0 pr-2">
+          {isSelected ? (
+            <CheckCircle2 size={24} className="text-green-500" />
+          ) : (
+            <div className="w-6 h-6 rounded-full border-2 border-gray-300"></div>
+          )}
+        </div>
+      </button>
+    );
+  };
+
   return (
-    <div className="min-h-screen pb-10" style={{ backgroundColor: THEME.colors.background }}>
-
-      {/* Header */}
-      <div className="p-6 text-white rounded-b-4xl shadow-lg"
-        style={{ backgroundColor: THEME.colors.secondary }}>
-        <h2 className="text-lg font-bold opacity-90 tracking-tight">
-          Bienvenido, {user?.firstName || user?.username || user?.primaryEmailAddress?.emailAddress?.split('@')[0] || 'Usuario'}
-        </h2>
+    <div className="min-h-screen pb-28" style={{ backgroundColor: THEME.colors.background }}>
+      
+      {/* HEADER */}
+      <div className="p-6 text-white rounded-b-4xl shadow-md" style={{ backgroundColor: THEME.colors.secondary }}>
+        <h2 className="text-xl font-bold opacity-90">Bienvenido, {nombreUsuario}</h2>
+        <p className="text-sm opacity-70 mt-1 uppercase">Lunes, 6 de Abril</p>
       </div>
 
-      {/* Countdown */}
+      {/* COUNTDOWN */}
       <div className="mx-6 -mt-5 p-4 rounded-2xl shadow-xl bg-white border-b-4"
         style={{ borderBottomColor: isDeadlinePassed ? THEME.colors.error : THEME.colors.primary }}>
         <div className="flex items-center gap-3">
@@ -189,80 +146,54 @@ const HomePage: React.FC = () => {
         </div>
       </div>
 
-      {/* Selector de días */}
+      {/* SECCIÓN: ENTRADA */}
       <section className="mt-8 px-6">
-        <div className="flex justify-between gap-2">
-          {DIAS_ABREV.map((abrev, index) => {
-            const isSelected   = selectedDayIndex === index;
-            const tieneDetalle = detallesOrdenados[index] !== null;
-            return (
-              <button
-                key={index}
-                onClick={() => setSelectedDayIndex(index)}
-                disabled={!tieneDetalle}
-                className="flex-1 flex flex-col items-center p-3 rounded-2xl border-2 transition-all active:scale-95 disabled:opacity-30"
-                style={{
-                  borderColor:     isSelected ? THEME.colors.primary : 'transparent',
-                  backgroundColor: isSelected ? `${THEME.colors.primary}15` : 'white',
-                }}
-              >
-                <span className="text-[10px] font-bold text-gray-500">{abrev}</span>
-                <span className="text-lg font-black"
-                  style={{ color: isSelected ? THEME.colors.secondary : '#9CA3AF' }}>
-                  {numDias[index]}
-                </span>
-              </button>
-            );
-          })}
+        <h3 className="font-black text-lg mb-3" style={{ color: THEME.colors.secondary }}>Entrada</h3>
+        <div className="flex flex-col gap-3">
+          {MENU_HOY.entradas.map(plato => (
+            <TarjetaPlato key={plato.id} plato={plato} categoriaKey="entradaId" />
+          ))}
         </div>
       </section>
 
-      {/* Card del plato */}
-      <section className="mt-6 px-6">
-        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-          {/* Imagen */}
-          <div className="h-48 w-full relative overflow-hidden bg-gray-100">
-            <img
-              key={`${selectedDayIndex}-${platoReal?.id ?? 'empty'}`}
-              src={platoReal?.url_imagen || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c'}
-              alt={platoReal?.nombre || 'Plato del día'}
-              className="w-full h-full object-cover"
-              onError={(e) => {
-                (e.target as HTMLImageElement).src =
-                  'https://images.unsplash.com/photo-1546069901-ba9599a7e63c';
-              }}
-            />
-            {currentDetail?.variante && (
-              <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full shadow-sm">
-                <span className="text-[10px] font-bold" style={{ color: THEME.colors.secondary }}>
-                  {currentDetail.variante}
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* Info */}
-          <div className="p-5">
-            <p className="text-[10px] font-black uppercase" style={{ color: THEME.colors.primary }}>
-              {currentDetail?.dia_semana ?? ORDEN_DIAS[selectedDayIndex]}
-            </p>
-            <h3 className="text-xl font-black leading-tight uppercase"
-              style={{ color: THEME.colors.secondary }}>
-              {platoReal?.nombre ?? 'Sin plato para este día'}
-            </h3>
-          </div>
-        </div>
-
-        {/* Banner */}
-        <div className="mt-4 p-4 rounded-2xl flex items-center gap-3 bg-blue-50 text-blue-800">
-          <AlertCircle size={16} />
-          <p className="text-[10px] font-medium uppercase tracking-tight">
-            Sincronizado con Neon para {diaLabel}.
-          </p>
+      {/* SECCIÓN: PLATO DE FONDO */}
+      <section className="mt-8 px-6">
+        <h3 className="font-black text-lg mb-3" style={{ color: THEME.colors.secondary }}>Plato de Fondo</h3>
+        <div className="flex flex-col gap-3">
+          {MENU_HOY.fondos.map(plato => (
+            <TarjetaPlato key={plato.id} plato={plato} categoriaKey="fondoId" />
+          ))}
         </div>
       </section>
+
+      {/* SECCIÓN: POSTRE */}
+      <section className="mt-8 px-6">
+        <h3 className="font-black text-lg mb-3" style={{ color: THEME.colors.secondary }}>Postre</h3>
+        <div className="flex flex-col gap-3">
+          {MENU_HOY.postres.map(plato => (
+            <TarjetaPlato key={plato.id} plato={plato} categoriaKey="postreId" />
+          ))}
+        </div>
+      </section>
+
+      {/* BOTÓN FLOTANTE DE CONFIRMACIÓN */}
+      <div className="fixed bottom-0 left-0 w-full p-4 bg-white border-t border-gray-100 shadow-[0_-10px_20px_rgba(0,0,0,0.05)]">
+        <button
+          onClick={manejarEnvioPedido}
+          disabled={!estaCompleto || isDeadlinePassed}
+          className={`w-full py-4 rounded-2xl font-black text-lg flex items-center justify-center gap-2 transition-all ${
+            estaCompleto && !isDeadlinePassed
+              ? 'bg-green-500 text-white shadow-lg active:scale-95 cursor-pointer' 
+              : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+          }`}
+          style={estaCompleto && !isDeadlinePassed ? { backgroundColor: THEME.colors.primary } : {}}
+        >
+          {isDeadlinePassed ? 'Plazo cerrado' : estaCompleto ? 'Realizar Pedido' : 'Selecciona las 3 opciones'}
+        </button>
+      </div>
+
     </div>
   );
-};
+}
 
 export default HomePage;
