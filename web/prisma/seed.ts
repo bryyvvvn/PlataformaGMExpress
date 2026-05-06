@@ -9,33 +9,50 @@ async function main() {
   await prisma.menuSemanal.deleteMany({});
   await prisma.plato.deleteMany({});
 
+  const defaultImg = "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?q=80&w=400"; //Imagen genérica 
+
   // 1. Catálogo de Platos con Imágenes Variadas
   const platosVeganos = [
-    { 
-      nombre: "FALAFEL", 
-      cat: CategoriaPlato.ALMUERZO, 
-      img: "https://images.unsplash.com/photo-1593001874117-c99c800e3eb7?q=80&w=400" 
-    },
-    { 
-      nombre: "HUMMUS CON PITA", 
-      cat: CategoriaPlato.ENSALADA, 
-      img: "https://images.unsplash.com/photo-1577906036458-04c84f2229c5?q=80&w=400" 
-    },
-    { 
-      nombre: "LASAÑA DE VERDURAS", 
-      cat: CategoriaPlato.ALMUERZO, 
-      img: "https://images.unsplash.com/photo-1574894709920-11b28e7367e3?q=80&w=400" 
-    },
-    { 
-      nombre: "POROTOS CON RIENDAS", 
-      cat: CategoriaPlato.ALMUERZO, 
-      img: "https://images.unsplash.com/photo-1547592166-23ac45744acd?q=80&w=400" 
-    },
-    { 
-      nombre: "ZAPALLO ITALIANO RELLENO", 
-      cat: CategoriaPlato.ALMUERZO, 
-      img: "https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?q=80&w=400" 
-    }
+    { nombre: "BERENJENAS ROBOZADAS", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
+    { nombre: "BOCADOS DE ARVEJAS CON CEBOLLA CARAMELIZADA", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
+    { nombre: "BUDINES", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
+    { nombre: "CEVICHE DE POROTOS", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
+    { nombre: "CHAPSUI DE VERDURAS CON PROTEÍNA DE SOYA", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
+    { nombre: "CHARQUICÁN CON PROTEÍNA DE SOYA", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
+    { nombre: "CHORILLANA VEGANA", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
+    { nombre: "CHORILLANA VEGETARIANA", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
+    { nombre: "ENSALADA DE LEGUMBRES", cat: CategoriaPlato.ENSALADA, img: defaultImg },
+    { nombre: "ESTOFADO CON CARNE DE SOYA", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
+    { nombre: "FALAFEL", cat: CategoriaPlato.ALMUERZO, img: "https://images.unsplash.com/photo-1593001874117-c99c800e3eb7?q=80&w=400" },
+    { nombre: "FEIJOADA", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
+    { nombre: "GARBANZOS A LA PARMESANA O LENTEJAS CON QUESO RALLADO", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
+    { nombre: "GUISO DE REPOLLO CON PROTEINA DE SOYA", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
+    { nombre: "GUISO REPOLLO SOYA", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
+    { nombre: "GUISO REPOLLO SOYA Y HUEVO", cat: CategoriaPlato.ALMUERZO, img: defaultImg }, // Nota: El huevo lo hace vegetariano, no vegano estricto
+    { nombre: "HAMBURGUESA DE LEGUMBRES", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
+    { nombre: "HAMBURGUESA DE LEGUMBRES ATOMATADA", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
+    { nombre: "HAMBURGUESA DE SOYA", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
+    { nombre: "HAMBURGUESAS DE LEGUMBRES EN SALSA BBQ", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
+    { nombre: "HUMMUS", cat: CategoriaPlato.ENSALADA, img: "https://images.unsplash.com/photo-1577906036458-04c84f2229c5?q=80&w=400" },
+    { nombre: "JULIANAS DE CHORIZO VEGANO CON CEBOLLA CARAMELIZADA", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
+    { nombre: "LASAÑA CON PROTEÍNA DE SOYA", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
+    { nombre: "LASAÑA DE VERDURAS", cat: CategoriaPlato.ALMUERZO, img: "https://images.unsplash.com/photo-1574894709920-11b28e7367e3?q=80&w=400" },
+    { nombre: "LEGUMBRES A LA JARDINERA (LENTEJAS, POROTOS O GARBANZOS)", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
+    { nombre: "LEGUMBRES GUISADAS (GARBANZOS, LENTEJAS O ARVEJAS)", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
+    { nombre: "NUGGETS DE VERDURAS", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
+    { nombre: "OMELETTE CHOCLO/QUESO", cat: CategoriaPlato.ALMUERZO, img: defaultImg }, // Nota: Queso/Huevo es vegetariano
+    { nombre: "OMELETTE TOMATE/ACEITUNA", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
+    { nombre: "PASTEL DE ACELGA", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
+    { nombre: "PASTEL DE ZAPALLO ITALIANO", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
+    { nombre: "PASTEL DE ZAPALLO ITALIANO VEGANO", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
+    { nombre: "POROTOS CON MOTE", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
+    { nombre: "POROTOS CON RIENDAS", cat: CategoriaPlato.ALMUERZO, img: "https://images.unsplash.com/photo-1547592166-23ac45744acd?q=80&w=400" },
+    { nombre: "PROTEÍNA DE SOYA GUISADA", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
+    { nombre: "SALSA BOLOÑESA DE SOYA", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
+    { nombre: "SALSA PUTANESCA CON PROTEÍNA DE SOYA", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
+    { nombre: "SALTEADO DE VERDURAS CON POROTOS NEGROS", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
+    { nombre: "TORTILLA DE VERDURAS", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
+    { nombre: "ZAPALLO ITALIANO RELLENO", cat: CategoriaPlato.ALMUERZO, img: "https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?q=80&w=400" }
   ];
 
   console.log('--- PASO 1: Creando platos en Neon ---');
