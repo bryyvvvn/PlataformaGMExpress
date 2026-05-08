@@ -1,45 +1,43 @@
-/** Clerk authentication configuration for GM Express */
-
 export const CLERK_CONFIG = {
-  publishableKey: import.meta.env.VITE_CLERK_PUBLISHABLE_KEY || 'pk_test_dGFsZW50ZWQtbGFiLTc4LmNsZXJrLmFjY291bnRzLmRldiQ',
+  publishableKey: import.meta.env.VITE_CLERK_PUBLISHABLE_KEY,
   localization: {
     signIn: {
       start: {
         title: 'Iniciar Sesión',
-        subtitle: ' ',
+        subtitle: 'Bienvenido de vuelta a GM Express',
         actionText: '¿No tienes cuenta?',
-        actionLink: 'Regístrate aquí',
+        actionLink: 'Regístrate',
       },
     },
     signUp: {
       start: {
         title: 'Crear cuenta',
-        subtitle: 'Regístrate para continuar a GM Express',
+        subtitle: 'Completa tus datos para comenzar.',
         actionText: '¿Ya tienes cuenta?',
         actionLink: 'Inicia sesión',
       },
     },
-    formButtonPrimary: 'Entrar',
+    formButtonPrimary: 'Continuar',
   },
   appearance: {
     variables: {
       colorPrimary: '#75aa46',
       colorText: '#1b2c56',
-      fontSize: '1.1rem',
+      // Un tamaño base equilibrado (el defecto de Clerk es 1rem, antes probamos 1.15)
+      fontSize: '1.05rem', 
     },
     elements: {
-      card: 'shadow-2xl border-none',
-      headerTitle: 'text-2xl font-extrabold text-[#1b2c56]',
-      headerSubtitle: 'hidden',
-      formButtonPrimary: 'bg-[#75aa46] hover:bg-[#5d8a38] text-white py-3 text-lg transition-all uppercase font-black',
-      footer: 'flex flex-col items-center',
-      footerAction: 'mt-4',
-      footerActionText: 'text-[#1b2c56]',
-      footerActionLink: 'text-[#75aa46] font-bold hover:text-[#5d8a38]',
-      internal_logoBox: 'hidden',
-      logoBox: 'hidden',
-      userButtonPopoverFooter: { display: 'none' },
-      userButtonPopoverCard: 'border-2 border-gray-100 shadow-2xl',
+      card: 'shadow-2xl border border-gray-100',
+      // Un título grande pero no invasivo
+      headerTitle: 'text-[1.7rem] font-extrabold text-[#1b2c56]',
+      headerSubtitle: 'text-sm text-gray-500 mt-1',
+      // Padding intermedio (py-[14px]) y letra un poco más destacada
+      formButtonPrimary: 'font-black text-[1.05rem] text-white py-[14px] transition-all hover:bg-[#5d8a38]',
+      // Textos del pie de página en su tamaño normal
+      footerActionText: 'text-sm',
+      footerActionLink: 'text-[#75aa46] font-bold text-sm hover:text-[#5d8a38]',
+      // Se mantiene oculta la pastilla
+      badge: 'hidden',
     },
   },
 } as const;

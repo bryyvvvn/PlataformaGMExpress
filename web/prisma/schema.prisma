@@ -1,6 +1,6 @@
 generator client {
   provider = "prisma-client-js"
-
+  output   = "../node_modules/.prisma/client"
 }
 
 datasource db {
@@ -8,12 +8,11 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-
 // --- ENUMS ---
 
 enum Rol {
-  ADMIN
   REPRESENTANTE
+  TRABAJADOR
 }
 
 enum EstadoPedido {
@@ -22,23 +21,24 @@ enum EstadoPedido {
   CANCELADO
 }
 
-// Categoría física del plato
+// 1. Ajustado a las 3 secciones de tu App
 enum CategoriaPlato {
-  ALMUERZO
-  ENSALADA
+  ENTRADA
+  FONDO
   POSTRE
   BEBESTIBLE
 }
 
-// Variante nutricional/especial
+// 2. Agregada la opción VEGETARIANA que salía en tu minuta
 enum VarianteMenu {
   NORMAL
   VEGANO
+  VEGETARIANO
   HIPOCALORICO
   SIN_GLUTEN
 }
 
-// Tablas
+// --- TABLAS ---
 
 model Empresa {
   id              Int       @id @default(autoincrement())
@@ -49,20 +49,23 @@ model Empresa {
 }
 
 model Usuario {
-  id        String   @id // ID de Clerk
+  id        String   @id 
   nombre    String   @db.VarChar(100)
-  rol       Rol      @default(REPRESENTANTE)
-  empresaId Int
-  empresa   Empresa  @relation(fields: [empresaId], references: [id])
+  rol       Rol      @default(TRABAJADOR) // Default corregido
+  empresaId Int?
+  empresa   Empresa? @relation(fields: [empresaId], references: [id])
   pedidos   Pedido[]
 }
 
 model Plato {
   id           Int            @id @default(autoincrement())
   nombre       String         @unique @db.VarChar(100)
+  guarnicion   String?        @db.VarChar(100) // Opcional: "+ Arroz graneado"
   url_imagen   String?        @db.Text
-  categoria    CategoriaPlato @default(ALMUERZO) // Almuerzo, Postre, etc.
-  menuDetalles MenuDetalle[]
+  categoria    CategoriaPlato @default(FONDO)  
+  tipo         VarianteMenu   @default(NORMAL) // Define si el plato es vegano/normal
+  
+  menuDetalles   MenuDetalle[]
   detallesPedido DetallePedido[]
 }
 
@@ -77,19 +80,25 @@ model MenuSemanal {
 model MenuDetalle {
   id            Int          @id @default(autoincrement())
   dia_semana    String       // Ej: "Lunes"
-  variante      VarianteMenu @default(NORMAL) // Vegano, Hipocalórico, etc.
+  fecha_dia     DateTime?    // Opcional: para poner la fecha exacta del día (ej. 2026-04-06)
+  
   menuSemanalId Int
   platoId       Int
+  
   menuSemanal   MenuSemanal  @relation(fields: [menuSemanalId], references: [id], onDelete: Cascade)
   plato         Plato        @relation(fields: [platoId], references: [id])
 }
+
+// --- TABLAS DE PEDIDOS ---
 
 model Pedido {
   id        Int          @id @default(autoincrement())
   fecha     DateTime     @default(now())
   estado    EstadoPedido @default(PENDIENTE)
+  
   empresaId Int
   usuarioId String
+  
   empresa   Empresa      @relation(fields: [empresaId], references: [id])
   usuario   Usuario      @relation(fields: [usuarioId], references: [id])
   detalles  DetallePedido[]
@@ -99,8 +108,8 @@ model DetallePedido {
   id       Int          @id @default(autoincrement())
   pedidoId Int
   platoId  Int
-  cantidad Int
-  variante VarianteMenu @default(NORMAL) // Se guarda la variante elegida
+  cantidad Int          @default(1)
+  
   pedido   Pedido       @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
   plato    Plato        @relation(fields: [platoId], references: [id])
 }
