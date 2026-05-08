@@ -1,112 +1,53 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, AlertCircle } from 'lucide-react';
+import { Clock, CheckCircle2 } from 'lucide-react';
 import { THEME, DEADLINE_HOUR } from '../constants/theme';
-import { API_BASE_URL } from '../constants/api';
-import { useUser } from '@clerk/clerk-react'; // <-- Vuelve a dejarlo así
-// ─── Tipos ────────────────────────────────────────────────────────────────────
-// ... (el resto de tu código queda exactamente igual hacia abajo)
-
-// ─── Tipos ────────────────────────────────────────────────────────────────────
-
-interface Plato {
-  id: number;
-  nombre: string;
-  url_imagen: string | null;
-  categoria: string;
-}
-
-interface MenuDetalle {
-  id: number;
-  dia_semana: string;
-  variante: string;
-  plato: Plato;
-}
-
-interface MenuSemanal {
-  id: number;
-  fecha_inicio: string;
-  fecha_fin: string;
-  detalles: MenuDetalle[];
-}
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const ORDEN_DIAS = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes'];
-const DIAS_ABREV = ['L', 'M', 'M', 'J', 'V'];
-
-const normalize = (s: string) =>
-  s.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-
-function ordenarDetalles(detalles: MenuDetalle[]): (MenuDetalle | null)[] {
-  return ORDEN_DIAS.map((dia) =>
-    detalles.find((d) => normalize(d.dia_semana) === dia) ?? null
-  );
-}
-
-function numerosDelMes(fechaInicio: string): number[] {
-  const base = new Date(fechaInicio);
-  return ORDEN_DIAS.map((_, i) => {
-    const d = new Date(base);
-    d.setUTCDate(base.getUTCDate() + i);
-    return d.getUTCDate();
-  });
-}
-
-function labelDia(fechaInicio: string, index: number): string {
-  const base = new Date(fechaInicio);
-  const d = new Date(base);
-  d.setUTCDate(base.getUTCDate() + index);
-  return d.toLocaleDateString('es-CL', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    timeZone: 'UTC',
-  });
-}
-
-// ─── Componente ───────────────────────────────────────────────────────────────
+import { API_BASE_URL } from '../constants/api'; 
+import { useUser } from '@clerk/clerk-react';
 
 const HomePage: React.FC = () => {
   const { user } = useUser();
+  const nombreUsuario = user?.firstName || user?.username || user?.primaryEmailAddress?.emailAddress?.split('@')[0] || 'Usuario';
 
-  const [timeRemaining, setTimeRemaining]       = useState('');
+  // --- ESTADOS ---
+  const [pedido, setPedido] = useState({
+    entradaId: null as number | null,
+    fondoId: null as number | null,
+    postreId: null as number | null,
+  });
+
+  const [timeRemaining, setTimeRemaining] = useState('');
   const [isDeadlinePassed, setIsDeadlinePassed] = useState(false);
-  const [selectedDayIndex, setSelectedDayIndex] = useState(0);
+  
+  // Estados para la API
+  const [menuHoy, setMenuHoy] = useState({ entradas: [], fondos: [], postres: [] });
+  const [cargando, setCargando] = useState(true);
 
-  const [weeklyMenu, setWeeklyMenu] = useState<MenuSemanal | null>(null);
-  const [loading, setLoading]       = useState(true);
-  const [fetchError, setFetchError] = useState(false);
-
-  // ── Fetch ─────────────────────────────────────────────────────────────────
+  // --- TRAER DATOS REALES DE LA BD ---
   useEffect(() => {
-    const fetchMenu = async () => {
-      const url = `${API_BASE_URL}/api/menu-semanal`;
-      console.log('[HomePage] Fetching:', url);
-      
+    const cargarMenu = async () => {
       try {
-        const res = await fetch(url);
-        console.log('[HomePage] Status:', res.status);
+        const urlCompleta = `${API_BASE_URL}/api/menu-semanal`;
+        console.log("Llamando a la API en:", urlCompleta);
 
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-        const data = await res.json();
-        console.log('[HomePage] Detalles recibidos:', data?.detalles?.length ?? 0);
-
-        if (!data) throw new Error('Respuesta vacía');
-
-        setWeeklyMenu(Array.isArray(data) ? data[0] ?? null : data);
-      } catch (err) {
-        console.error('[HomePage] Error al cargar menú:', err);
-        setFetchError(true);
+        const respuesta = await fetch(urlCompleta);
+        
+        if (respuesta.ok) {
+          const datosReales = await respuesta.json();
+          console.log("✅ Datos que llegaron al celular:", datosReales); 
+          setMenuHoy(datosReales);
+        } else {
+          console.error("❌ Error del servidor:", respuesta.status);
+        }
+      } catch (error) {
+        console.error("❌ Error al conectar con la API:", error);
       } finally {
-        setLoading(false);
+        setCargando(false);
       }
-      
     };
-    fetchMenu();
+    cargarMenu();
   }, []);
 
-  // ── Countdown ─────────────────────────────────────────────────────────────
+  // --- COUNTDOWN ---
   useEffect(() => {
     const tick = () => {
       const now = new Date();
@@ -130,48 +71,72 @@ const HomePage: React.FC = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // ── Datos derivados ───────────────────────────────────────────────────────
-  const detallesOrdenados = weeklyMenu ? ordenarDetalles(weeklyMenu.detalles) : [];
-  const currentDetail     = detallesOrdenados[selectedDayIndex] ?? null;
-  const platoReal         = currentDetail?.plato ?? null;
-  const numDias           = weeklyMenu ? numerosDelMes(weeklyMenu.fecha_inicio) : [4, 5, 6, 7, 8];
-  const diaLabel          = weeklyMenu ? labelDia(weeklyMenu.fecha_inicio, selectedDayIndex) : '';
+  const seleccionarPlato = (categoria: 'entradaId' | 'fondoId' | 'postreId', id: number) => {
+    setPedido(prev => ({ ...prev, [categoria]: id }));
+  };
 
-  // ── Loading / Error ───────────────────────────────────────────────────────
-  if (loading) {
+  const estaCompleto = pedido.entradaId && pedido.fondoId && pedido.postreId;
+
+  const manejarEnvioPedido = () => {
+    if (!estaCompleto) return;
+    console.log("Enviando pedido a Neon:", pedido);
+    alert("¡Pedido guardado con éxito!");
+  };
+
+  // --- COMPONENTE DE TARJETA ---
+  const TarjetaPlato = ({ plato, categoriaKey }: { plato: any, categoriaKey: 'entradaId' | 'fondoId' | 'postreId' }) => {
+    const isSelected = pedido[categoriaKey] === plato.id;
     return (
-      <div className="min-h-screen flex items-center justify-center"
-        style={{ backgroundColor: THEME.colors.background }}>
-        <p className="font-bold text-gray-400 animate-pulse">Sincronizando con Neon...</p>
-      </div>
+      <button
+        onClick={() => seleccionarPlato(categoriaKey, plato.id)}
+        disabled={isDeadlinePassed}
+        className={`p-3 rounded-2xl border-2 text-left transition-all flex items-center gap-4 ${
+          isSelected 
+            ? 'border-green-500 bg-green-50 shadow-md scale-[1.01]' 
+            : 'border-gray-100 bg-white shadow-sm'
+        }`}
+      >
+        <img 
+          src={plato.url_imagen || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c'} 
+          alt={plato.nombre} 
+          className="w-20 h-20 rounded-xl object-cover bg-gray-100 flex-shrink-0 shadow-sm"
+          onError={(e) => { (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c'; }}
+        />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${
+              plato.tipo === 'VEGANO' ? 'bg-green-100 text-green-700' :
+              plato.tipo === 'HIPOCALORICO' ? 'bg-blue-100 text-blue-700' :
+              plato.tipo === 'NORMAL' ? 'bg-orange-100 text-orange-700' :
+              'bg-gray-100 text-gray-600'
+            }`}>
+              {plato.tipo}
+            </span>
+          </div>
+          <p className="font-bold text-gray-800 text-sm leading-tight truncate">{plato.nombre}</p>
+          {plato.guarnicion && <p className="text-xs text-gray-500 mt-1 truncate">+ {plato.guarnicion}</p>}
+        </div>
+        <div className="flex-shrink-0 pr-2">
+          {isSelected ? (
+            <CheckCircle2 size={24} className="text-green-500" />
+          ) : (
+            <div className="w-6 h-6 rounded-full border-2 border-gray-300"></div>
+          )}
+        </div>
+      </button>
     );
-  }
+  };
 
-  if (fetchError || !weeklyMenu) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center px-8 gap-2"
-        style={{ backgroundColor: THEME.colors.background }}>
-        <p className="font-bold text-red-400 text-lg">Sin menú disponible</p>
-        <p className="text-gray-400 text-sm text-center">
-          No se encontró un menú activo. Contacta al administrador.
-        </p>
-      </div>
-    );
-  }
-
-  // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen pb-10" style={{ backgroundColor: THEME.colors.background }}>
-
-      {/* Header */}
-      <div className="p-6 text-white rounded-b-4xl shadow-lg"
-        style={{ backgroundColor: THEME.colors.secondary }}>
-        <h2 className="text-lg font-bold opacity-90 tracking-tight">
-          Bienvenido, {user?.firstName || user?.username || user?.primaryEmailAddress?.emailAddress?.split('@')[0] || 'Usuario'}
-        </h2>
+    <div className="min-h-screen pb-28" style={{ backgroundColor: THEME.colors.background }}>
+      
+      {/* HEADER */}
+      <div className="p-6 text-white rounded-b-4xl shadow-md" style={{ backgroundColor: THEME.colors.secondary }}>
+        <h2 className="text-xl font-bold opacity-90">Bienvenido, {nombreUsuario}</h2>
+        <p className="text-sm opacity-70 mt-1 uppercase">Lunes, 6 de Abril</p>
       </div>
 
-      {/* Countdown */}
+      {/* COUNTDOWN */}
       <div className="mx-6 -mt-5 p-4 rounded-2xl shadow-xl bg-white border-b-4"
         style={{ borderBottomColor: isDeadlinePassed ? THEME.colors.error : THEME.colors.primary }}>
         <div className="flex items-center gap-3">
@@ -189,80 +154,71 @@ const HomePage: React.FC = () => {
         </div>
       </div>
 
-      {/* Selector de días */}
-      <section className="mt-8 px-6">
-        <div className="flex justify-between gap-2">
-          {DIAS_ABREV.map((abrev, index) => {
-            const isSelected   = selectedDayIndex === index;
-            const tieneDetalle = detallesOrdenados[index] !== null;
-            return (
-              <button
-                key={index}
-                onClick={() => setSelectedDayIndex(index)}
-                disabled={!tieneDetalle}
-                className="flex-1 flex flex-col items-center p-3 rounded-2xl border-2 transition-all active:scale-95 disabled:opacity-30"
-                style={{
-                  borderColor:     isSelected ? THEME.colors.primary : 'transparent',
-                  backgroundColor: isSelected ? `${THEME.colors.primary}15` : 'white',
-                }}
-              >
-                <span className="text-[10px] font-bold text-gray-500">{abrev}</span>
-                <span className="text-lg font-black"
-                  style={{ color: isSelected ? THEME.colors.secondary : '#9CA3AF' }}>
-                  {numDias[index]}
-                </span>
-              </button>
-            );
-          })}
+      {/* RENDERIZADO DEL MENÚ, ESTADO DE CARGA O AVISO DE PLAZO CERRADO */}
+      {cargando ? (
+        <div className="flex flex-col items-center justify-center mt-20">
+          <div className="w-10 h-10 border-4 border-gray-200 border-t-green-500 rounded-full animate-spin"></div>
+          <p className="text-gray-500 font-bold mt-4">Cargando menú de hoy...</p>
         </div>
-      </section>
-
-      {/* Card del plato */}
-      <section className="mt-6 px-6">
-        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-          {/* Imagen */}
-          <div className="h-48 w-full relative overflow-hidden bg-gray-100">
-            <img
-              key={`${selectedDayIndex}-${platoReal?.id ?? 'empty'}`}
-              src={platoReal?.url_imagen || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c'}
-              alt={platoReal?.nombre || 'Plato del día'}
-              className="w-full h-full object-cover"
-              onError={(e) => {
-                (e.target as HTMLImageElement).src =
-                  'https://images.unsplash.com/photo-1546069901-ba9599a7e63c';
-              }}
-            />
-            {currentDetail?.variante && (
-              <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full shadow-sm">
-                <span className="text-[10px] font-bold" style={{ color: THEME.colors.secondary }}>
-                  {currentDetail.variante}
-                </span>
-              </div>
-            )}
+      ) : isDeadlinePassed ? (
+        <div className="mx-6 mt-16 p-8 rounded-3xl bg-red-50 flex flex-col items-center justify-center text-center border-2 border-red-100 shadow-sm">
+          <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mb-4">
+            <Clock size={40} className="text-red-500" />
           </div>
-
-          {/* Info */}
-          <div className="p-5">
-            <p className="text-[10px] font-black uppercase" style={{ color: THEME.colors.primary }}>
-              {currentDetail?.dia_semana ?? ORDEN_DIAS[selectedDayIndex]}
-            </p>
-            <h3 className="text-xl font-black leading-tight uppercase"
-              style={{ color: THEME.colors.secondary }}>
-              {platoReal?.nombre ?? 'Sin plato para este día'}
-            </h3>
-          </div>
-        </div>
-
-        {/* Banner */}
-        <div className="mt-4 p-4 rounded-2xl flex items-center gap-3 bg-blue-50 text-blue-800">
-          <AlertCircle size={16} />
-          <p className="text-[10px] font-medium uppercase tracking-tight">
-            Sincronizado con Neon para {diaLabel}.
+          <h3 className="font-black text-2xl text-red-700 mb-2">¡Se acabó el tiempo!</h3>
+          <p className="text-red-600/80 font-medium leading-snug">
+            El horario para realizar pedidos ha finalizado por hoy. Te esperamos mañana temprano para armar tu menú.
           </p>
         </div>
-      </section>
+      ) : (
+        <>
+          <section className="mt-8 px-6">
+            <h3 className="font-black text-lg mb-3" style={{ color: THEME.colors.secondary }}>Entrada</h3>
+            <div className="flex flex-col gap-3">
+              {menuHoy.entradas.map((plato: any) => (
+                <TarjetaPlato key={plato.id} plato={plato} categoriaKey="entradaId" />
+              ))}
+            </div>
+          </section>
+
+          <section className="mt-8 px-6">
+            <h3 className="font-black text-lg mb-3" style={{ color: THEME.colors.secondary }}>Plato de Fondo</h3>
+            <div className="flex flex-col gap-3">
+              {menuHoy.fondos.map((plato: any) => (
+                <TarjetaPlato key={plato.id} plato={plato} categoriaKey="fondoId" />
+              ))}
+            </div>
+          </section>
+
+          <section className="mt-8 px-6">
+            <h3 className="font-black text-lg mb-3" style={{ color: THEME.colors.secondary }}>Postre</h3>
+            <div className="flex flex-col gap-3">
+              {menuHoy.postres.map((plato: any) => (
+                <TarjetaPlato key={plato.id} plato={plato} categoriaKey="postreId" />
+              ))}
+            </div>
+          </section>
+        </>
+      )}
+
+      {/* BOTÓN FLOTANTE */}
+      <div className="fixed bottom-0 left-0 w-full p-4 bg-white border-t border-gray-100 shadow-[0_-10px_20px_rgba(0,0,0,0.05)]">
+        <button
+          onClick={manejarEnvioPedido}
+          disabled={!estaCompleto || isDeadlinePassed || cargando}
+          className={`w-full py-4 rounded-2xl font-black text-lg flex items-center justify-center gap-2 transition-all ${
+            estaCompleto && !isDeadlinePassed
+              ? 'bg-green-500 text-white shadow-lg active:scale-95 cursor-pointer' 
+              : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+          }`}
+          style={estaCompleto && !isDeadlinePassed ? { backgroundColor: THEME.colors.primary } : {}}
+        >
+          {isDeadlinePassed ? 'Plazo cerrado' : estaCompleto ? 'Realizar Pedido' : 'Selecciona las 3 opciones'}
+        </button>
+      </div>
+
     </div>
   );
-};
+}
 
-export default HomePage;
+export default HomePage; 

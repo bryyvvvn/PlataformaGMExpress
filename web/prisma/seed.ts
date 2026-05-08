@@ -2,95 +2,101 @@ import { PrismaClient, CategoriaPlato, VarianteMenu } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
+const PLATOS_EXCEL = [
+  // --- ENTRADAS (ENSALADAS Y SOPAS) ---
+  { nombre: 'Salad Bar: Chilena', categoria: CategoriaPlato.ENTRADA, tipo: VarianteMenu.VEGETARIANO, url_imagen: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=200' },
+  { nombre: 'Salad Bar: Lechuga Escarola', categoria: CategoriaPlato.ENTRADA, tipo: VarianteMenu.VEGANO, url_imagen: 'https://images.unsplash.com/photo-1540420773420-3366772f4999?w=200' },
+  { nombre: 'Acelga', categoria: CategoriaPlato.ENTRADA, tipo: VarianteMenu.VEGETARIANO },
+  { nombre: 'Arroz Con Espinacas', categoria: CategoriaPlato.ENTRADA, tipo: VarianteMenu.VEGANO },
+  { nombre: 'Crema de Zapallo', categoria: CategoriaPlato.ENTRADA, tipo: VarianteMenu.VEGETARIANO },
+  { nombre: 'Sopa de Pollo con Verduras', categoria: CategoriaPlato.ENTRADA, tipo: VarianteMenu.NORMAL, url_imagen: 'https://images.unsplash.com/photo-1547592166-23ac45744acd?w=200' },
+  { nombre: 'Ceviche de Lentejas', categoria: CategoriaPlato.ENTRADA, tipo: VarianteMenu.VEGANO },
+
+  // --- FONDOS NORMALES ---
+  { nombre: 'Acelga A La Crema', categoria: CategoriaPlato.FONDO, tipo: VarianteMenu.NORMAL, guarnicion: 'Arroz' },
+  { nombre: 'Ajiaco De Cerdo', categoria: CategoriaPlato.FONDO, tipo: VarianteMenu.NORMAL },
+  { nombre: 'Ajiaco De Vacuno', categoria: CategoriaPlato.FONDO, tipo: VarianteMenu.NORMAL, guarnicion: 'Arroz graneado' },
+  { nombre: 'Pollo al Coñac', categoria: CategoriaPlato.FONDO, tipo: VarianteMenu.NORMAL, guarnicion: 'Papas doradas', url_imagen: 'https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?w=200' },
+  { nombre: 'Garbanzos con Sofrito de Chorizo', categoria: CategoriaPlato.FONDO, tipo: VarianteMenu.NORMAL },
+  { nombre: 'Merluza Frita', categoria: CategoriaPlato.FONDO, tipo: VarianteMenu.NORMAL, guarnicion: 'Papas Mayo' },
+  { nombre: 'Cerdo Al Horno A La Naranja', categoria: CategoriaPlato.FONDO, tipo: VarianteMenu.NORMAL, guarnicion: 'Puré de papas' },
+  { nombre: 'Lomo de Cerdo al Jugo', categoria: CategoriaPlato.FONDO, tipo: VarianteMenu.NORMAL, guarnicion: 'Pastelera de Choclo', url_imagen: 'https://images.unsplash.com/photo-1585238342024-78d387f4a707?w=200' },
+
+  // --- FONDOS VEGANOS Y VEGETARIANOS ---
+  { nombre: 'Berenjenas Rebozadas', categoria: CategoriaPlato.FONDO, tipo: VarianteMenu.VEGANO, guarnicion: 'Quinoa' },
+  { nombre: 'Bocados De Arvejas Con Cebolla Caramelizada', categoria: CategoriaPlato.FONDO, tipo: VarianteMenu.VEGANO },
+  { nombre: 'Budines de Verduras', categoria: CategoriaPlato.FONDO, tipo: VarianteMenu.VEGETARIANO },
+  { nombre: 'Boloñesa de Lentejas', categoria: CategoriaPlato.FONDO, tipo: VarianteMenu.VEGANO, guarnicion: 'Tallarines' },
+  { nombre: 'Estofado de Proteína de Soya', categoria: CategoriaPlato.FONDO, tipo: VarianteMenu.VEGANO },
+  
+  // --- FONDOS HIPOCALÓRICOS ---
+  { nombre: 'Pollo Asado (Hipocalórico)', categoria: CategoriaPlato.FONDO, tipo: VarianteMenu.HIPOCALORICO, guarnicion: 'Ensalada del Día', url_imagen: 'https://images.unsplash.com/photo-1598514982205-f36b96d1e8d4?w=200' },
+  { nombre: 'Merluza Al Horno', categoria: CategoriaPlato.FONDO, tipo: VarianteMenu.HIPOCALORICO, guarnicion: 'Ensalada del Día', url_imagen: 'https://images.unsplash.com/photo-1580476262798-bddd9f4b7369?w=200' },
+  { nombre: 'Bistec De Vacuno', categoria: CategoriaPlato.FONDO, tipo: VarianteMenu.HIPOCALORICO, guarnicion: 'Ensalada del Día' },
+
+  // --- POSTRES ---
+  { nombre: 'Jalea del Día', categoria: CategoriaPlato.POSTRE, tipo: VarianteMenu.NORMAL, url_imagen: 'https://images.unsplash.com/photo-1551024506-0bccd828d307?w=200' },
+  { nombre: 'Fruta en Conserva', categoria: CategoriaPlato.POSTRE, tipo: VarianteMenu.NORMAL, url_imagen: 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=200' },
+  { nombre: 'Sémola con Leche y Caramelo', categoria: CategoriaPlato.POSTRE, tipo: VarianteMenu.NORMAL },
+  { nombre: 'Mix Fruta de la Estación', categoria: CategoriaPlato.POSTRE, tipo: VarianteMenu.VEGANO },
+  { nombre: 'Flan de Chocolate (Chocolatozo)', categoria: CategoriaPlato.POSTRE, tipo: VarianteMenu.NORMAL },
+];
+
 async function main() {
-  console.log('--- INICIANDO SEED: Limpiando datos previos ---');
-  // Borramos en orden para evitar errores de llaves foráneas
-  await prisma.menuDetalle.deleteMany({});
-  await prisma.menuSemanal.deleteMany({});
-  await prisma.plato.deleteMany({});
+  console.log('🌱 Iniciando el seeder masivo (Solo Platos y Menú)...');
 
-  const defaultImg = "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?q=80&w=400"; //Imagen genérica 
+  await prisma.empresa.upsert({
+    where: { nombre: 'GM Express' },
+    update: {},
+    create: { nombre: 'GM Express', correo_contacto: 'contacto@gmexpress.cl' },
+  });
 
-  // 1. Catálogo de Platos con Imágenes Variadas
-  const platosVeganos = [
-    { nombre: "BERENJENAS ROBOZADAS", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
-    { nombre: "BOCADOS DE ARVEJAS CON CEBOLLA CARAMELIZADA", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
-    { nombre: "BUDINES", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
-    { nombre: "CEVICHE DE POROTOS", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
-    { nombre: "CHAPSUI DE VERDURAS CON PROTEÍNA DE SOYA", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
-    { nombre: "CHARQUICÁN CON PROTEÍNA DE SOYA", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
-    { nombre: "CHORILLANA VEGANA", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
-    { nombre: "CHORILLANA VEGETARIANA", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
-    { nombre: "ENSALADA DE LEGUMBRES", cat: CategoriaPlato.ENSALADA, img: defaultImg },
-    { nombre: "ESTOFADO CON CARNE DE SOYA", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
-    { nombre: "FALAFEL", cat: CategoriaPlato.ALMUERZO, img: "https://images.unsplash.com/photo-1593001874117-c99c800e3eb7?q=80&w=400" },
-    { nombre: "FEIJOADA", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
-    { nombre: "GARBANZOS A LA PARMESANA O LENTEJAS CON QUESO RALLADO", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
-    { nombre: "GUISO DE REPOLLO CON PROTEINA DE SOYA", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
-    { nombre: "GUISO REPOLLO SOYA", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
-    { nombre: "GUISO REPOLLO SOYA Y HUEVO", cat: CategoriaPlato.ALMUERZO, img: defaultImg }, // Nota: El huevo lo hace vegetariano, no vegano estricto
-    { nombre: "HAMBURGUESA DE LEGUMBRES", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
-    { nombre: "HAMBURGUESA DE LEGUMBRES ATOMATADA", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
-    { nombre: "HAMBURGUESA DE SOYA", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
-    { nombre: "HAMBURGUESAS DE LEGUMBRES EN SALSA BBQ", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
-    { nombre: "HUMMUS", cat: CategoriaPlato.ENSALADA, img: "https://images.unsplash.com/photo-1577906036458-04c84f2229c5?q=80&w=400" },
-    { nombre: "JULIANAS DE CHORIZO VEGANO CON CEBOLLA CARAMELIZADA", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
-    { nombre: "LASAÑA CON PROTEÍNA DE SOYA", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
-    { nombre: "LASAÑA DE VERDURAS", cat: CategoriaPlato.ALMUERZO, img: "https://images.unsplash.com/photo-1574894709920-11b28e7367e3?q=80&w=400" },
-    { nombre: "LEGUMBRES A LA JARDINERA (LENTEJAS, POROTOS O GARBANZOS)", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
-    { nombre: "LEGUMBRES GUISADAS (GARBANZOS, LENTEJAS O ARVEJAS)", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
-    { nombre: "NUGGETS DE VERDURAS", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
-    { nombre: "OMELETTE CHOCLO/QUESO", cat: CategoriaPlato.ALMUERZO, img: defaultImg }, // Nota: Queso/Huevo es vegetariano
-    { nombre: "OMELETTE TOMATE/ACEITUNA", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
-    { nombre: "PASTEL DE ACELGA", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
-    { nombre: "PASTEL DE ZAPALLO ITALIANO", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
-    { nombre: "PASTEL DE ZAPALLO ITALIANO VEGANO", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
-    { nombre: "POROTOS CON MOTE", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
-    { nombre: "POROTOS CON RIENDAS", cat: CategoriaPlato.ALMUERZO, img: "https://images.unsplash.com/photo-1547592166-23ac45744acd?q=80&w=400" },
-    { nombre: "PROTEÍNA DE SOYA GUISADA", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
-    { nombre: "SALSA BOLOÑESA DE SOYA", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
-    { nombre: "SALSA PUTANESCA CON PROTEÍNA DE SOYA", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
-    { nombre: "SALTEADO DE VERDURAS CON POROTOS NEGROS", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
-    { nombre: "TORTILLA DE VERDURAS", cat: CategoriaPlato.ALMUERZO, img: defaultImg },
-    { nombre: "ZAPALLO ITALIANO RELLENO", cat: CategoriaPlato.ALMUERZO, img: "https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?q=80&w=400" }
-  ];
-
-  console.log('--- PASO 1: Creando platos en Neon ---');
+  console.log(`Cargando ${PLATOS_EXCEL.length} platos en la base de datos...`);
   const platosCreados = [];
-  for (const p of platosVeganos) {
-    const nuevoPlato = await prisma.plato.create({
-      data: {
-        nombre: p.nombre,
-        categoria: p.cat,
-        url_imagen: p.img
+  
+  for (const plato of PLATOS_EXCEL) {
+    const imagenFinal = plato.url_imagen || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c';
+
+    const nuevoPlato = await prisma.plato.upsert({
+      where: { nombre: plato.nombre },
+      update: {
+        url_imagen: imagenFinal
       },
+      create: {
+        nombre: plato.nombre,
+        categoria: plato.categoria,
+        tipo: plato.tipo,
+        guarnicion: plato.guarnicion || null,
+        url_imagen: imagenFinal
+      }
     });
     platosCreados.push(nuevoPlato);
   }
 
-  console.log('--- PASO 2: Creando la semana actual (Mayo 2026) ---');
-  const semana = await prisma.menuSemanal.create({
+  await prisma.menuSemanal.create({
     data: {
-      fecha_inicio: new Date('2026-05-04'), // Hoy Lunes
-      fecha_fin: new Date('2026-05-10'),    // Domingo
+      fecha_inicio: new Date('2026-04-06T00:00:00Z'),
+      fecha_fin: new Date('2026-04-10T23:59:59Z'),
+      detalles: {
+        create: [
+          // LUNES
+          { dia_semana: 'Lunes', platoId: platosCreados.find(p => p.nombre === 'Salad Bar: Chilena')?.id || 1 },
+          { dia_semana: 'Lunes', platoId: platosCreados.find(p => p.nombre === 'Sopa de Pollo con Verduras')?.id || 2 },
+          { dia_semana: 'Lunes', platoId: platosCreados.find(p => p.nombre === 'Pollo al Coñac')?.id || 3 },
+          { dia_semana: 'Lunes', platoId: platosCreados.find(p => p.nombre === 'Pollo Asado (Hipocalórico)')?.id || 4 },
+          { dia_semana: 'Lunes', platoId: platosCreados.find(p => p.nombre === 'Jalea del Día')?.id || 5 },
+
+          // MARTES
+          { dia_semana: 'Martes', platoId: platosCreados.find(p => p.nombre === 'Salad Bar: Lechuga Escarola')?.id || 1 },
+          { dia_semana: 'Martes', platoId: platosCreados.find(p => p.nombre === 'Lomo de Cerdo al Jugo')?.id || 6 },
+          { dia_semana: 'Martes', platoId: platosCreados.find(p => p.nombre === 'Merluza Al Horno')?.id || 7 },
+          { dia_semana: 'Martes', platoId: platosCreados.find(p => p.nombre === 'Fruta en Conserva')?.id || 8 },
+        ]
+      }
     }
   });
 
-  const dias = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"];
-
-  console.log('--- PASO 3: Vinculando platos a los días ---');
-  for (let i = 0; i < dias.length; i++) {
-    await prisma.menuDetalle.create({
-      data: {
-        dia_semana: dias[i],
-        variante: VarianteMenu.VEGANO,
-        menuSemanalId: semana.id,
-        platoId: platosCreados[i].id
-      }
-    });
-  }
-
-  console.log('¡SEED COMPLETADO! Platos cargados y planificación lista.');
+  console.log('✅ ¡Base de datos poblada masivamente con éxito!');
 }
 
 main()
