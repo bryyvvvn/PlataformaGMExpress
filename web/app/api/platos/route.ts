@@ -1,16 +1,21 @@
-// web/app/api/platos/route.ts
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+// Usamos la conexión centralizada
+import db from '../../../lib/db'; 
 
 export async function GET() {
   try {
-    const platos = await prisma.plato.findMany({
+    // Cambiamos 'prisma' por 'db'
+    const platos = await db.plato.findMany({
       orderBy: { nombre: 'asc' }
     });
+    
+    // Ya no necesitas configurar CORS aquí, Next.js lo hace globalmente
     return NextResponse.json(platos);
   } catch (error) {
-    return NextResponse.json({ error: 'Error al obtener platos' }, { status: 500 });
+    console.error("Error al obtener platos:", error);
+    return NextResponse.json(
+      { error: 'Error al obtener platos' }, 
+      { status: 500 }
+    );
   }
 }

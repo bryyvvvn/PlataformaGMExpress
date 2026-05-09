@@ -1,20 +1,18 @@
 import { Webhook } from 'svix';
 import { headers } from 'next/headers';
 import { WebhookEvent } from '@clerk/nextjs/server';
-import { PrismaClient, Rol } from '@prisma/client';
-// Idealmente, si tienes un archivo prisma.ts en tu carpeta lib o utils, impórtalo desde ahí.
-// Si no, instanciarlo aquí funcionará perfectamente para probar.
-const prisma = new PrismaClient();
+import db from '../../../../lib/db'; 
+import { Rol } from '@prisma/client';
 
 export async function POST(req: Request) {
-  // 1. Obtener la llave secreta del Webhook desde el .env
+  // 1. Obtener la llave secreta del Webhook
   const WEBHOOK_SECRET = process.env.CLERK_WEBHOOK_SECRET;
 
   if (!WEBHOOK_SECRET) {
     throw new Error('Falta la variable de entorno CLERK_WEBHOOK_SECRET');
   }
 
-  // 2. Obtener las cabeceras de seguridad de Svix
+  // 2. Obtener las cabeceras de seguridad
   const headerPayload = await headers();
   const svix_id = headerPayload.get("svix-id");
   const svix_timestamp = headerPayload.get("svix-timestamp");
@@ -28,7 +26,7 @@ export async function POST(req: Request) {
   const payload = await req.json();
   const body = JSON.stringify(payload);
 
-  // 4. Verificar que la petición sea realmente de Clerk
+  // 4. Verificar la autenticidad de Clerk
   const wh = new Webhook(WEBHOOK_SECRET);
   let evt: WebhookEvent;
 
@@ -43,49 +41,40 @@ export async function POST(req: Request) {
     return new Response('Error de seguridad', { status: 400 });
   }
 
-  // 5. Lógica de Sincronización con tu Base de Datos (Neon)
   const eventType = evt.type;
 
-  // Cuando se crea o actualiza un usuario
+  // 5. Sincronización con Neon (usando 'db')
   if (eventType === 'user.created' || eventType === 'user.updated') {
     const { id, first_name, last_name, username } = evt.data;
-    
-    // Armar el nombre (por si alguien no pone apellido o usa solo username)
     const nombreCompleto = `${first_name || ''} ${last_name || ''}`.trim() || username || 'Usuario sin nombre';
 
     try {
-      // upsert: Si el usuario existe, lo actualiza. Si no, lo crea.
-      await prisma.usuario.upsert({
+      await db.usuario.upsert({
         where: { id: id },
-        update: {
-          nombre: nombreCompleto,
-        },
+        update: { nombre: nombreCompleto },
         create: {
           id: id,
           nombre: nombreCompleto,
           rol: Rol.TRABAJADOR, 
-          empresaId: 1,
+          empresaId: 1, // 👈 Recuerda que esto asume que la empresa 1 ya existe
         }
       });
-      console.log(`✅ Usuario ${id} (${nombreCompleto}) sincronizado exitosamente en Neon.`);
+      console.log(`✅ Usuario ${id} (${nombreCompleto}) sincronizado exitosamente.`);
     } catch (error) {
-      console.error('❌ Error guardando el usuario en Neon:', error);
+      console.error('❌ Error sincronizando usuario:', error);
       return new Response('Error de base de datos', { status: 500 });
     }
   }
 
-  // Cuando se elimina un usuario
   if (eventType === 'user.deleted') {
     const { id } = evt.data;
     try {
       if (id) {
-        await prisma.usuario.delete({
-          where: { id: id }
-        });
-        console.log(`🗑️ Usuario ${id} eliminado de Neon.`);
+        await db.usuario.delete({ where: { id: id } });
+        console.log(`🗑️ Usuario ${id} eliminado.`);
       }
     } catch (error) {
-      console.log('El usuario ya no existía en la BD o hubo un error al eliminar.');
+      console.log('El usuario no existía o ya fue eliminado.');
     }
   }
 
