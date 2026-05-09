@@ -32,7 +32,7 @@ export const TarjetaPlato: React.FC<TarjetaPlatoProps> = ({
       />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
-          <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${
+          <span className={`text-[9px] font-black uppercase tracking-wider px- py-0.5 rounded-full ${
             plato.tipo === 'VEGANO' ? 'bg-green-100 text-green-700' :
             plato.tipo === 'HIPOCALORICO' ? 'bg-blue-100 text-blue-700' :
             'bg-orange-100 text-orange-700'

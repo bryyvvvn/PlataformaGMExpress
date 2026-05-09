@@ -21,7 +21,6 @@ enum EstadoPedido {
   CANCELADO
 }
 
-// 1. Ajustado a las 3 secciones de tu App
 enum CategoriaPlato {
   ENTRADA
   FONDO
@@ -29,7 +28,6 @@ enum CategoriaPlato {
   BEBESTIBLE
 }
 
-// 2. Agregada la opción VEGETARIANA que salía en tu minuta
 enum VarianteMenu {
   NORMAL
   VEGANO
@@ -51,19 +49,27 @@ model Empresa {
 model Usuario {
   id        String   @id 
   nombre    String   @db.VarChar(100)
-  rol       Rol      @default(TRABAJADOR) // Default corregido
+  rol       Rol      @default(TRABAJADOR)
   empresaId Int?
   empresa   Empresa? @relation(fields: [empresaId], references: [id])
   pedidos   Pedido[]
 }
 
+// 🔥 NUEVA TABLA DE GUARNICIONES
+model Guarnicion {
+  id             Int             @id @default(autoincrement())
+  nombre         String          @unique @db.VarChar(100)
+  
+  detallesPedido DetallePedido[] 
+  menuDetalles   MenuDetalle[]   // Relación Muchos a Muchos implícita con el menú del día
+}
+
 model Plato {
   id           Int            @id @default(autoincrement())
   nombre       String         @unique @db.VarChar(100)
-  guarnicion   String?        @db.VarChar(100) // Opcional: "+ Arroz graneado"
   url_imagen   String?        @db.Text
   categoria    CategoriaPlato @default(FONDO)  
-  tipo         VarianteMenu   @default(NORMAL) // Define si el plato es vegano/normal
+  tipo         VarianteMenu   @default(NORMAL)
   
   menuDetalles   MenuDetalle[]
   detallesPedido DetallePedido[]
@@ -79,14 +85,16 @@ model MenuSemanal {
 
 model MenuDetalle {
   id            Int          @id @default(autoincrement())
-  dia_semana    String       // Ej: "Lunes"
-  fecha_dia     DateTime?    // Opcional: para poner la fecha exacta del día (ej. 2026-04-06)
+  dia_semana    String       
+  fecha_dia     DateTime?
   
   menuSemanalId Int
   platoId       Int
   
   menuSemanal   MenuSemanal  @relation(fields: [menuSemanalId], references: [id], onDelete: Cascade)
   plato         Plato        @relation(fields: [platoId], references: [id])
+  
+  guarniciones  Guarnicion[] // Relación Muchos a Muchos implícita con Guarnicion
 }
 
 // --- TABLAS DE PEDIDOS ---
@@ -105,11 +113,16 @@ model Pedido {
 }
 
 model DetallePedido {
-  id       Int          @id @default(autoincrement())
-  pedidoId Int
-  platoId  Int
-  cantidad Int          @default(1)
+  id           Int          @id @default(autoincrement())
+  pedidoId     Int
+  platoId      Int
   
-  pedido   Pedido       @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
-  plato    Plato        @relation(fields: [platoId], references: [id])
+  // Guardamos qué acompañamiento eligió el usuario
+  guarnicionId Int?         
+  guarnicion   Guarnicion?  @relation(fields: [guarnicionId], references: [id])
+  
+  cantidad     Int          @default(1)
+  
+  pedido       Pedido       @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  plato        Plato        @relation(fields: [platoId], references: [id])
 }

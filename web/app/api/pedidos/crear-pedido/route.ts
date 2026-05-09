@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-// Importamos tu instancia de base de datos centralizada
-import db from '../../../lib/db'; 
+import db from '../../../../lib/db'; 
 
 export async function POST(request: Request) {
   try {
@@ -8,7 +7,7 @@ export async function POST(request: Request) {
     const { usuarioId, entradaId, fondoId, postreId } = body;
 
     // Log de depuración
-    console.log("Intentando pedido para usuario:", usuarioId);
+    console.log("Insertando pedido para usuario:", usuarioId);
 
     const usuario = await db.usuario.findUnique({
       where: { id: usuarioId },
