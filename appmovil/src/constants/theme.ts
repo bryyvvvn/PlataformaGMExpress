@@ -17,6 +17,6 @@ export const THEME = {
   },
 } as const;
 
-export const DEADLINE_HOUR = 10; // Daily order cutoff at 10:00 AM
+export const DEADLINE_HOUR = 26; // Daily order cutoff at 10:00 AM
 export const APP_NAME = 'GM Express';
 export const APP_VERSION = '1.0.0';
