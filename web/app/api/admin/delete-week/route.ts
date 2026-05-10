@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
     if (!sheetName) return NextResponse.json({ error: "No se encontró la pestaña 'MINUTA'" }, { status: 400 });
 
     const sheet = workbook.Sheets[sheetName];
-    const data: any[][] = xlsx.utils.sheet_to_json(sheet, { header: 1, cellDates: true });
+    const data: any[][] = xlsx.utils.sheet_to_json(sheet, { header: 1, cellDates: true } as any);
 
     let filaIndexFechas: number | undefined = undefined;
     for (let r = 0; r < data.length; r++) {

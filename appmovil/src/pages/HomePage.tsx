@@ -99,7 +99,8 @@ const HomePage: React.FC = () => {
  
     if (categoria === 'fondoId') {
       const seleccionado = (menuHoy.fondos || []).find((p: any) => p.id === id);
-      if (seleccionado?.guarniciones?.length > 0) {
+      const guarniciones = seleccionado?.guarniciones ?? [];
+      if (guarniciones.length > 0) {
         setSheetFondo(seleccionado);
         setSheetSelectedGuarnicion(null);
         setSheetOpen(true);

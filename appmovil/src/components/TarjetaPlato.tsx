@@ -16,6 +16,7 @@ export const TarjetaPlato: React.FC<TarjetaPlatoProps> = ({
   isDeadlinePassed, 
   onSelect 
 }) => {
+  const guarniciones = plato.guarniciones ?? [];
   return (
     <button
       onClick={() => onSelect(categoriaKey, plato.id)}
@@ -41,11 +42,11 @@ export const TarjetaPlato: React.FC<TarjetaPlatoProps> = ({
           </span>
         </div>
         <p className="font-bold text-gray-800 text-sm leading-tight truncate">{plato.nombre}</p>
-        {plato.guarniciones && plato.guarniciones.length > 0 && (
+        {guarniciones.length > 0 && (
           <p className="text-xs text-gray-500 mt-1 truncate">
-            {plato.guarniciones.length === 1
-              ? `+ ${plato.guarniciones[0].nombre}`
-              : `+ ${plato.guarniciones.length} guarniciones`}
+            {guarniciones.length === 1
+              ? `+ ${guarniciones[0].nombre}`
+              : `+ ${guarniciones.length} guarniciones`}
           </p>
         )}
       </div>

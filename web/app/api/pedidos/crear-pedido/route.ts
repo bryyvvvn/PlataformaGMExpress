@@ -46,7 +46,7 @@ export async function POST(request: Request) {
 
     // Calcular instante límite (deadline) para la fecha objetivo: inicioDia + DEADLINE_HOUR
     const deadlineInstant = new Date(inicioDiaTarget.getTime() + DEADLINE_HOUR * 3600_000 + DEADLINE_MINUTE * 60_000);
-    if (Date.now() > deadlineInstant) {
+    if (Date.now() > deadlineInstant.getTime()) {
       const hh = String(DEADLINE_HOUR).padStart(2, '0');
       const mm = String(DEADLINE_MINUTE).padStart(2, '0');
       return NextResponse.json(
