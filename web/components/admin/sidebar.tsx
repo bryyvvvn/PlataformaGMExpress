@@ -16,7 +16,7 @@ const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Gestión de Pedidos", href: "/dashboard/pedidos", icon: ClipboardList },
   { name: "Subir Platos", href: "/dashboard/platos", icon: UtensilsCrossed },
-  { name: "Planificador Semanal", href: "/dashboard/planificador", icon: CalendarDays },
+  { name: "Planificador", href: "/dashboard/planificador", icon: CalendarDays },
   { name: "Empresas Clientes", href: "/dashboard/empresas", icon: Building2 },
   { name: "Usuarios de App", href: "/dashboard/usuarios", icon: Users },
 ]

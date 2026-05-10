@@ -41,7 +41,13 @@ export const TarjetaPlato: React.FC<TarjetaPlatoProps> = ({
           </span>
         </div>
         <p className="font-bold text-gray-800 text-sm leading-tight truncate">{plato.nombre}</p>
-        {plato.guarnicion && <p className="text-xs text-gray-500 mt-1 truncate">+ {plato.guarnicion}</p>}
+        {plato.guarniciones && plato.guarniciones.length > 0 && (
+          <p className="text-xs text-gray-500 mt-1 truncate">
+            {plato.guarniciones.length === 1
+              ? `+ ${plato.guarniciones[0].nombre}`
+              : `+ ${plato.guarniciones.length} guarniciones`}
+          </p>
+        )}
       </div>
       <div className="flex-shrink-0 pr-2">
         {/* El ticket verde se mantiene intacto aquí abajo */}

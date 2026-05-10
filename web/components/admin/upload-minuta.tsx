@@ -53,6 +53,36 @@ export function UploadMinuta() {
     }
   };
 
+  const handleDeleteWeek = async () => {
+    if (!file) return;
+
+    setLoading(true);
+    setMensaje(null);
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const response = await fetch("/api/admin/delete-week", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Ocurrió un error al borrar la semana");
+      }
+
+      setMensaje({ tipo: "exito", texto: `Semana borrada: ${data.deleted || 0} registros eliminados` });
+      setFile(null);
+    } catch (error: any) {
+      setMensaje({ tipo: "error", texto: error.message });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <Card className="border-border shadow-sm">
       <CardHeader>
@@ -97,6 +127,14 @@ export function UploadMinuta() {
               Cargar Minuta
             </>
           )}
+        </Button>
+        <Button 
+          onClick={handleDeleteWeek}
+          disabled={!file || loading}
+          variant="destructive"
+          className="ml-2"
+        >
+          Eliminar semana (desde Excel)
         </Button>
       </CardContent>
     </Card>

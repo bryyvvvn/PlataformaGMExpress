@@ -6,7 +6,9 @@ const isPublicRoute = createRouteMatcher([
   '/login(.*)',       // Nuestro login propio de Admin
   '/dashboard(.*)',   // Nuestro panel propio de Admin
   '/api/webhooks(.*)', // Importante para tu webhook de Clerk de la app móvi
-  '/api/admin(.*)'
+  '/api/admin(.*)',
+  '/api/pedidos(.*)',
+  '/api/menu-semanal(.*)'
 ])
 
 export default clerkMiddleware(async (auth, request) => {
