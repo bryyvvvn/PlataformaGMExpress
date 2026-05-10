@@ -12,10 +12,11 @@ interface PedidoPayload {
 
 // ─── HOOK ─────────────────────────────────────────────────────────────────────
 
-export const usePedidos = (usuarioId: string | undefined) => {
+export const usePedidos = (usuarioId: string | undefined, fecha?: string) => {
   const [yaPedioHoy,            setYaPedioHoy]            = useState(false);
   const [cargandoVerificacion,  setCargandoVerificacion]  = useState(true);
   const [enviando,              setEnviando]              = useState(false);
+  const [pedidoExistente,       setPedidoExistente]       = useState<any | null>(null);
 
   // ── Verificar si el usuario ya pidió hoy ────────────────────────────────────
   useEffect(() => {
@@ -25,11 +26,11 @@ export const usePedidos = (usuarioId: string | undefined) => {
         return;
       }
       try {
-        const res  = await fetch(
-          `${API_BASE_URL}/api/pedidos/verificar-pedido?usuarioId=${usuarioId}`
-        );
+        const url = `${API_BASE_URL}/api/pedidos/verificar-pedido?usuarioId=${usuarioId}${fecha ? `&fecha=${fecha}` : ''}`;
+        const res  = await fetch(url);
         const data = await res.json();
         setYaPedioHoy(data.existe);
+        setPedidoExistente(data.pedido ?? null);
       } catch (e) {
         console.error('[usePedidos] Error al verificar pedido:', e);
       } finally {
@@ -37,7 +38,7 @@ export const usePedidos = (usuarioId: string | undefined) => {
       }
     };
     verificarPedidoPrevio();
-  }, [usuarioId]);
+  }, [usuarioId, fecha]);
 
   // ── Enviar nuevo pedido ──────────────────────────────────────────────────────
   const enviarPedido = async (pedido: PedidoPayload): Promise<boolean> => {
@@ -53,6 +54,7 @@ export const usePedidos = (usuarioId: string | undefined) => {
         postreId: pedido.postreId,
         // Convierte el sentinel -1 (Sin guarnición) a null para el servidor
         guarnicionId: pedido.guarnicionId === -1 ? null : pedido.guarnicionId ?? null,
+        fecha: fecha ?? undefined,
       };
       console.info('[usePedidos] Enviando pedido payload=', payload);
 
@@ -63,7 +65,15 @@ export const usePedidos = (usuarioId: string | undefined) => {
       });
 
       if (respuesta.ok) {
-        setYaPedioHoy(true); // Bloquear UI de inmediato
+        setYaPedioHoy(true); // Bloquear UI de inmediato para la fecha actual
+        // Refrescar detalle de pedido para sincronizar UI
+        try {
+          const check = await fetch(`${API_BASE_URL}/api/pedidos/verificar-pedido?usuarioId=${usuarioId}${fecha ? `&fecha=${fecha}` : ''}`);
+          const data = await check.json();
+          setPedidoExistente(data.pedido ?? null);
+        } catch (e) {
+          // ignore
+        }
         return true;
       }
 
@@ -94,5 +104,5 @@ export const usePedidos = (usuarioId: string | undefined) => {
     }
   };
 
-  return { yaPedioHoy, cargandoVerificacion, enviarPedido, enviando };
+  return { yaPedioHoy, pedidoExistente, cargandoVerificacion, enviarPedido, enviando };
 };

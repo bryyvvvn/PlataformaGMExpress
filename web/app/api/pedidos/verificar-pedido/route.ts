@@ -35,10 +35,31 @@ export async function GET(request: Request) {
           lte: finDia,
         },
       },
-      select: { id: true }, // solo necesitamos saber si existe
+      include: {
+        detalles: {
+          include: { plato: true, guarnicion: true },
+        },
+      },
     });
+  
+    if (!pedidoExistente) return NextResponse.json({ existe: false });
 
-    return NextResponse.json({ existe: !!pedidoExistente });
+    const resumen = pedidoExistente.detalles.map(d => ({
+      platoId: d.platoId,
+      nombre: d.plato.nombre,
+      categoria: d.plato.categoria,
+      guarnicionId: d.guarnicionId ?? null,
+      guarnicionNombre: d.guarnicion?.nombre ?? null,
+    }));
+
+    return NextResponse.json({
+      existe: true,
+      pedido: {
+        id: pedidoExistente.id,
+        fecha: pedidoExistente.fecha.toISOString(),
+        resumen,
+      },
+    });
 
   } catch (error) {
     console.error('[verificar-pedido] Error:', error);
