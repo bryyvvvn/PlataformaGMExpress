@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { ClerkProvider, Show, SignInButton, SignUpButton, UserButton } from '@clerk/nextjs'
+import { ClerkProvider } from '@clerk/nextjs'
 import { Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
 
@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: 'GM Express',
-  description: 'Plataforma GM Express',
+  description: 'Plataforma de Administración GM Express',
 }
 
 export default function RootLayout({
@@ -26,22 +26,9 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        {/* ClerkProvider envuelve la app para que la API siga validando la App Móvil, 
+            pero no renderizamos ningún botón de Clerk en la pantalla */}
         <ClerkProvider>
-          <header className="flex justify-end items-center p-4 gap-4 h-16 bg-white border-b border-gray-200 sticky top-0 z-50">
-            <Show when="signed-out">
-              <div className="text-black font-medium">
-                <SignInButton />
-              </div>
-              <SignUpButton>
-                <button className="bg-purple-700 text-white rounded-full font-medium text-sm px-4 h-10 cursor-pointer shadow-md">
-                  Sign Up
-                </button>
-              </SignUpButton>
-            </Show>
-            <Show when="signed-in">
-              <UserButton />
-            </Show>
-          </header>
           {children}
         </ClerkProvider>
       </body>
