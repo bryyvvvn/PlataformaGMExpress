@@ -16,12 +16,13 @@ export const TarjetaPlato: React.FC<TarjetaPlatoProps> = ({
   isDeadlinePassed, 
   onSelect 
 }) => {
-  const guarniciones = plato.guarniciones ?? [];
+  // Ya no necesitamos renderizar las guarniciones aquí, 
+  // se manejarán exclusivamente en el BottomSheet (menú inferior) y en el resumen.
+
   return (
     <button
       onClick={() => onSelect(categoriaKey, plato.id)}
       disabled={isDeadlinePassed}
-      // 👇 Aquí quitamos el borde/fondo verde. Siempre es blanco con borde gris.
       className={`p-3 rounded-2xl border-2 text-left transition-all flex items-center gap-4 border-gray-100 bg-white ${
         isSelected ? 'shadow-md scale-[1.01]' : 'shadow-sm'
       }`}
@@ -33,7 +34,7 @@ export const TarjetaPlato: React.FC<TarjetaPlatoProps> = ({
       />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
-          <span className={`text-[9px] font-black uppercase tracking-wider px- py-0.5 rounded-full ${
+          <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${
             plato.tipo === 'VEGANO' ? 'bg-green-100 text-green-700' :
             plato.tipo === 'HIPOCALORICO' ? 'bg-blue-100 text-blue-700' :
             'bg-orange-100 text-orange-700'
@@ -42,16 +43,12 @@ export const TarjetaPlato: React.FC<TarjetaPlatoProps> = ({
           </span>
         </div>
         <p className="font-bold text-gray-800 text-sm leading-tight truncate">{plato.nombre}</p>
-        {guarniciones.length > 0 && (
-          <p className="text-xs text-gray-500 mt-1 truncate">
-            {guarniciones.length === 1
-              ? `+ ${guarniciones[0].nombre}`
-              : `+ ${guarniciones.length} guarniciones`}
-          </p>
-        )}
+        
+        {/* 👇 Se eliminó el bloque que renderizaba el "+ ARROZ GRANEADO..." */}
+        
       </div>
       <div className="flex-shrink-0 pr-2">
-        {/* El ticket verde se mantiene intacto aquí abajo */}
+        {/* El ticket verde se mantiene intacto aquí abajo para cuando se selecciona */}
         {isSelected ? <CheckCircle2 size={24} className="text-green-500" /> : <div className="w-6 h-6 rounded-full border-2 border-gray-300"></div>}
       </div>
     </button>

@@ -10,13 +10,10 @@ import {
 export const dynamic = 'force-dynamic';
 
 // ── CONFIGURACIÓN DE DEADLINE ─────────────────────────────────────────────────
-// Sprint actual : se lee desde .env → DEADLINE_HOUR=10 / DEADLINE_MINUTE=0
-// Sprint N (Panel Admin): reemplaza estas dos líneas por una consulta a
-//   ConfiguracionSistema en BD. El resto del endpoint no cambia.
 const DEADLINE_HOUR   = parseInt(process.env.DEADLINE_HOUR   ?? '10', 10);
 const DEADLINE_MINUTE = parseInt(process.env.DEADLINE_MINUTE ?? '0',  10);
 
-// ─── ENDPOINT ────────────────────────────────────────────────────────────────
+// ─── ENDPOINT POST (CREAR / MODIFICAR) ───────────────────────────────────────
 
 export async function POST(request: Request) {
   try {
@@ -26,68 +23,47 @@ export async function POST(request: Request) {
       entradaId:    number;
       fondoId:      number;
       postreId:     number;
-      guarnicionId?: number | null; // Sprint N: el usuario elige guarnición
+      guarnicionId?: number | null;
       fecha?: string | null;
     };
 
-    // ── 1. Validar campos obligatorios ────────────────────────────────────────
+    // 1. Validar campos obligatorios
     if (!usuarioId || !entradaId || !fondoId || !postreId) {
       return NextResponse.json(
-        { error: 'Faltan datos obligatorios: usuarioId, entradaId, fondoId, postreId' },
+        { error: 'Faltan datos obligatorios' },
         { status: 400 }
       );
     }
 
-    // ── 2. Determinar fecha objetivo y validar deadline en zona horaria Chile ─
-    // Si el cliente envía una `fecha` explícita usamos esa; si no usamos el día actual.
+    // 2. Determinar fecha objetivo
     const targetIso = fecha && typeof fecha === 'string' ? fecha : undefined;
     const inicioDiaTarget = chileStartOfDay(targetIso);
     const finDiaTarget    = chileEndOfDay(targetIso);
 
-    // Calcular instante límite (deadline) para la fecha objetivo: inicioDia + DEADLINE_HOUR
+    // ── VALIDACIÓN DE HORARIO (DESACTIVADA PARA PRUEBAS) ──
+    /*
     const deadlineInstant = new Date(inicioDiaTarget.getTime() + DEADLINE_HOUR * 3600_000 + DEADLINE_MINUTE * 60_000);
     if (Date.now() > deadlineInstant.getTime()) {
-      const hh = String(DEADLINE_HOUR).padStart(2, '0');
-      const mm = String(DEADLINE_MINUTE).padStart(2, '0');
-      return NextResponse.json(
-        {
-          error:   'El horario de pedidos ha cerrado para la fecha solicitada',
-          detalle: `Los pedidos para ${targetIso ?? 'hoy'} cierran a las ${hh}:${mm} hora Chile`,
-        },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: 'El horario de pedidos ha cerrado' }, { status: 403 });
     }
-
-    // ── 3. Verificar que el usuario existe y tiene empresa asignada ───────────
+    */
+   
+    // 3. Verificar usuario y empresa
     const usuario = await db.usuario.findUnique({
       where:  { id: usuarioId },
       select: { id: true, empresaId: true },
     });
 
-    if (!usuario) {
-      return NextResponse.json(
-        { error: `Usuario ${usuarioId} no encontrado en la base de datos` },
-        { status: 404 }
-      );
+    if (!usuario || !usuario.empresaId) {
+      return NextResponse.json({ error: 'Usuario no válido o sin empresa' }, { status: 400 });
     }
 
-    if (!usuario.empresaId) {
-      // Sprint N (Usuario Empresa): la vinculación RUT → Empresa se implementa
-      // en el siguiente sprint. Por ahora bloqueamos para no crear pedidos huérfanos.
-      return NextResponse.json(
-        { error: 'El usuario no tiene empresa asignada. Contacta al administrador.' },
-        { status: 400 }
-      );
-    }
-
-    // ── 4. Verificar si existe un pedido para la fecha objetivo (si existe, actualizamos)
+    // 4. Verificar si existe pedido para actualizarlo
     const pedidoExistente = await db.pedido.findFirst({
       where: { usuarioId, fecha: { gte: inicioDiaTarget, lte: finDiaTarget } },
-      include: { detalles: true },
     });
 
     if (pedidoExistente) {
-      // Dentro del deadline permitimos actualizar el pedido: reemplazamos los detalles
       await db.$transaction(async (tx) => {
         await tx.detallePedido.deleteMany({ where: { pedidoId: pedidoExistente.id } });
         await tx.detallePedido.createMany({
@@ -98,30 +74,11 @@ export async function POST(request: Request) {
           ],
         });
       });
-
-      console.log(`[crear-pedido] 🔄 Pedido actualizado ${pedidoExistente.id} — usuario ${usuarioId}`);
-      return NextResponse.json({ mensaje: 'Pedido actualizado correctamente', pedidoId: pedidoExistente.id }, { status: 200 });
+      console.log(`[crear-pedido] 🔄 Actualizado: ${pedidoExistente.id}`);
+      return NextResponse.json({ mensaje: 'Pedido actualizado', pedidoId: pedidoExistente.id });
     }
 
-    // ── 5. Validar que los platos existen y tienen la categoría correcta ──────
-    // Sprint N: también verificar que pertenecen al MenuDetalle del día activo.
-    const [entrada, fondo, postre] = await Promise.all([
-      db.plato.findUnique({ where: { id: entradaId }, select: { id: true, categoria: true } }),
-      db.plato.findUnique({ where: { id: fondoId   }, select: { id: true, categoria: true } }),
-      db.plato.findUnique({ where: { id: postreId  }, select: { id: true, categoria: true } }),
-    ]);
-
-    if (!entrada || entrada.categoria !== 'ENTRADA') {
-      return NextResponse.json({ error: `El plato ${entradaId} no es una ENTRADA válida` }, { status: 400 });
-    }
-    if (!fondo || fondo.categoria !== 'FONDO') {
-      return NextResponse.json({ error: `El plato ${fondoId} no es un FONDO válido` }, { status: 400 });
-    }
-    if (!postre || postre.categoria !== 'POSTRE') {
-      return NextResponse.json({ error: `El plato ${postreId} no es un POSTRE válido` }, { status: 400 });
-    }
-
-    // ── 6. Crear pedido + detalles en una transacción ─────────────────────────
+    // 5. Crear nuevo pedido
     const nuevoPedido = await db.pedido.create({
       data: {
         fecha: inicioDiaTarget,
@@ -139,19 +96,57 @@ export async function POST(request: Request) {
       select: { id: true },
     });
 
-    const { iso } = nowChile();
-    console.log(`[crear-pedido] ✅ Pedido ${nuevoPedido.id} — usuario ${usuarioId} — ${iso}`);
-
-    return NextResponse.json(
-      { mensaje: 'Pedido creado exitosamente', pedidoId: nuevoPedido.id },
-      { status: 201 }
-    );
+    return NextResponse.json({ mensaje: 'Creado exitosamente', pedidoId: nuevoPedido.id }, { status: 201 });
 
   } catch (error: any) {
-    console.error('[crear-pedido] Error:', error);
-    return NextResponse.json(
-      { error: 'Error interno del servidor', detalle: error.message },
-      { status: 500 }
-    );
+    console.error('[crear-pedido] Error POST:', error);
+    return NextResponse.json({ error: 'Error interno' }, { status: 500 });
+  }
+}
+
+// ─── ENDPOINT DELETE (ELIMINAR) ──────────────────────────────────────────────
+
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const usuarioId = searchParams.get('usuarioId');
+    const fecha = searchParams.get('fecha');
+
+    if (!usuarioId) {
+      return NextResponse.json({ error: 'Falta usuarioId' }, { status: 400 });
+    }
+
+    const targetIso = fecha && typeof fecha === 'string' ? fecha : undefined;
+    const inicioDiaTarget = chileStartOfDay(targetIso);
+    const finDiaTarget    = chileEndOfDay(targetIso);
+
+    // Buscar el pedido antes de borrar
+    const pedidoParaEliminar = await db.pedido.findFirst({
+      where: { 
+        usuarioId, 
+        fecha: { gte: inicioDiaTarget, lte: finDiaTarget } 
+      },
+    });
+
+    if (!pedidoParaEliminar) {
+      return NextResponse.json({ error: 'Pedido no encontrado' }, { status: 404 });
+    }
+
+    // Borrado en cascada manual (Detalles -> Pedido)
+    await db.$transaction(async (tx) => {
+      await tx.detallePedido.deleteMany({
+        where: { pedidoId: pedidoParaEliminar.id }
+      });
+      await tx.pedido.delete({
+        where: { id: pedidoParaEliminar.id }
+      });
+    });
+
+    console.log(`[crear-pedido] 🗑️ Eliminado: ${pedidoParaEliminar.id}`);
+    return NextResponse.json({ mensaje: 'Pedido eliminado correctamente' });
+
+  } catch (error: any) {
+    console.error('[crear-pedido] Error DELETE:', error);
+    return NextResponse.json({ error: 'Error al eliminar pedido' }, { status: 500 });
   }
 }
