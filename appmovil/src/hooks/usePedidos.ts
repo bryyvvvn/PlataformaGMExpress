@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { API_BASE_URL }        from '../constants/api';
 
 // ─── TIPOS ────────────────────────────────────────────────────────────────────
@@ -18,35 +18,42 @@ export const usePedidos = (usuarioId: string | undefined, fecha?: string) => {
   const [enviando,              setEnviando]              = useState(false);
   const [pedidoExistente,       setPedidoExistente]       = useState<any | null>(null);
 
-  // ── Verificar si el usuario ya pidió hoy ────────────────────────────────────
-  useEffect(() => {
-    const verificarPedidoPrevio = async () => {
-      if (!usuarioId) {
-        setCargandoVerificacion(false);
-        return;
-      }
-      try {
-        const url = `${API_BASE_URL}/api/pedidos/verificar-pedido?usuarioId=${usuarioId}${fecha ? `&fecha=${fecha}` : ''}`;
-        const res  = await fetch(url);
-        const data = await res.json();
-        setYaPedioHoy(data.existe);
-        setPedidoExistente(data.pedido ?? null);
-      } catch (e) {
-        console.error('[usePedidos] Error al verificar pedido:', e);
-      } finally {
-        setCargandoVerificacion(false);
-      }
-    };
-    verificarPedidoPrevio();
+  // ── 1. EXTRAEMOS LA VERIFICACIÓN A UN CALLBACK PARA PODER REUTILIZARLA ──────
+  const refrescarVerificacion = useCallback(async () => {
+    if (!usuarioId) {
+      setCargandoVerificacion(false);
+      return;
+    }
+    
+    // 👇 SOLUCIÓN: Reiniciamos el estado a "Cargando" inmediatamente y limpiamos el pedido viejo
+    setCargandoVerificacion(true);
+    setPedidoExistente(null); 
+    setYaPedioHoy(false);
+    
+    try {
+      const url = `${API_BASE_URL}/api/pedidos/verificar-pedido?usuarioId=${usuarioId}${fecha ? `&fecha=${fecha}` : ''}`;
+      const res  = await fetch(url);
+      const data = await res.json();
+      setYaPedioHoy(data.existe);
+      setPedidoExistente(data.pedido ?? null);
+    } catch (e) {
+      console.error('[usePedidos] Error al verificar pedido:', e);
+    } finally {
+      setCargandoVerificacion(false);
+    }
   }, [usuarioId, fecha]);
 
-  // ── Enviar nuevo pedido ──────────────────────────────────────────────────────
+  // ── 2. EL USE EFFECT AHORA SOLO LLAMA AL CALLBACK ───────────────────────────
+  useEffect(() => {
+    refrescarVerificacion();
+  }, [refrescarVerificacion]);
+
+  // ── Enviar nuevo pedido (Lógica original intacta) ───────────────────────────
   const enviarPedido = async (pedido: PedidoPayload): Promise<boolean> => {
     if (!usuarioId) return false;
 
     setEnviando(true);
     try {
-      // ✅ URL corregida: el endpoint está en /api/pedidos/crear-pedido
       const payload = {
         usuarioId,
         entradaId: pedido.entradaId,
@@ -104,5 +111,6 @@ export const usePedidos = (usuarioId: string | undefined, fecha?: string) => {
     }
   };
 
-  return { yaPedioHoy, pedidoExistente, cargandoVerificacion, enviarPedido, enviando };
+  // ── 3. EXPORTAMOS LA FUNCIÓN DE REFRESCO ────────────────────────────────────
+  return { yaPedioHoy, pedidoExistente, cargandoVerificacion, enviarPedido, enviando, refrescarVerificacion };
 };
