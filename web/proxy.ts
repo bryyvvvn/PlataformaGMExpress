@@ -7,10 +7,10 @@ const isPublicRoute = createRouteMatcher([
   '/dashboard(.*)',    // Nuestro panel propio de Admin
   '/api/webhooks(.*)', // Importante para tu webhook de Clerk de la app móvil
   '/api/admin(.*)',
-  '/api/pedidos(.*)',
-  '/api/menu-semanal(.*)',
+  '/api/(pedidos|trabajador/pedidos)(.*)',
+  '/api/(menu-semanal|trabajador/menu-semanal)(.*)',
   '/api/usuarios(.*)',
-  '/api/representante/dashboard(.*)'
+  '/api/representante(.*)',
 ])
 
 export default clerkMiddleware(async (auth, request) => {

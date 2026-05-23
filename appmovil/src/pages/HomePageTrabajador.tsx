@@ -136,7 +136,7 @@ const HomePageTrabajador: React.FC = () => {
     if (!window.confirm('¿Estás seguro de que deseas eliminar este pedido?')) return;
     setEliminando(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/pedidos/crear-pedido?usuarioId=${user?.id}&fecha=${fechaSeleccionadaISO}`, {
+      const res = await fetch(`${API_BASE_URL}/api/trabajador/pedidos?usuarioId=${user?.id}&fecha=${fechaSeleccionadaISO}`, {
         method: 'DELETE',
       });
       if (res.ok) {

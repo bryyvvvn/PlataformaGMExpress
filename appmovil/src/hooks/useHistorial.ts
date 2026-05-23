@@ -11,7 +11,7 @@ export const useHistorial = (usuarioId: string | undefined) => {
     setCargando(true);
     try {
       // Verifica que esta URL se imprima bien en la consola
-      const url = `${API_BASE_URL}/api/pedidos/historial?usuarioId=${usuarioId}`;
+      const url = `${API_BASE_URL}/api/trabajador/pedidos?usuarioId=${usuarioId}&historial=true`;
       console.log("Consultando historial en:", url);
 
       const res = await fetch(url);

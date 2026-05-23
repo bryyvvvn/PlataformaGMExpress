@@ -44,8 +44,8 @@ export const useMenuAPI = (fecha?: string) => {
       setCargando(true);
       try {
         const url = fecha
-          ? `${API_BASE_URL}/api/menu-semanal?fecha=${fecha}`
-          : `${API_BASE_URL}/api/menu-semanal`;
+          ? `${API_BASE_URL}/api/trabajador/menu-semanal?fecha=${fecha}`
+          : `${API_BASE_URL}/api/trabajador/menu-semanal`;
 
         const respuesta = await fetch(url);
 

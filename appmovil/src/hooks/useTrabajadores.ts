@@ -19,23 +19,25 @@ export const useTrabajadores = (empresaId: number | null, fechaSeleccionada?: st
         return;
       }
 
-      // 🔥 Volvemos a activar el estado de carga al cambiar la fecha
       setCargando(true);
 
       try {
-        let url = `${API_BASE_URL}/api/representante/dashboard?empresaId=${empresaId}`;
-        if (fechaSeleccionada) {
-          url += `&fecha=${fechaSeleccionada}`;
+        // Obtener resumen de la empresa
+        const resumenUrl = `${API_BASE_URL}/api/representante/resumen?empresaId=${empresaId}`;
+        const resumenRes = await fetch(resumenUrl);
+        const resumenData = resumenRes.ok ? await resumenRes.json() : null;
+        if (resumenData) {
+          setResumenEmpresa(resumenData);
         }
 
-        const res = await fetch(url);
-        if (res.ok) {
-          const data = await res.json();
-          setResumenEmpresa(data.resumenEmpresa);
-          setTrabajadores(data.planilla || []);
-        } else {
-          setTrabajadores([]);
+        // Obtener empleados con pedidos de la semana
+        let empleadosUrl = `${API_BASE_URL}/api/representante/empleados?empresaId=${empresaId}`;
+        if (fechaSeleccionada) {
+          empleadosUrl += `&fecha=${fechaSeleccionada}`;
         }
+        const empleadosRes = await fetch(empleadosUrl);
+        const empleadosData = empleadosRes.ok ? await empleadosRes.json() : [];
+        setTrabajadores(empleadosData || []);
       } catch (error) {
         console.error("[useTrabajadores] Error al cargar los datos:", error);
         setTrabajadores([]);

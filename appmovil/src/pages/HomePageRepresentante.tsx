@@ -54,7 +54,10 @@ const HomePageRepresentante: React.FC<HomePageRepresentanteProps> = ({ empresaId
     }
   };
 
-  // Verificamos si queda algún pedido en estado PENDIENTE en la lista actual
+  // 🔥 1. Calculamos la CANTIDAD TOTAL de pedidos en toda la semana
+  const totalPedidos = trabajadores.reduce((acc, t) => acc + (t.pedidos?.length || 0), 0);
+
+  // 🔥 2. Verificamos si queda algún pedido PENDIENTE
   const hayPedidosPendientes = trabajadores.some(t => 
     t.pedidos && t.pedidos.some((p: any) => p.estado === 'PENDIENTE')
   );
@@ -139,10 +142,21 @@ const HomePageRepresentante: React.FC<HomePageRepresentanteProps> = ({ empresaId
         )}
       </div>
 
-      {/* BOTÓN DE CIERRE FIJO / ESTADO CONFIRMADO */}
+      {/* BOTÓN DE CIERRE FIJO DINÁMICO */}
       {!cargando && trabajadores.length > 0 && (
         <div className="fixed bottom-0 left-0 w-full p-6 bg-white/90 backdrop-blur-xl shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-30">
-          {hayPedidosPendientes ? (
+          
+          {totalPedidos === 0 ? (
+            // 1. SI NADIE HA PEDIDO NADA AÚN
+            <button 
+              disabled
+              className="w-full h-14 bg-gray-100 text-gray-400 rounded-[20px] font-black text-base shadow-sm flex items-center justify-center gap-2 uppercase tracking-wide"
+            >
+              <Send size={16} />
+              Esperando pedidos
+            </button>
+          ) : hayPedidosPendientes ? (
+            // 2. SI HAY PEDIDOS PENDIENTES
             <button 
               onClick={manejarEnviarTodo}
               disabled={enviandoTodo}
@@ -152,11 +166,13 @@ const HomePageRepresentante: React.FC<HomePageRepresentanteProps> = ({ empresaId
               {enviandoTodo ? 'Enviando planilla...' : `Enviar planilla`}
             </button>
           ) : (
-            <div className="w-full h-14 bg-green-50 text-green-700 border border-green-200 rounded-[20px] font-black text-sm shadow-sm flex items-center justify-center gap-2 uppercase tracking-widest">
-              <CheckCircle2 size={18} className="text-green-600" />
-              Planilla Confirmada
+            // 3. SI TODOS LOS PEDIDOS ESTÁN CONFIRMADOS
+            <div className="w-full h-14 bg-gray-100 text-gray-400 rounded-[20px] font-black text-sm shadow-sm flex items-center justify-center gap-2 uppercase tracking-widest">
+              <CheckCircle2 size={18} className="text-gray-400" />
+                Planilla Confirmada
             </div>
           )}
+
         </div>
       )}
     </div>
