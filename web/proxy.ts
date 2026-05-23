@@ -3,12 +3,14 @@ import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 // Definimos qué rutas NO van a usar la autenticación de Clerk en la web
 const isPublicRoute = createRouteMatcher([
   '/', 
-  '/login(.*)',       // Nuestro login propio de Admin
-  '/dashboard(.*)',   // Nuestro panel propio de Admin
-  '/api/webhooks(.*)', // Importante para tu webhook de Clerk de la app móvi
+  '/login(.*)',        // Nuestro login propio de Admin
+  '/dashboard(.*)',    // Nuestro panel propio de Admin
+  '/api/webhooks(.*)', // Importante para tu webhook de Clerk de la app móvil
   '/api/admin(.*)',
   '/api/pedidos(.*)',
-  '/api/menu-semanal(.*)'
+  '/api/menu-semanal(.*)',
+  '/api/usuarios(.*)',
+  '/api/representante/dashboard(.*)'
 ])
 
 export default clerkMiddleware(async (auth, request) => {

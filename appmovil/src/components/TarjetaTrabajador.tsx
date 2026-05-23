@@ -1,0 +1,135 @@
+import React, { useState } from 'react';
+import { ChevronDown, ChevronUp, Utensils, CheckCircle2 } from 'lucide-react';
+
+interface Pedido {
+  id: number;
+  fecha?: string;
+  listaPlatos?: string[];
+  estado?: string;
+}
+
+interface TarjetaTrabajadorProps {
+  trabajador: {
+    id: number;
+    nombre: string;
+    pedidos?: Pedido[];
+  };
+}
+
+const getDiaCorto = (fechaString?: string) => {
+  if (!fechaString) return 'S/F';
+  const fecha = new Date(fechaString.includes('T') ? fechaString : `${fechaString}T12:00:00`);
+  const dias = ['DOM', 'LUN', 'MAR', 'MIE', 'JUE', 'VIE', 'SAB'];
+  return dias[fecha.getDay()];
+};
+
+export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({ trabajador }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [pedidoActivoId, setPedidoActivoId] = useState<number | null>(
+    trabajador.pedidos && trabajador.pedidos.length > 0 ? trabajador.pedidos[0].id : null
+  );
+
+  const pedidos = trabajador.pedidos || [];
+  const pedidoSeleccionado = pedidos.find(p => p.id === pedidoActivoId);
+
+  return (
+    <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden transition-all mb-4">
+      <button 
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full flex items-center justify-between p-5 bg-white active:bg-gray-50/70 transition-colors"
+      >
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-full bg-gray-50 border border-gray-100 flex items-center justify-center text-[#1d2d50] font-black text-lg shadow-inner">
+            {trabajador.nombre ? trabajador.nombre.charAt(0).toUpperCase() : 'U'}
+          </div>
+          <div className="flex flex-col text-left">
+            <span className="font-black text-lg text-[#1d2d50] leading-tight capitalize">
+              {trabajador.nombre.toLowerCase()}
+            </span>
+            <span className="text-[10px] text-[#70a344] font-black uppercase tracking-widest flex items-center gap-1 mt-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#70a344]"></span>
+              {pedidos.length} {pedidos.length === 1 ? 'DÍA REGISTRADO' : 'DÍAS REGISTRADOS'}
+            </span>
+          </div>
+        </div>
+        {isExpanded ? <ChevronUp size={20} className="text-gray-400" /> : <ChevronDown size={20} className="text-gray-400" />}
+      </button>
+
+      {isExpanded && pedidos.length > 0 && (
+        <div className="px-5 pb-5 pt-0 border-t border-gray-50 bg-gray-50/30">
+          <div className="flex gap-2.5 py-4 overflow-x-auto [&::-webkit-scrollbar]:hidden">
+            {pedidos.map((pedido) => {
+              const isActive = pedidoActivoId === pedido.id;
+              const diaCorto = getDiaCorto(pedido.fecha);
+              const numeroDia = pedido.fecha ? pedido.fecha.split('T')[0].split('-')[2] : '--';
+              const estaConfirmado = pedido.estado === 'CONFIRMADO';
+              
+              return (
+                <button
+                  key={pedido.id}
+                  onClick={() => setPedidoActivoId(pedido.id)}
+                  className={`min-w-[54px] shrink-0 py-2 px-1 rounded-2xl flex flex-col items-center justify-center gap-0.5 transition-all border relative ${
+                    isActive 
+                      ? 'bg-[#70a344] border-[#70a344] text-white shadow-md scale-105 font-black' 
+                      : 'bg-white border-gray-200 text-gray-400 active:bg-gray-50'
+                  }`}
+                >
+                  {/* Puntito verde de confirmado */}
+                  {estaConfirmado && !isActive && (
+                    <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white"></div>
+                  )}
+
+                  <span className={`text-[9px] font-black uppercase ${isActive ? 'text-white/90' : 'text-gray-400'}`}>
+                    {diaCorto}
+                  </span>
+                  <span className={`text-sm font-black ${isActive ? 'text-white' : 'text-[#1d2d50]'}`}>
+                    {numeroDia}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {pedidoSeleccionado && (
+            <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm relative overflow-hidden animate-in fade-in slide-in-from-bottom-1 duration-200 mt-1">
+              <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-[#70a344]" />
+              
+              <div className="flex items-center justify-between mb-3 pl-2">
+                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
+                  <Utensils size={12} className="text-[#70a344]" /> Detalle de Colaciones
+                </span>
+                
+                {/* Etiqueta de Confirmado vs ID del pedido */}
+                {pedidoSeleccionado.estado === 'CONFIRMADO' ? (
+                  <span className="flex items-center gap-1 bg-green-50 text-green-600 border border-green-200 text-[9px] font-black uppercase px-2 py-0.5 rounded-full tracking-widest">
+                    <CheckCircle2 size={12} />
+                    Confirmado
+                  </span>
+                ) : (
+                  <span className="text-[9px] text-gray-300 font-bold">
+                    Pedido #{pedidoSeleccionado.id}
+                  </span>
+                )}
+              </div>
+              
+              <ul className="pl-2 space-y-2">
+                {pedidoSeleccionado.listaPlatos && pedidoSeleccionado.listaPlatos.length > 0 ? (
+                  pedidoSeleccionado.listaPlatos.map((plato, index) => (
+                    <li key={index} className="flex items-start gap-2 text-xs font-bold text-[#1d2d50] uppercase leading-snug">
+                      <span className="text-[#70a344] text-sm mt-[0px]">•</span>
+                      <span>{plato}</span>
+                    </li>
+                  ))
+                ) : (
+                  <li className="text-xs font-bold text-gray-400 uppercase leading-snug">
+                    Sin detalles registrados
+                  </li>
+                )}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
