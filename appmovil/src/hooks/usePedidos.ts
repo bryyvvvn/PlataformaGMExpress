@@ -31,7 +31,7 @@ export const usePedidos = (usuarioId: string | undefined, fecha?: string) => {
     setYaPedioHoy(false);
     
     try {
-      const url = `${API_BASE_URL}/api/pedidos/verificar-pedido?usuarioId=${usuarioId}${fecha ? `&fecha=${fecha}` : ''}`;
+      const url = `${API_BASE_URL}/api/trabajador/pedidos?usuarioId=${usuarioId}${fecha ? `&fecha=${fecha}` : ''}`;
       const res  = await fetch(url);
       const data = await res.json();
       setYaPedioHoy(data.existe);
@@ -65,7 +65,7 @@ export const usePedidos = (usuarioId: string | undefined, fecha?: string) => {
       };
       console.info('[usePedidos] Enviando pedido payload=', payload);
 
-      const respuesta = await fetch(`${API_BASE_URL}/api/pedidos/crear-pedido`, {
+      const respuesta = await fetch(`${API_BASE_URL}/api/trabajador/pedidos`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify(payload),
@@ -75,7 +75,7 @@ export const usePedidos = (usuarioId: string | undefined, fecha?: string) => {
         setYaPedioHoy(true); // Bloquear UI de inmediato para la fecha actual
         // Refrescar detalle de pedido para sincronizar UI
         try {
-          const check = await fetch(`${API_BASE_URL}/api/pedidos/verificar-pedido?usuarioId=${usuarioId}${fecha ? `&fecha=${fecha}` : ''}`);
+          const check = await fetch(`${API_BASE_URL}/api/trabajador/pedidos?usuarioId=${usuarioId}${fecha ? `&fecha=${fecha}` : ''}`);
           const data = await check.json();
           setPedidoExistente(data.pedido ?? null);
         } catch (e) {

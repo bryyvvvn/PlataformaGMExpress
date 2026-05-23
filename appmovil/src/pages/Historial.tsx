@@ -22,7 +22,7 @@ export const Historial: React.FC = () => {
         >
           <ArrowLeft size={24} className="text-gray-600" />
         </button>
-        <h1 className="text-xl font-black text-[#1d2d50]">Mi Historial</h1>
+        <h1 className="text-xl font-black text-[#1d2d50]">Mi Historialasdasd</h1>
       </header>
 
       <main className="flex-1 p-6 pb-20">
@@ -84,3 +84,5 @@ export const Historial: React.FC = () => {
     </div>
   );
 };
+
+export default Historial;

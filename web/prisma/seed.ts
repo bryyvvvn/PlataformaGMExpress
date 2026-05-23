@@ -66,7 +66,6 @@ async function main() {
         nombre: plato.nombre,
         categoria: plato.categoria,
         tipo: plato.tipo,
-        guarnicion: plato.guarnicion || null,
         url_imagen: imagenFinal
       }
     });

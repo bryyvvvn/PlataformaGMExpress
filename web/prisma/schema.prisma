@@ -16,9 +16,11 @@ enum Rol {
 }
 
 enum EstadoPedido {
-  PENDIENTE
-  ENTREGADO
-  CANCELADO
+  PENDIENTE     
+  CONFIRMADO      
+  EN_PRODUCCION 
+  ENTREGADO      
+  CANCELADO      
 }
 
 enum CategoriaPlato {

@@ -10,7 +10,7 @@ import {
 export const dynamic = "force-dynamic";
 
 /**
- * GET /api/menu-semanal?fecha=YYYY-MM-DD
+ * GET /api/trabajador/menu-semanal?fecha=YYYY-MM-DD
  *
  * Devuelve { entradas, fondos, postres } del día solicitado.
  * Sin parámetro → día actual en zona horaria Chile (no en UTC del servidor).
