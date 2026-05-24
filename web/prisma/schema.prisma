@@ -64,6 +64,7 @@ model Guarnicion {
   
   detallesPedido DetallePedido[] 
   menuDetalles   MenuDetalle[]   // Relación Muchos a Muchos implícita con el menú del día
+  menuDiaSelecciones MenuDiaSeleccion[]
 }
 
 model Plato {
@@ -83,12 +84,13 @@ model MenuSemanal {
   fecha_fin    DateTime
   creado_en    DateTime      @default(now())
   detalles     MenuDetalle[]
+  menuDiaSelecciones MenuDiaSeleccion[]
 }
 
 model MenuDetalle {
-  id            Int          @id @default(autoincrement())
-  dia_semana    String       
-  fecha_dia     DateTime?
+  id                       Int       @id @default(autoincrement())
+  dia_semana               String
+  fecha_dia                DateTime?
   
   menuSemanalId Int
   platoId       Int
@@ -97,6 +99,36 @@ model MenuDetalle {
   plato         Plato        @relation(fields: [platoId], references: [id])
   
   guarniciones  Guarnicion[] // Relación Muchos a Muchos implícita con Guarnicion
+  seleccionesEntrada MenuDiaSeleccion[] @relation("MenuDiaEntrada")
+  seleccionesFondo   MenuDiaSeleccion[] @relation("MenuDiaFondo")
+  seleccionesPostre  MenuDiaSeleccion[] @relation("MenuDiaPostre")
+
+  @@index([menuSemanalId, fecha_dia])
+}
+
+model MenuDiaSeleccion {
+  id               Int      @id @default(autoincrement())
+  fecha_dia        DateTime
+  creado_en        DateTime @default(now())
+  actualizado_en   DateTime @updatedAt
+
+  menuSemanalId    Int
+  entradaDetalleId Int
+  fondoDetalleId   Int
+  postreDetalleId  Int
+  guarnicionId     Int?
+
+  menuSemanal      MenuSemanal @relation(fields: [menuSemanalId], references: [id], onDelete: Cascade)
+  entradaDetalle   MenuDetalle @relation("MenuDiaEntrada", fields: [entradaDetalleId], references: [id])
+  fondoDetalle     MenuDetalle @relation("MenuDiaFondo", fields: [fondoDetalleId], references: [id])
+  postreDetalle    MenuDetalle @relation("MenuDiaPostre", fields: [postreDetalleId], references: [id])
+  guarnicion       Guarnicion? @relation(fields: [guarnicionId], references: [id])
+
+  @@unique([menuSemanalId, fecha_dia])
+  @@index([entradaDetalleId])
+  @@index([fondoDetalleId])
+  @@index([postreDetalleId])
+  @@index([guarnicionId])
 }
 
 // --- TABLAS DE PEDIDOS ---

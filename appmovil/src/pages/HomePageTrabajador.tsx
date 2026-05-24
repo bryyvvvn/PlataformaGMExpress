@@ -81,12 +81,22 @@ const HomePageTrabajador: React.FC = () => {
   const fondoObj = (menuHoy.fondos || []).find((p: any) => p.id === pedido.fondoId);
   const fondoNeedsGuarnicion = Boolean(fondoObj && (fondoObj.guarniciones || []).length > 0);
   
-  const estaCompleto = activeTab === 'PERSONALIZADO' && Boolean(
+  const menuDiaSeleccionado = Boolean(
+    menuHoy.menuDia &&
+    pedido.entradaId === menuHoy.menuDia.entrada.id &&
+    pedido.fondoId === menuHoy.menuDia.fondo.id &&
+    pedido.postreId === menuHoy.menuDia.postre.id &&
+    pedido.guarnicionId === (menuHoy.menuDia.guarnicion?.id ?? null)
+  );
+
+  const estaCompletoPersonalizado = activeTab === 'PERSONALIZADO' && Boolean(
     pedido.entradaId &&
     pedido.fondoId   &&
     pedido.postreId  &&
     (!fondoNeedsGuarnicion || pedido.guarnicionId !== null)
   );
+
+  const puedeEnviar = activeTab === 'MENU_DIA' ? menuDiaSeleccionado : estaCompletoPersonalizado;
  
   // ── 5. EFECTOS DE NAVEGACIÓN Y SCROLL ─────────────────────────────────────
   useEffect(() => {
@@ -119,8 +129,23 @@ const HomePageTrabajador: React.FC = () => {
   const toggleSeccion = (cat: Categoria) =>
     setSeccionAbierta(prev => (prev === cat ? null : cat));
  
+  const seleccionarMenuDelDia = () => {
+    if (!menuHoy.menuDia || bloquearUI) return;
+    setPedido({
+      entradaId: menuHoy.menuDia.entrada.id,
+      fondoId: menuHoy.menuDia.fondo.id,
+      postreId: menuHoy.menuDia.postre.id,
+      guarnicionId: menuHoy.menuDia.guarnicion?.id ?? null,
+    });
+  };
+
   const manejarEnvio = async () => {
-    if (activeTab === 'PERSONALIZADO') {
+    if (activeTab === 'MENU_DIA' && !menuDiaSeleccionado) {
+      alert('Selecciona el Menú del Día antes de confirmar.');
+      return;
+    }
+
+    if (activeTab === 'PERSONALIZADO' || activeTab === 'MENU_DIA') {
       const exito = await enviarPedido(pedido);
       if (exito) {
         setSeccionAbierta(null);
@@ -306,7 +331,10 @@ const HomePageTrabajador: React.FC = () => {
                 Menú Día
               </button>
               <button
-                onClick={() => setActiveTab('PERSONALIZADO')}
+                onClick={() => {
+                  setActiveTab('PERSONALIZADO');
+                  if (!modoEdicion) setPedido({ entradaId: null, fondoId: null, postreId: null, guarnicionId: null });
+                }}
                 className={`flex-1 py-3 px-2 text-[10px] sm:text-[11px] font-black uppercase tracking-widest rounded-2xl transition-all ${activeTab === 'PERSONALIZADO' ? 'bg-[#70a344] shadow-md text-white' : 'text-gray-400 bg-transparent'}`}
               >
                 Personalizado
@@ -329,17 +357,65 @@ const HomePageTrabajador: React.FC = () => {
               </div>
             )}
             
-            {/* ── VISTA: MENÚ DEL DÍA (Próximamente) ── */}
+            {/* ── VISTA: MENÚ DEL DÍA ── */}
             {activeTab === 'MENU_DIA' && (
               <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm text-center">
                 <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-4">
                   <CheckCircle2 size={32} className="text-[#70a344]" />
                 </div>
                 <h3 className="font-black text-[#1d2d50] text-xl mb-2">Menú Predeterminado</h3>
-                <p className="text-gray-500 text-sm mb-6 leading-relaxed">El menú sugerido por el casino para este día. Rápido, completo y sin complicaciones.</p>
-                <div className="p-4 bg-gray-50 rounded-2xl border border-dashed border-gray-300 text-gray-400 text-[10px] font-black uppercase tracking-widest">
-                  (Vista en desarrollo)
-                </div>
+                {menuHoy.menuDia ? (
+                  <>
+                    <div className="mt-6 space-y-3 text-left">
+                      {[
+                        { label: 'Entrada', plato: menuHoy.menuDia.entrada },
+                        { label: 'Fondo', plato: menuHoy.menuDia.fondo },
+                        { label: 'Postre', plato: menuHoy.menuDia.postre },
+                      ].map(({ label, plato }) => (
+                        <div key={label} className="overflow-hidden rounded-3xl border border-green-100 bg-green-50/60">
+                          <div className="flex items-center gap-4 p-3">
+                            <img
+                              src={plato.url_imagen || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c'}
+                              alt={plato.nombre}
+                              className="h-20 w-20 rounded-2xl object-cover bg-gray-100"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <span className="text-[10px] font-black text-green-700/70 uppercase tracking-widest">
+                                {label}
+                              </span>
+                              <p className="mt-1 font-black text-[#1d2d50] text-sm leading-tight">
+                                {plato.nombre}
+                              </p>
+                              <p className="mt-1 text-[10px] font-black text-[#70a344] uppercase tracking-widest">
+                                {plato.tipo}
+                              </p>
+                            </div>
+                          </div>
+                          {label === 'Fondo' && menuHoy.menuDia?.guarnicion && (
+                            <div className="mx-3 mb-3 rounded-2xl bg-white/70 px-4 py-3 text-xs font-bold text-gray-600">
+                              Guarnición: {menuHoy.menuDia.guarnicion.nombre}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  <button
+                    onClick={seleccionarMenuDelDia}
+                    disabled={bloquearUI}
+                    className={`mt-5 w-full py-4 rounded-2xl font-black text-sm transition-all ${
+                      menuDiaSeleccionado
+                        ? 'bg-[#70a344] text-white shadow-md'
+                        : 'bg-[#1d2d50] text-white active:scale-95'
+                    }`}
+                  >
+                    {menuDiaSeleccionado ? 'Menú del Día seleccionado' : 'Seleccionar Menú del Día'}
+                  </button>
+                  </>
+                ) : (
+                  <div className="p-4 bg-gray-50 rounded-2xl border border-dashed border-gray-300 text-gray-400 text-[10px] font-black uppercase tracking-widest">
+                    Sin menú seleccionado para este día
+                  </div>
+                )}
               </div>
             )}
 
@@ -468,9 +544,9 @@ const HomePageTrabajador: React.FC = () => {
         <div className="fixed bottom-0 left-0 w-full p-6 bg-white/90 backdrop-blur-xl shadow-[0_-10px_40px_rgba(0,0,0,0.05)]">
           <button 
             onClick={manejarEnvio} 
-            disabled={!estaCompleto || enviando} 
+            disabled={!puedeEnviar || enviando} 
             className={`w-full py-5 rounded-[24px] font-black text-lg transition-all flex items-center justify-center gap-3 ${
-              estaCompleto 
+              puedeEnviar 
                 ? 'bg-[#70a344] shadow-xl text-white' 
                 : 'bg-gray-200 text-gray-500'
             }`}

@@ -15,15 +15,22 @@ export interface Plato {
   categoria:   "ENTRADA" | "FONDO" | "POSTRE" | "BEBESTIBLE";
   tipo:        "NORMAL" | "VEGANO" | "VEGETARIANO" | "HIPOCALORICO" | "SIN_GLUTEN";
   guarniciones: Guarnicion[];
+  menuDetalleId?: number;
 }
 
 export interface MenuDia {
   entradas: Plato[];
   fondos:   Plato[];
   postres:  Plato[];
+  menuDia:  {
+    entrada: Plato;
+    fondo: Plato;
+    postre: Plato;
+    guarnicion: Guarnicion | null;
+  } | null;
 }
 
-const MENU_VACIO: MenuDia = { entradas: [], fondos: [], postres: [] };
+const MENU_VACIO: MenuDia = { entradas: [], fondos: [], postres: [], menuDia: null };
 
 // ─── HOOK ─────────────────────────────────────────────────────────────────────
 

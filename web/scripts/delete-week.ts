@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { deleteMenuWeeksByRange } from '../lib/menu-week';
 
 const prisma = new PrismaClient();
 
@@ -17,16 +18,12 @@ async function main() {
 
   console.log(`Deleting MenuSemanal overlapping ${inicio.toISOString()} - ${fin.toISOString()}`);
 
-  const res = await prisma.menuSemanal.deleteMany({
-    where: {
-      AND: [
-        { fecha_inicio: { lte: fin } },
-        { fecha_fin: { gte: inicio } },
-      ],
-    },
-  });
+  const res = await deleteMenuWeeksByRange(inicio, fin, prisma);
 
-  console.log(`Deleted ${res.count} MenuSemanal records (cascade removes MenuDetalle).`);
+  console.log(`Deleted ${res.deleted} MenuSemanal records.`);
+  if (res.blocked > 0) {
+    console.log(`Blocked ${res.blocked} week(s) because ${res.pedidos} pedido(s) exist in the selected range.`);
+  }
 }
 
 main()
