@@ -13,8 +13,9 @@ import { Sidebar } from '../components/Sidebar';
 import { API_BASE_URL } from '../constants/api';
  
 type Categoria = 'ENTRADA' | 'FONDO' | 'POSTRE' | null;
+type TipoMenu = 'MENU_DIA' | 'PERSONALIZADO' | 'OTRO';
  
-const HomePage: React.FC = () => {
+const HomePageTrabajador: React.FC = () => {
   const { user } = useUser();
   const nombreUsuario = user?.firstName || user?.username || 'Usuario';
  
@@ -37,6 +38,7 @@ const HomePage: React.FC = () => {
     guarnicionId: null as number | null,
   });
  
+  const [activeTab,               setActiveTab]               = useState<TipoMenu>('MENU_DIA');
   const [sheetOpen,               setSheetOpen]               = useState(false);
   const [sheetFondo,              setSheetFondo]              = useState<any | null>(null);
   const [sheetSelectedGuarnicion, setSheetSelectedGuarnicion] = useState<number | null>(null);
@@ -46,6 +48,10 @@ const HomePage: React.FC = () => {
   const [modoEdicion,    setModoEdicion]    = useState(false);
   const [eliminando,     setEliminando]     = useState(false);
  
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
   // ── 3. HOOKS DE DATOS Y API ───────────────────────────────────────────────
   const { timeRemaining } = useCountdown(DEADLINE_HOUR);
   const { menuHoy, cargando: cargandoMenu } = useMenuAPI(fechaSeleccionadaISO);
@@ -69,23 +75,30 @@ const HomePage: React.FC = () => {
  
   // ── 4. LÓGICA DE NEGOCIO Y PRUEBAS ────────────────────────────────────────
   const isSelectedDateToday = diasSemanaArray[diaSeleccionadoIdx]?.esHoy ?? false;
-  
-  // MODO PRUEBA: Forzamos el cierre a false para que siempre puedas editar
   const isDeadlinePassed = false; 
   const bloquearUI = isSelectedDateToday && isDeadlinePassed;
 
   const fondoObj = (menuHoy.fondos || []).find((p: any) => p.id === pedido.fondoId);
   const fondoNeedsGuarnicion = Boolean(fondoObj && (fondoObj.guarniciones || []).length > 0);
   
-  const estaCompleto = Boolean(
+  const menuDiaSeleccionado = Boolean(
+    menuHoy.menuDia &&
+    pedido.entradaId === menuHoy.menuDia.entrada.id &&
+    pedido.fondoId === menuHoy.menuDia.fondo.id &&
+    pedido.postreId === menuHoy.menuDia.postre.id &&
+    pedido.guarnicionId === (menuHoy.menuDia.guarnicion?.id ?? null)
+  );
+
+  const estaCompletoPersonalizado = activeTab === 'PERSONALIZADO' && Boolean(
     pedido.entradaId &&
     pedido.fondoId   &&
     pedido.postreId  &&
     (!fondoNeedsGuarnicion || pedido.guarnicionId !== null)
   );
+
+  const puedeEnviar = activeTab === 'MENU_DIA' ? menuDiaSeleccionado : estaCompletoPersonalizado;
  
   // ── 5. EFECTOS DE NAVEGACIÓN Y SCROLL ─────────────────────────────────────
- 
   useEffect(() => {
     setPedido({ entradaId: null, fondoId: null, postreId: null, guarnicionId: null });
     setSeccionAbierta(null);
@@ -93,21 +106,18 @@ const HomePage: React.FC = () => {
   }, [fechaSeleccionadaISO]);
  
   useEffect(() => {
-    if (!cargandoMenu && !bloquearUI && (!pedidoExistente || modoEdicion)) {
-      setSeccionAbierta('ENTRADA');
+    if (activeTab === 'PERSONALIZADO' && !cargandoMenu && !bloquearUI && (!pedidoExistente || modoEdicion)) {
+      setSeccionAbierta('ENTRADA'); 
     } else {
-      setSeccionAbierta(null);
+      setSeccionAbierta(null); 
     }
-  }, [cargandoMenu, bloquearUI, pedidoExistente, modoEdicion]);
+  }, [activeTab, cargandoMenu, bloquearUI, pedidoExistente, modoEdicion]);
 
-  // 👇 NUEVO: EFECTO PARA HACER SCROLL AUTOMÁTICO AL ABRIR UNA SECCIÓN
   useEffect(() => {
     if (seccionAbierta) {
-      // Esperamos 300ms para darle tiempo a la animación CSS de expandirse
       setTimeout(() => {
         const elemento = document.getElementById(`seccion-${seccionAbierta}`);
         if (elemento) {
-          // Calculamos la posición y le restamos 20px de margen superior
           const y = elemento.getBoundingClientRect().top + window.scrollY - 20;
           window.scrollTo({ top: y, behavior: 'smooth' });
         }
@@ -116,16 +126,34 @@ const HomePage: React.FC = () => {
   }, [seccionAbierta]);
  
   // ── 6. HANDLERS DE ACCIÓN ─────────────────────────────────────────────────
- 
   const toggleSeccion = (cat: Categoria) =>
     setSeccionAbierta(prev => (prev === cat ? null : cat));
  
+  const seleccionarMenuDelDia = () => {
+    if (!menuHoy.menuDia || bloquearUI) return;
+    setPedido({
+      entradaId: menuHoy.menuDia.entrada.id,
+      fondoId: menuHoy.menuDia.fondo.id,
+      postreId: menuHoy.menuDia.postre.id,
+      guarnicionId: menuHoy.menuDia.guarnicion?.id ?? null,
+    });
+  };
+
   const manejarEnvio = async () => {
-    const exito = await enviarPedido(pedido);
-    if (exito) {
-      setSeccionAbierta(null);
-      setModoEdicion(false);
-      cargarHistorial(); 
+    if (activeTab === 'MENU_DIA' && !menuDiaSeleccionado) {
+      alert('Selecciona el Menú del Día antes de confirmar.');
+      return;
+    }
+
+    if (activeTab === 'PERSONALIZADO' || activeTab === 'MENU_DIA') {
+      const exito = await enviarPedido(pedido);
+      if (exito) {
+        setSeccionAbierta(null);
+        setModoEdicion(false);
+        cargarHistorial(); 
+      }
+    } else {
+      alert("La lógica para este tipo de menú se implementará próximamente.");
     }
   };
 
@@ -133,7 +161,7 @@ const HomePage: React.FC = () => {
     if (!window.confirm('¿Estás seguro de que deseas eliminar este pedido?')) return;
     setEliminando(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/pedidos/crear-pedido?usuarioId=${user?.id}&fecha=${fechaSeleccionadaISO}`, {
+      const res = await fetch(`${API_BASE_URL}/api/trabajador/pedidos?usuarioId=${user?.id}&fecha=${fechaSeleccionadaISO}`, {
         method: 'DELETE',
       });
       if (res.ok) {
@@ -171,7 +199,13 @@ const HomePage: React.FC = () => {
  
   return (
     <div className="min-h-screen pb-40" style={{ backgroundColor: THEME.colors.background }} onClick={() => setSeccionAbierta(null)}>
-      <Sidebar isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
+      {/* 🔥 Le pasamos el rol de Trabajador y el nombre de la empresa al Sidebar */}
+      <Sidebar 
+        isOpen={isMenuOpen} 
+        onClose={() => setIsMenuOpen(false)} 
+        rolPropVisible="Trabajador"
+        empresaNombre="Starco"
+      />
  
       {/* ── HEADER ── */}
       <div className="pt-5 pb-3 flex justify-between items-center px-6" style={{ backgroundColor: THEME.colors.secondary }}>
@@ -223,7 +257,7 @@ const HomePage: React.FC = () => {
       </div>
  
       {/* ── CONTENIDO PRINCIPAL ── */}
-      <div className="mt-10 px-6 space-y-4">
+      <div className="mt-8 px-6 space-y-4">
         {(cargandoVerificacion || cargandoMenu) ? (
           <div className="flex flex-col gap-4 mt-2">
             {[1, 2, 3].map(i => (
@@ -236,7 +270,7 @@ const HomePage: React.FC = () => {
         ) : 
          pedidoExistente && !modoEdicion ? (
           /* MODO RESUMEN */
-          <div className="p-6 rounded-3xl bg-white border border-gray-100 shadow-sm relative overflow-hidden">
+          <div className="p-6 rounded-3xl bg-white border border-gray-100 shadow-sm relative overflow-hidden mt-4">
             <div className="flex items-center justify-between mb-5 relative z-10">
               <div className="flex items-center gap-3">
                 <CheckCircle2 size={24} className="text-green-600" />
@@ -256,10 +290,8 @@ const HomePage: React.FC = () => {
                 return (
                   <div key={idx} className="flex flex-col">
                     <span className="text-[10px] font-black text-green-600/70 uppercase tracking-widest mb-0.5">{r.categoria}</span>
-                    {/* 👇 SE CAMBIÓ EL ESTILO DE LA GUARNICIÓN PARA COINCIDIR CON EL PLATO 👇 */}
                     <span className="font-bold text-[#1d2d50] leading-tight">
                       {r.nombre}
-                      {/* 👇 AHORA LA GUARNICIÓN HEREDA TODO EL ESTILO DEL PLATO (COLOR Y PESO) 👇 */}
                       {nombreGuarnicion && <span> + {nombreGuarnicion}</span>}
                     </span>
                   </div>
@@ -274,6 +306,7 @@ const HomePage: React.FC = () => {
                 const p = pedidoExistente.resumen.find((r:any)=>r.categoria==='POSTRE');
                 setPedido({entradaId: e?.platoId ?? null, fondoId: f?.platoId ?? null, postreId: p?.platoId ?? null, guarnicionId: f?.guarnicionId ?? null});
                 setModoEdicion(true);
+                setActiveTab('PERSONALIZADO');
                 setSeccionAbierta('ENTRADA');
               }}
               disabled={isDeadlinePassed}
@@ -287,8 +320,33 @@ const HomePage: React.FC = () => {
             </button>
           </div>
         ) : (
-          /* MODO SELECCIÓN */
+          /* MODO SELECCIÓN CON TABS */
           <>
+            {/* ── BARRA DE PESTAÑAS (TABS) ── */}
+            <div className="flex bg-white border border-gray-100 p-1.5 rounded-[20px] mb-6 shadow-sm">
+              <button
+                onClick={() => setActiveTab('MENU_DIA')}
+                className={`flex-1 py-3 px-2 text-[10px] sm:text-[11px] font-black uppercase tracking-widest rounded-2xl transition-all ${activeTab === 'MENU_DIA' ? 'bg-[#70a344] shadow-md text-white' : 'text-gray-400 bg-transparent'}`}
+              >
+                Menú Día
+              </button>
+              <button
+                onClick={() => {
+                  setActiveTab('PERSONALIZADO');
+                  if (!modoEdicion) setPedido({ entradaId: null, fondoId: null, postreId: null, guarnicionId: null });
+                }}
+                className={`flex-1 py-3 px-2 text-[10px] sm:text-[11px] font-black uppercase tracking-widest rounded-2xl transition-all ${activeTab === 'PERSONALIZADO' ? 'bg-[#70a344] shadow-md text-white' : 'text-gray-400 bg-transparent'}`}
+              >
+                Personalizado
+              </button>
+              <button
+                onClick={() => setActiveTab('OTRO')}
+                className={`flex-1 py-3 px-2 text-[10px] sm:text-[11px] font-black uppercase tracking-widest rounded-2xl transition-all ${activeTab === 'OTRO' ? 'bg-[#70a344] shadow-md text-white' : 'text-gray-400 bg-transparent'}`}
+              >
+                Otros
+              </button>
+            </div>
+
             {modoEdicion && (
               <div className="flex justify-between items-center mb-2 px-2">
                 <span className="font-black text-sm text-[#1d2d50] uppercase tracking-widest flex items-center gap-2">
@@ -299,78 +357,164 @@ const HomePage: React.FC = () => {
               </div>
             )}
             
-            {(['ENTRADA', 'FONDO', 'POSTRE'] as const).map(cat => {
-              const key      = cat === 'ENTRADA' ? 'entradas' : cat === 'FONDO' ? 'fondos' : 'postres';
-              const stateKey = (cat.toLowerCase() + 'Id') as 'entradaId' | 'fondoId' | 'postreId';
-              const isOpen     = seccionAbierta === cat;
-              const isSelected = pedido[stateKey] !== null;
-              const platos     = menuHoy[key] ?? [];
- 
-              return (
-                <section
-                  key={cat}
-                  id={`seccion-${cat}`} // 👇 NUEVO: ASIGNAMOS ID A LA SECCIÓN
-                  className="overflow-hidden bg-white rounded-3xl border border-gray-100 shadow-sm transition-all"
-                >
-                  <button
-                    onClick={e => { e.stopPropagation(); toggleSeccion(cat); }}
-                    className="w-full flex items-center justify-between p-5"
-                  >
-                    <div className="flex items-center gap-3">
-                      <h3
-                        className={`font-black text-lg tracking-tight uppercase ${
-                          isOpen || isSelected ? 'text-[#1d2d50]' : 'text-gray-400'
-                        }`}
-                      >
-                        {cat}
-                      </h3>
-                      {isSelected && <CheckCircle2 size={18} className="text-green-500" />}
-                      {platos.length > 0 && (
-                        <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest">
-                          {platos.length} {platos.length === 1 ? 'opción' : 'opciones'}
-                        </span>
-                      )}
+            {/* ── VISTA: MENÚ DEL DÍA ── */}
+            {activeTab === 'MENU_DIA' && (
+              <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm text-center">
+                <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle2 size={32} className="text-[#70a344]" />
+                </div>
+                <h3 className="font-black text-[#1d2d50] text-xl mb-2">Menú Predeterminado</h3>
+                {menuHoy.menuDia ? (
+                  <>
+                    <div className="mt-6 space-y-3 text-left">
+                      {[
+                        { label: 'Entrada', plato: menuHoy.menuDia.entrada },
+                        { label: 'Fondo', plato: menuHoy.menuDia.fondo },
+                        { label: 'Postre', plato: menuHoy.menuDia.postre },
+                      ].map(({ label, plato }) => (
+                        <div key={label} className="overflow-hidden rounded-3xl border border-green-100 bg-green-50/60">
+                          <div className="flex items-center gap-4 p-3">
+                            <img
+                              src={plato.url_imagen || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c'}
+                              alt={plato.nombre}
+                              className="h-20 w-20 rounded-2xl object-cover bg-gray-100"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <span className="text-[10px] font-black text-green-700/70 uppercase tracking-widest">
+                                {label}
+                              </span>
+                              <p className="mt-1 font-black text-[#1d2d50] text-sm leading-tight">
+                                {plato.nombre}
+                              </p>
+                              <p className="mt-1 text-[10px] font-black text-[#70a344] uppercase tracking-widest">
+                                {plato.tipo}
+                              </p>
+                            </div>
+                          </div>
+                          {label === 'Fondo' && menuHoy.menuDia?.guarnicion && (
+                            <div className="mx-3 mb-3 rounded-2xl bg-white/70 px-4 py-3 text-xs font-bold text-gray-600">
+                              Guarnición: {menuHoy.menuDia.guarnicion.nombre}
+                            </div>
+                          )}
+                        </div>
+                      ))}
                     </div>
-                    {isOpen
-                      ? <ChevronUp   size={20} className="text-gray-300" />
-                      : <ChevronDown size={20} className="text-gray-300" />
-                    }
-                  </button>
- 
-                  <div
-                    className={`flex flex-col gap-4 px-4 pb-5 transition-all duration-500 ${
-                      isOpen
-                        ? 'max-h-[1000px] opacity-100 visible'
-                        : 'max-h-0 opacity-0 invisible overflow-hidden'
+                  <button
+                    onClick={seleccionarMenuDelDia}
+                    disabled={bloquearUI}
+                    className={`mt-5 w-full py-4 rounded-2xl font-black text-sm transition-all ${
+                      menuDiaSeleccionado
+                        ? 'bg-[#70a344] text-white shadow-md'
+                        : 'bg-[#1d2d50] text-white active:scale-95'
                     }`}
                   >
-                    {platos.length === 0 ? (
-                      <p className="text-center text-gray-300 font-black text-[11px] uppercase tracking-widest py-4">
-                        Sin opciones para este día
-                      </p>
-                    ) : (
-                      platos.map((plato: any) => (
-                        <TarjetaPlato
-                          key={plato.id}
-                          plato={plato}
-                          categoriaKey={stateKey}
-                          isSelected={pedido[stateKey] === plato.id}
-                          isDeadlinePassed={bloquearUI}
-                          onSelect={seleccionarPlato}
-                        />
-                      ))
-                    )}
+                    {menuDiaSeleccionado ? 'Menú del Día seleccionado' : 'Seleccionar Menú del Día'}
+                  </button>
+                  </>
+                ) : (
+                  <div className="p-4 bg-gray-50 rounded-2xl border border-dashed border-gray-300 text-gray-400 text-[10px] font-black uppercase tracking-widest">
+                    Sin menú seleccionado para este día
                   </div>
-                </section>
-              );
-            })}
+                )}
+              </div>
+            )}
+
+            {/* ── VISTA: PERSONALIZADO (El acordeón que ya tienes) ── */}
+            {activeTab === 'PERSONALIZADO' && (
+              (['ENTRADA', 'FONDO', 'POSTRE'] as const).map(cat => {
+                const key      = cat === 'ENTRADA' ? 'entradas' : cat === 'FONDO' ? 'fondos' : 'postres';
+                const stateKey = (cat.toLowerCase() + 'Id') as 'entradaId' | 'fondoId' | 'postreId';
+                const isOpen     = seccionAbierta === cat;
+                const isSelected = pedido[stateKey] !== null;
+                const platos     = menuHoy[key] ?? [];
+  
+                return (
+                  <section
+                    key={cat}
+                    id={`seccion-${cat}`}
+                    className="overflow-hidden bg-white rounded-3xl border border-gray-100 shadow-sm transition-all mb-4"
+                  >
+                    <button
+                      onClick={e => { e.stopPropagation(); toggleSeccion(cat); }}
+                      className="w-full flex items-center justify-between p-5"
+                    >
+                      <div className="flex items-center gap-3">
+                        <h3
+                          className={`font-black text-lg tracking-tight uppercase ${
+                            isOpen || isSelected ? 'text-[#1d2d50]' : 'text-gray-400'
+                          }`}
+                        >
+                          {cat}
+                        </h3>
+                        {isSelected && <CheckCircle2 size={18} className="text-green-500" />}
+                        {platos.length > 0 && (
+                          <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest">
+                            {platos.length} {platos.length === 1 ? 'opción' : 'opciones'}
+                          </span>
+                        )}
+                      </div>
+                      {isOpen
+                        ? <ChevronUp   size={20} className="text-gray-300" />
+                        : <ChevronDown size={20} className="text-gray-300" />
+                      }
+                    </button>
+  
+                    <div
+                      className={`flex flex-col gap-4 px-4 pb-5 transition-all duration-500 ${
+                        isOpen
+                          ? 'max-h-[1000px] opacity-100 visible'
+                          : 'max-h-0 opacity-0 invisible overflow-hidden'
+                      }`}
+                    >
+                      {platos.length === 0 ? (
+                        <p className="text-center text-gray-300 font-black text-[11px] uppercase tracking-widest py-4">
+                          Sin opciones para este día
+                        </p>
+                      ) : (
+                        platos.map((plato: any) => (
+                          <TarjetaPlato
+                            key={plato.id}
+                            plato={plato}
+                            categoriaKey={stateKey}
+                            isSelected={pedido[stateKey] === plato.id}
+                            isDeadlinePassed={bloquearUI}
+                            onSelect={seleccionarPlato}
+                          />
+                        ))
+                      )}
+                    </div>
+                  </section>
+                );
+              })
+            )}
+
+            {/* ── VISTA: OTROS (Canje y Premium - Próximamente) ── */}
+            {activeTab === 'OTRO' && (
+              <div className="flex flex-col gap-4">
+                <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm text-center">
+                  <h3 className="font-black text-[#1d2d50] text-lg mb-1 uppercase">Canje</h3>
+                  <p className="text-gray-500 text-xs mb-5">Elige entre distintos combos de snacks, bebestibles y productos pre-elaborados.</p>
+                  <div className="p-3 bg-gray-50 rounded-2xl border border-dashed border-gray-300 text-gray-400 text-[10px] font-black uppercase tracking-widest">
+                    (Próximamente)
+                  </div>
+                </div>
+                
+                <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm text-center">
+                  <h3 className="font-black text-[#1d2d50] text-lg mb-1 uppercase">Colación Premium</h3>
+                  <p className="text-gray-500 text-xs mb-5">Sándwich a elección + Bebida + Snack a elección.</p>
+                  <div className="p-3 bg-gray-50 rounded-2xl border border-dashed border-gray-300 text-gray-400 text-[10px] font-black uppercase tracking-widest">
+                    (Próximamente)
+                  </div>
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>
 
-      {/* ── GUARNICIONES ── */}
+      {/* ── GUARNICIONES (Se usa en PERSONALIZADO) ── */}
       {sheetFondo && (
-        <BottomSheet open={sheetOpen} title="Elige una opción" onClose={() => setSheetOpen(false)}>
+        <BottomSheet open={sheetOpen} title="Elige una guarnición" onClose={() => setSheetOpen(false)}>
           <div className="px-2 pb-2 mt-2 px-6 pb-6">
             <div className="flex flex-col gap-3">
               {(sheetFondo.guarniciones || []).map((g: any) => (
@@ -400,9 +544,9 @@ const HomePage: React.FC = () => {
         <div className="fixed bottom-0 left-0 w-full p-6 bg-white/90 backdrop-blur-xl shadow-[0_-10px_40px_rgba(0,0,0,0.05)]">
           <button 
             onClick={manejarEnvio} 
-            disabled={!estaCompleto || enviando} 
+            disabled={!puedeEnviar || enviando} 
             className={`w-full py-5 rounded-[24px] font-black text-lg transition-all flex items-center justify-center gap-3 ${
-              estaCompleto 
+              puedeEnviar 
                 ? 'bg-[#70a344] shadow-xl text-white' 
                 : 'bg-gray-200 text-gray-500'
             }`}
@@ -422,4 +566,4 @@ const LoadingScreen: React.FC<{message: string}> = ({message}) => (
   </div>
 );
 
-export default HomePage;
+export default HomePageTrabajador;

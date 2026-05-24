@@ -15,15 +15,22 @@ export interface Plato {
   categoria:   "ENTRADA" | "FONDO" | "POSTRE" | "BEBESTIBLE";
   tipo:        "NORMAL" | "VEGANO" | "VEGETARIANO" | "HIPOCALORICO" | "SIN_GLUTEN";
   guarniciones: Guarnicion[];
+  menuDetalleId?: number;
 }
 
 export interface MenuDia {
   entradas: Plato[];
   fondos:   Plato[];
   postres:  Plato[];
+  menuDia:  {
+    entrada: Plato;
+    fondo: Plato;
+    postre: Plato;
+    guarnicion: Guarnicion | null;
+  } | null;
 }
 
-const MENU_VACIO: MenuDia = { entradas: [], fondos: [], postres: [] };
+const MENU_VACIO: MenuDia = { entradas: [], fondos: [], postres: [], menuDia: null };
 
 // ─── HOOK ─────────────────────────────────────────────────────────────────────
 
@@ -44,8 +51,8 @@ export const useMenuAPI = (fecha?: string) => {
       setCargando(true);
       try {
         const url = fecha
-          ? `${API_BASE_URL}/api/menu-semanal?fecha=${fecha}`
-          : `${API_BASE_URL}/api/menu-semanal`;
+          ? `${API_BASE_URL}/api/trabajador/menu-semanal?fecha=${fecha}`
+          : `${API_BASE_URL}/api/trabajador/menu-semanal`;
 
         const respuesta = await fetch(url);
 

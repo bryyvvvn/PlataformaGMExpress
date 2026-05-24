@@ -5,7 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { UploadCloud, Loader2, CheckCircle } from "lucide-react";
+import { Download, UploadCloud, Loader2, CheckCircle } from "lucide-react";
+
+const PLANTILLA_MINUTA_URL = "/formato-minuta.xlsx";
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Ocurrió un error inesperado";
+}
 
 export function UploadMinuta() {
   const [file, setFile] = useState<File | null>(null);
@@ -46,38 +52,8 @@ export function UploadMinuta() {
       // Aquí opcionalmente podrías agregar un router.refresh() si quieres que la página 
       // se recargue para mostrar datos nuevos, pero de momento con el éxito basta.
       
-    } catch (error: any) {
-      setMensaje({ tipo: "error", texto: error.message });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDeleteWeek = async () => {
-    if (!file) return;
-
-    setLoading(true);
-    setMensaje(null);
-
-    const formData = new FormData();
-    formData.append("file", file);
-
-    try {
-      const response = await fetch("/api/admin/delete-week", {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Ocurrió un error al borrar la semana");
-      }
-
-      setMensaje({ tipo: "exito", texto: `Semana borrada: ${data.deleted || 0} registros eliminados` });
-      setFile(null);
-    } catch (error: any) {
-      setMensaje({ tipo: "error", texto: error.message });
+    } catch (error) {
+      setMensaje({ tipo: "error", texto: getErrorMessage(error) });
     } finally {
       setLoading(false);
     }
@@ -88,7 +64,7 @@ export function UploadMinuta() {
       <CardHeader>
         <CardTitle>Subir Minuta (Excel)</CardTitle>
         <CardDescription>
-          Asegúrate de que el archivo tenga la pestaña llamada "MINUTA" y respete el formato de filas.
+          Asegúrate de que el archivo tenga la pestaña llamada &quot;MINUTA&quot; y respete el formato de filas.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -111,31 +87,33 @@ export function UploadMinuta() {
           </div>
         )}
 
-        <Button 
-          onClick={handleUpload} 
-          disabled={!file || loading}
-          className="bg-primary text-primary-foreground hover:bg-primary/90"
-        >
-          {loading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Procesando...
-            </>
-          ) : (
-            <>
-              <UploadCloud className="mr-2 h-4 w-4" />
-              Cargar Minuta
-            </>
-          )}
-        </Button>
-        <Button 
-          onClick={handleDeleteWeek}
-          disabled={!file || loading}
-          variant="destructive"
-          className="ml-2"
-        >
-          Eliminar semana (desde Excel)
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            onClick={handleUpload}
+            disabled={!file || loading}
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Procesando...
+              </>
+            ) : (
+              <>
+                <UploadCloud className="mr-2 h-4 w-4" />
+                Cargar Minuta
+              </>
+            )}
+          </Button>
+          <a
+            href={PLANTILLA_MINUTA_URL}
+            download="formato-minuta.xlsx"
+            className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-border bg-background px-2.5 text-sm font-medium transition-all hover:bg-muted hover:text-foreground"
+          >
+            <Download className="h-4 w-4" />
+            Descargar Excel
+          </a>
+        </div>
       </CardContent>
     </Card>
   );

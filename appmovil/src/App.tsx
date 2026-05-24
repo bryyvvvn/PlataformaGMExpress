@@ -1,40 +1,73 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { SignedIn, SignedOut } from '@clerk/clerk-react';
-import HomePage from './pages/HomePage';
+import HomePageTrabajador from './pages/HomePageTrabajador';
+import HomePageRepresentante from './pages/HomePageRepresentante';
 import Login from './pages/Login';
-import { Historial } from './pages/Historial';
-import { THEME } from './constants/theme';
+import Historial from './pages/Historial'; 
+import Trabajadores from './pages/Trabajadores'; // 🔥 Nueva importación
+import { usePerfil } from './hooks/usePerfil';
+
+const SelectorDeHome = () => {
+  const { rol, empresaId, empresaNombre, cargandoRol } = usePerfil();
+
+  if (cargandoRol) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <div className="w-10 h-10 border-4 border-gray-100 border-t-[#70a344] rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  return rol === 'REPRESENTANTE' 
+    ? <HomePageRepresentante empresaId={empresaId} empresaNombre={empresaNombre} /> 
+    : <HomePageTrabajador />;
+};
 
 const App: React.FC = () => {
   return (
-    <div className="min-h-screen" style={{ backgroundColor: THEME.colors.background }}>
-      <BrowserRouter>
-        <Routes>
-          {/* Ruta Raíz: Decide qué mostrar según el estado de sesión */}
-          <Route path="/" element={
-            <>
-              <SignedIn>
-                <HomePage />
-              </SignedIn>
-              <SignedOut>
-                <Login />
-              </SignedOut>
-            </>
-          } />
+    <BrowserRouter>
+      <Routes>
+        {/* RUTA 1: El Home Principal (Redirige según el rol) */}
+        <Route path="/" element={
+          <>
+            <SignedIn>
+              <SelectorDeHome />
+            </SignedIn>
+            <SignedOut>
+              <Login />
+            </SignedOut>
+          </>
+        } />
 
-          {/* Ruta Historial: Protegida */}
-          <Route path="/historial" element={
+        {/* RUTA 2: Historial de Pedidos */}
+        <Route path="/historial" element={
+          <>
             <SignedIn>
               <Historial />
             </SignedIn>
-          } />
+            <SignedOut>
+              <Navigate to="/" replace />
+            </SignedOut>
+          </>
+        } />
 
-          {/* Redirección: Cualquier otra ruta vuelve al inicio */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </BrowserRouter>
-    </div>
+        {/* 🔥 RUTA 3: Panel de Trabajadores (Exclusivo Representante) */}
+        <Route path="/trabajadores" element={
+          <>
+            <SignedIn>
+              <Trabajadores />
+            </SignedIn>
+            <SignedOut>
+              <Navigate to="/" replace />
+            </SignedOut>
+          </>
+        } />
+
+        {/* El atrapa-errores (Si escriben cualquier otra ruta, vuelven al Home) */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </BrowserRouter>
   );
 };
 
