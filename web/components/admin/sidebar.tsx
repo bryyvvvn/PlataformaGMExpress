@@ -40,7 +40,7 @@ export function Sidebar() {
           Menú Principal
         </div>
         {navigation.map((item) => {
-          const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`)
+          const isActive = pathname === item.href
           return (
             <Link
               key={item.name}
