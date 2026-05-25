@@ -17,6 +17,8 @@ enum Rol {
 
 enum EstadoPedido {
   PENDIENTE
+  CONFIRMADO
+  EN_PRODUCCION
   ENTREGADO
   CANCELADO
 }

@@ -1,17 +1,33 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
 
 // Definimos qué rutas NO van a usar la autenticación de Clerk en la web
 const isPublicRoute = createRouteMatcher([
   '/', 
-  '/login(.*)',       // Nuestro login propio de Admin
-  '/dashboard(.*)',   // Nuestro panel propio de Admin
-  '/api/webhooks(.*)', // Importante para tu webhook de Clerk de la app móvi
+  '/auth/login(.*)',       // Nuestro login propio de Admin
+  '/api/webhooks(.*)',     // Importante para tu webhook de Clerk de la app móvi
   '/api/admin(.*)',
   '/api/pedidos(.*)',
-  '/api/menu-semanal(.*)'
+  '/api/menu-semanal(.*)',
+  '/api/platos(.*)',
+  '/dashboard(.*)' // Hacemos que dashboard sea público para Next.js, pero lo protegemos nosotros
 ])
 
 export default clerkMiddleware(async (auth, request) => {
+  // Si la ruta es /dashboard, verificar nuestra sesión propia
+  if (request.nextUrl.pathname.startsWith('/dashboard')) {
+    const adminSession = request.cookies.get('admin_session')
+    
+    if (!adminSession) {
+      // Redirigir al login si no hay sesión
+      return NextResponse.redirect(new URL('/auth/login', request.url))
+    }
+    
+    return NextResponse.next()
+  }
+
+  // Para otras rutas, usar el middleware de Clerk
   if (!isPublicRoute(request)) {
     await auth.protect()
   }
