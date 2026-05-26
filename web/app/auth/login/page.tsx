@@ -9,9 +9,10 @@ export default function LoginPage() {
   const [pass, setPass] = useState("")
   const router = useRouter()
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     // Lógica temporal para Maickol y Valeria
     if ((user === "maickol" || user === "valeria") && pass === "gm2026") {
+        document.cookie = "admin_session=true; path=/; max-age=86400" 
       router.push("/dashboard")
     } else {
       alert("Credenciales incorrectas")
@@ -33,6 +34,6 @@ export default function LoginPage() {
           </Button>
         </div>
       </div>
-    </div>
+    </div> 
   )
 }
