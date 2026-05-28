@@ -80,20 +80,22 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { usuarioId, entradaId, fondoId, postreId, guarnicionId, fecha } = body as {
+    
+    // 🔥 CAMBIO: Ahora recibimos 'entradasIds' (arreglo) en vez de 'entradaId'
+    const { usuarioId, entradasIds, fondoId, postreId, guarnicionId, fecha } = body as {
       usuarioId?: string;
-      entradaId?: number;
+      entradasIds?: number[];
       fondoId?: number;
       postreId?: number;
       guarnicionId?: number | null;
       fecha?: string | null;
     };
 
-    if (!usuarioId || !entradaId || !fondoId || !postreId) {
+    // Validación para asegurar que mandaron al menos una entrada
+    if (!usuarioId || !entradasIds || entradasIds.length === 0 || !fondoId || !postreId) {
       return NextResponse.json({ error: 'Faltan datos obligatorios' }, { status: 400 });
     }
 
-    // Obtener usuario y su empresaId
     const usuario = await db.usuario.findUnique({
       where: { id: usuarioId },
       select: { id: true, empresaId: true },
@@ -117,15 +119,26 @@ export async function POST(request: Request) {
       },
     });
 
+    // 🔥 ARMAMOS EL ARREGLO DE DETALLES DINÁMICAMENTE
+    const detallesData = [
+      // Mapeamos todas las entradas seleccionadas
+      ...entradasIds.map((id: number) => ({ platoId: id })),
+      // Agregamos el fondo y el postre
+      { platoId: fondoId, guarnicionId: guarnicionId ?? null },
+      { platoId: postreId }
+    ];
+
     if (pedidoExistente) {
       await db.$transaction(async (tx) => {
+        // Borramos los detalles antiguos[cite: 6]
         await tx.detallePedido.deleteMany({ where: { pedidoId: pedidoExistente.id } });
+        
+        // Creamos los nuevos detalles mapeando el id del pedido
         await tx.detallePedido.createMany({
-          data: [
-            { pedidoId: pedidoExistente.id, platoId: entradaId },
-            { pedidoId: pedidoExistente.id, platoId: fondoId, guarnicionId: guarnicionId ?? null },
-            { pedidoId: pedidoExistente.id, platoId: postreId },
-          ],
+          data: detallesData.map(detalle => ({
+            pedidoId: pedidoExistente.id,
+            ...detalle
+          })),
         });
       });
 
@@ -139,11 +152,8 @@ export async function POST(request: Request) {
         empresaId: usuario.empresaId,
         estado: 'PENDIENTE',
         detalles: {
-          create: [
-            { platoId: entradaId },
-            { platoId: fondoId, guarnicionId: guarnicionId ?? null },
-            { platoId: postreId },
-          ],
+          // Prisma usa 'create' con un arreglo directamente
+          create: detallesData,
         },
       },
       select: { id: true },

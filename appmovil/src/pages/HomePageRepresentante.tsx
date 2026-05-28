@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Menu, Send, Users, ChevronLeft, ChevronRight, CheckCircle2 } from 'lucide-react';
+import { Menu, Send, ChevronLeft, ChevronRight, CheckCircle2 } from 'lucide-react';
 import { THEME } from '../constants/theme';
 import { Sidebar } from '../components/Sidebar';
 import { TarjetaTrabajador } from '../components/TarjetaTrabajador';
@@ -17,7 +17,7 @@ const HomePageRepresentante: React.FC<HomePageRepresentanteProps> = ({ empresaId
   const [enviandoTodo, setEnviandoTodo] = useState(false);
   
   const { setSemanaOffset, getSemanaTexto, fechaSeleccionadaISO, fechaTexto } = useCalendario();
-  const { resumenEmpresa, trabajadores, cargando } = useTrabajadores(empresaId, fechaSeleccionadaISO);
+  const { trabajadores, cargando } = useTrabajadores(empresaId, fechaSeleccionadaISO);
 
   const manejarEnviarTodo = async () => {
     if (trabajadores.length === 0) return;
@@ -88,24 +88,6 @@ const HomePageRepresentante: React.FC<HomePageRepresentanteProps> = ({ empresaId
         <p className="text-[10px] opacity-70 mt-1 uppercase font-bold tracking-widest">{fechaTexto}</p>
       </div>
 
-      {/* MÉTRICA: SOLO EQUIPO */}
-      {resumenEmpresa && !cargando && (
-        <div 
-          className="mx-6 -mt-8 p-5 rounded-3xl shadow-2xl bg-white border-b-4 transition-all flex items-center gap-4"
-          style={{ borderBottomColor: THEME.colors.primary }}
-        >
-          <div className="p-3 rounded-2xl bg-blue-50 text-blue-500">
-            <Users size={24} />
-          </div>
-          <div>
-            <p className="text-[10px] text-gray-400 font-black uppercase mb-0.5 tracking-widest">Total del Equipo</p>
-            <p className="text-2xl font-black tracking-tight text-[#1B2C56]">
-              {resumenEmpresa.totalTrabajadores} {resumenEmpresa.totalTrabajadores === 1 ? 'Trabajador' : 'Trabajadores'}
-            </p>
-          </div>
-        </div>
-      )}
-
       {/* PLANILLA RESUMEN */}
       <div className="mt-8 px-6">
         <h3 className="font-black text-sm text-[#1d2d50] uppercase tracking-wider pl-1 mb-4">Planilla Resumen</h3>
@@ -123,6 +105,7 @@ const HomePageRepresentante: React.FC<HomePageRepresentanteProps> = ({ empresaId
           </button>
         </div>
 
+        {/* 🔥 LÓGICA CORREGIDA: Primero verificamos si está cargando */}
         {cargando ? (
           <div className="space-y-3">
             {[1, 2, 3].map(i => (
@@ -130,10 +113,12 @@ const HomePageRepresentante: React.FC<HomePageRepresentanteProps> = ({ empresaId
             ))}
           </div>
         ) : trabajadores.length === 0 ? (
+          /* Solo si ya terminó de cargar y está vacío, mostramos el mensaje */
           <div className="bg-white rounded-[24px] p-8 text-center border border-gray-100 shadow-sm text-gray-400 text-sm font-medium">
-            Ningún trabajador ha registrado pedidos para {getSemanaTexto().toLowerCase()} aún.
+            Aún no hay trabajadores registrados en tu empresa.
           </div>
         ) : (
+          /* Si ya cargó y hay trabajadores, mostramos la lista */
           <div className="space-y-3">
             {trabajadores.map((trabajador) => (
               <TarjetaTrabajador key={trabajador.id} trabajador={trabajador} />
