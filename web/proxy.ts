@@ -6,6 +6,7 @@ import type { NextRequest } from 'next/server'
 const isPublicRoute = createRouteMatcher([
   '/', 
   '/login(.*)',        // Nuestro login propio de Admin
+  '/auth(.*)',         // Rutas de autenticación (p.ej. /auth/login) — no deben forzar Clerk
   '/dashboard(.*)',    // Nuestro panel propio de Admin
   '/api/webhooks(.*)', // Importante para tu webhook de Clerk de la app móvil
   '/api/admin(.*)',

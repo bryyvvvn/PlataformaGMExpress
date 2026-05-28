@@ -6,13 +6,25 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // --- ENUMS ---
 
 enum Rol {
+  ADMIN
   REPRESENTANTE
   TRABAJADOR
+}
+
+enum EstadoEmpresa {
+  ACTIVA
+  INACTIVA
+}
+
+enum TipoContactoEmpresa {
+  TITULAR
+  SUPLENTE
 }
 
 enum EstadoPedido {
@@ -42,10 +54,80 @@ enum VarianteMenu {
 
 model Empresa {
   id              Int       @id @default(autoincrement())
+
   nombre          String    @unique @db.VarChar(100)
+  razonSocial     String?   @db.VarChar(150)
+  rut             String?   @db.VarChar(20)
+  nombreComercial String?   @db.VarChar(100)
+
   correo_contacto String?   @db.VarChar(100)
+  telefono        String?   @db.VarChar(30)
+
+  direccion       String?   @db.VarChar(150)
+  comuna          String?   @db.VarChar(80)
+  region          String?   @db.VarChar(80)
+  sector          String?   @db.VarChar(80)
+
+  nombreFaena     String?   @db.VarChar(100)
+  direccionFaena  String?   @db.VarChar(150)
+
+  representanteLegal    String? @db.VarChar(150)
+  rutRepresentanteLegal String? @db.VarChar(20)
+
+  estado          EstadoEmpresa @default(ACTIVA)
+
   usuarios        Usuario[]
   pedidos         Pedido[]
+  contactos       ContactoEmpresa[]
+  convenio        ConvenioEmpresa?
+
+  creado_en       DateTime  @default(now())
+  actualizado_en  DateTime  @default(now()) @updatedAt
+
+  @@index([rut])
+  @@index([estado])
+}
+
+model ContactoEmpresa {
+  id                 Int      @id @default(autoincrement())
+
+  empresaId          Int
+  empresa            Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+
+  tipo               TipoContactoEmpresa
+
+  nombresApellidos   String?  @db.VarChar(150)
+  rut                String?  @db.VarChar(20)
+  rolCargo           String?  @db.VarChar(100)
+  telefono           String?  @db.VarChar(30)
+  email              String?  @db.VarChar(100)
+  fechaNacimiento    DateTime?
+
+  activo             Boolean  @default(true)
+
+  creado_en          DateTime @default(now())
+  actualizado_en     DateTime @updatedAt
+
+  @@index([empresaId])
+  @@index([tipo])
+}
+
+model ConvenioEmpresa {
+  id                       Int      @id @default(autoincrement())
+
+  empresaId                Int      @unique
+  empresa                  Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+
+  permitePlato             Boolean  @default(true)
+  permiteEntrada           Boolean  @default(true)
+  permitePostre            Boolean  @default(true)
+  permitePan               Boolean  @default(true)
+  permiteJugo              Boolean  @default(true)
+  permiteBebida            Boolean  @default(false)
+  permiteAguaSaborizada    Boolean  @default(false)
+
+  creado_en                DateTime @default(now())
+  actualizado_en           DateTime @updatedAt
 }
 
 model Usuario {
@@ -55,6 +137,8 @@ model Usuario {
   empresaId Int?
   empresa   Empresa? @relation(fields: [empresaId], references: [id])
   pedidos   Pedido[]
+
+  @@index([empresaId, rol])
 }
 
 // 🔥 NUEVA TABLA DE GUARNICIONES
@@ -144,6 +228,8 @@ model Pedido {
   empresa   Empresa      @relation(fields: [empresaId], references: [id])
   usuario   Usuario      @relation(fields: [usuarioId], references: [id])
   detalles  DetallePedido[]
+
+  @@index([empresaId, fecha])
 }
 
 model DetallePedido {
