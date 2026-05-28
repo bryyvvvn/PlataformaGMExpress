@@ -4,6 +4,7 @@ import { THEME, DEADLINE_HOUR } from '../constants/theme';
 import { useUser } from '@clerk/clerk-react';
 import { TarjetaPlato } from '../components/TarjetaPlato';
 import { BottomSheet } from '../components/BottomSheet';
+import LoadingView from '../components/LoadingView';
 import { useCountdown } from '../hooks/useCountdown';
 import { useMenuAPI } from '../hooks/useMenuAPI';
 import { usePedidos } from '../hooks/usePedidos';
@@ -188,7 +189,7 @@ const HomePageTrabajador: React.FC = () => {
     }
   };
  
-  if (eliminando) return <LoadingScreen message="Eliminando pedido..." />;
+  if (eliminando) return <LoadingView message="Eliminando pedido..." />;
  
   return (
     <div className="min-h-screen pb-40" style={{ backgroundColor: THEME.colors.background }} onClick={() => setSeccionAbierta(null)}>
@@ -241,13 +242,23 @@ const HomePageTrabajador: React.FC = () => {
  
       <div className="mt-8 px-6 space-y-4">
         {(cargandoVerificacion || cargandoMenu) ? (
-          <div className="flex flex-col gap-4 mt-2">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm animate-pulse flex items-center justify-between">
-                <div className="h-6 bg-gray-200 rounded-full w-1/3"></div>
-                <div className="h-6 w-6 bg-gray-200 rounded-full"></div>
+          <div className="space-y-4 max-w-md mx-auto mt-2">
+            <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm">
+              <div className="h-5 bg-gray-200 rounded-full w-1/3 mb-6 animate-pulse" />
+              <div className="space-y-4">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="flex items-center gap-4 bg-gray-50 rounded-[2rem] p-4 animate-pulse">
+                    <div className="w-12 h-12 rounded-2xl bg-gray-200" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 bg-gray-200 rounded w-3/4" />
+                      <div className="h-3 bg-gray-200 rounded w-1/3" />
+                    </div>
+                    <div className="w-10 h-10 rounded-xl bg-gray-200" />
+                  </div>
+                ))}
               </div>
-            ))}
+              <div className="mt-6 h-12 bg-gray-200 rounded-2xl animate-pulse" />
+            </div>
           </div>
         ) : 
          pedidoExistente && !modoEdicion ? (
@@ -467,12 +478,5 @@ const HomePageTrabajador: React.FC = () => {
     </div>
   );
 };
-
-const LoadingScreen: React.FC<{message: string}> = ({message}) => (
-  <div className="min-h-screen flex flex-col items-center justify-center bg-white">
-    <div className="w-10 h-10 border-4 border-gray-100 border-t-[#70a344] rounded-full animate-spin mb-4" />
-    <p className="text-gray-400 font-black text-[10px] uppercase tracking-widest text-center">{message}</p>
-  </div>
-);
 
 export default HomePageTrabajador;

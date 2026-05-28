@@ -17,7 +17,7 @@ const HomePageRepresentante: React.FC<HomePageRepresentanteProps> = ({ empresaId
   const [enviandoTodo, setEnviandoTodo] = useState(false);
   
   const { setSemanaOffset, getSemanaTexto, fechaSeleccionadaISO, fechaTexto } = useCalendario();
-  const { trabajadores, cargando } = useTrabajadores(empresaId, fechaSeleccionadaISO);
+  const { trabajadores, cargando, resumenEmpresa } = useTrabajadores(empresaId, fechaSeleccionadaISO);
 
   const manejarEnviarTodo = async () => {
     if (trabajadores.length === 0) return;
@@ -108,9 +108,20 @@ const HomePageRepresentante: React.FC<HomePageRepresentanteProps> = ({ empresaId
         {/* 🔥 LÓGICA CORREGIDA: Primero verificamos si está cargando */}
         {cargando ? (
           <div className="space-y-3">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="bg-white rounded-[24px] p-5 border border-gray-100 shadow-sm animate-pulse h-16" />
-            ))}
+            {(() => {
+              const maxPlaceholders = 8;
+              const count = Math.min(resumenEmpresa?.totalTrabajadores ?? 3, maxPlaceholders);
+              return Array.from({ length: Math.max(1, count) }).map((_, i) => (
+                <div key={i} className="bg-white rounded-[24px] p-4 border border-gray-100 shadow-sm flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-gray-200 animate-pulse" />
+                  <div className="flex-1">
+                    <div className="h-4 bg-gray-200 rounded w-3/4 mb-2 animate-pulse" />
+                    <div className="h-3 bg-gray-200 rounded w-1/3 animate-pulse" />
+                  </div>
+                  <div className="w-10 h-10 bg-gray-200 rounded-xl animate-pulse" />
+                </div>
+              ));
+            })()}
           </div>
         ) : trabajadores.length === 0 ? (
           /* Solo si ya terminó de cargar y está vacío, mostramos el mensaje */
