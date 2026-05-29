@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { useCallback, useEffect, useState } from "react"
 import { Building2, MoreHorizontal, Plus } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
@@ -80,6 +81,8 @@ const OPCIONES_CONVENIO: Array<{ campo: keyof ConvenioForm; label: string }> = [
 ]
 
 export default function EmpresasView() {
+  const router = useRouter()
+
   const [empresas, setEmpresas] = useState<EmpresaCliente[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -363,9 +366,27 @@ export default function EmpresasView() {
                               <MoreHorizontal className="h-4 w-4" />
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem>Ver detalles</DropdownMenuItem>
-                              <DropdownMenuItem>Editar empresa</DropdownMenuItem>
-                              <DropdownMenuItem>Ver trabajadores</DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => router.push(`/dashboard/empresas/${empresa.id}`)}
+                              >
+                                Ver detalles
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  router.push(`/dashboard/empresas/${empresa.id}/editar`)
+                                }
+                              >
+                                Editar empresa
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  router.push(
+                                    `/dashboard/empresas/${empresa.id}/trabajadores`
+                                  )
+                                }
+                              >
+                                Ver trabajadores
+                              </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem
                                 className={
