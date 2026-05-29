@@ -8,6 +8,7 @@ export interface DiaSemana {
   iso:          string;   // 'YYYY-MM-DD' — se pasa a useMenuAPI y a la API
   esHoy:        boolean;  // Si este día es el día real de hoy
   esSeleccionado: boolean; // Si el usuario tiene este día activo
+  bloqueado:    boolean;  // Si el día/semana está bloqueado para pedidos (semanas pasadas)
 }
 
 // ─── HELPER ──────────────────────────────────────────────────────────────────
@@ -67,6 +68,8 @@ export const useCalendario = () => {
         iso,
         esHoy:          fechaDia.getTime() === hoySoloFecha.getTime(),
         esSeleccionado: index === diaSeleccionadoIdx,
+        // Bloqueado si la semana es anterior a la semana actual
+        bloqueado:       semanaOffset < 0,
       };
     });
 

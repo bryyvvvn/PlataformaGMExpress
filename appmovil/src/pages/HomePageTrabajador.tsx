@@ -39,13 +39,13 @@ const HomePageTrabajador: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [seccionAbierta, setSeccionAbierta] = useState<Categoria>(null);
   const [modoEdicion, setModoEdicion] = useState(false);
-  const [eliminando, setEliminando] = useState(false);
+  
  
   useEffect(() => { window.scrollTo(0, 0); }, []);
 
   const { timeRemaining } = useCountdown(DEADLINE_HOUR);
   const { menuHoy, cargando: cargandoMenu } = useMenuAPI(fechaSeleccionadaISO);
-  const { pedidoExistente, cargandoVerificacion, enviarPedido, enviando, refrescarVerificacion } = usePedidos(user?.id, fechaSeleccionadaISO);
+  const { pedidoExistente, cargandoVerificacion, enviarPedido, enviando, refrescarVerificacion, eliminarPedido, eliminando } = usePedidos(user?.id, fechaSeleccionadaISO);
   const { historial, cargarHistorial } = useHistorial(user?.id);
 
   useEffect(() => { if (user?.id) cargarHistorial(); }, [user?.id, cargarHistorial]);
@@ -54,7 +54,10 @@ const HomePageTrabajador: React.FC = () => {
  
   const isSelectedDateToday = diasSemanaArray[diaSeleccionadoIdx]?.esHoy ?? false;
   const isDeadlinePassed = false; 
-  const bloquearUI = isSelectedDateToday && isDeadlinePassed;
+  const fechaBloqueada = diasSemanaArray[diaSeleccionadoIdx]?.bloqueado ?? false;
+  const fechaSeleccionadaTienePedido = fechasBloqueadas.has(fechaSeleccionadaISO);
+  // Bloquear UI solo si es hoy con deadline pasado, o si la fecha seleccionada es de semana pasada y NO tiene pedido
+  const bloquearUI = (isSelectedDateToday && isDeadlinePassed) || (fechaBloqueada && !fechaSeleccionadaTienePedido);
 
   const fondoObj = (menuHoy.fondos || []).find((p: any) => p.id === pedido.fondoId);
   const fondoNeedsGuarnicion = Boolean(fondoObj && (fondoObj.guarniciones || []).length > 0);
@@ -117,32 +120,19 @@ const HomePageTrabajador: React.FC = () => {
     if (activeTab === 'PERSONALIZADO' || activeTab === 'MENU_DIA') {
       const exito = await enviarPedido(pedido);
       if (exito) { setSeccionAbierta(null); setModoEdicion(false); cargarHistorial(); }
-      // Después de enviar el pedido, solicitamos confirmar los pedidos pendientes del trabajador
-      if (exito && user?.id) {
-        try {
-          await fetch(`${API_BASE_URL}/api/representante/enviar-planilla`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ usuarioId: user.id, fecha: fechaSeleccionadaISO })
-          });
-        } catch (e) {
-          console.error('[HomePageTrabajador] Error confirmando pedidos:', e);
-        }
-      }
+
     } else { alert("La lógica para este tipo de menú se implementará próximamente."); }
   };
 
   const manejarEliminar = async () => {
     if (!window.confirm('¿Estás seguro de que deseas eliminar este pedido?')) return;
-    setEliminando(true);
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/trabajador/pedidos?usuarioId=${user?.id}&fecha=${fechaSeleccionadaISO}`, { method: 'DELETE' });
-      if (res.ok) {
-        setModoEdicion(false);
-        setPedido({ entradasIds: [], fondoId: null, postreId: null, guarnicionId: null });
-        await Promise.all([cargarHistorial(), refrescarVerificacion()]); 
-      }
-    } catch (e) { console.error(e); } finally { setEliminando(false); }
+    const exito = await eliminarPedido(fechaSeleccionadaISO);
+    if (exito) {
+      setModoEdicion(false);
+      setPedido({ entradasIds: [], fondoId: null, postreId: null, guarnicionId: null });
+      try { await cargarHistorial(); } catch (e) { }
+      try { await refrescarVerificacion(); } catch (e) { }
+    }
   };
  
   const seleccionarPlato = (categoria: 'fondoId' | 'postreId', id: number) => {
@@ -228,12 +218,12 @@ const HomePageTrabajador: React.FC = () => {
             return (
               <button
                 key={index}
-                onClick={() => setDiaSeleccionadoIdx(index)}
-                className={['flex flex-col items-center justify-center w-[17%] aspect-square rounded-[20px] transition-all', dia.esSeleccionado ? 'border-2 scale-110 shadow-md' : 'border shadow-sm', tienePedido ? 'bg-green-50 border-green-200' : 'bg-white border-gray-200'].join(' ')}
+                onClick={() => { if (!(dia.bloqueado && !tienePedido)) setDiaSeleccionadoIdx(index); }}
+                className={['flex flex-col items-center justify-center w-[17%] aspect-square rounded-[20px] transition-all', dia.esSeleccionado ? 'border-2 scale-110 shadow-md' : 'border shadow-sm', tienePedido ? 'bg-green-50 border-green-200' : (dia.bloqueado ? 'bg-gray-100 border-gray-200 text-gray-300' : 'bg-white border-gray-200'), (dia.bloqueado && !tienePedido) ? 'cursor-not-allowed' : 'cursor-pointer'].join(' ')}
                 style={dia.esSeleccionado ? { borderColor: THEME.colors.primary } : {}}
               >
                 <span className={`text-[10px] font-black mb-1 uppercase ${tienePedido ? 'text-[#70a344]' : 'text-gray-400'}`}>{dia.letra}</span>
-                <span className="text-lg font-black" style={{ color: tienePedido || dia.esSeleccionado ? THEME.colors.primary : '#1d2d50' }}>{dia.numero}</span>
+                <span className="text-lg font-black" style={{ color: tienePedido || dia.esSeleccionado ? THEME.colors.primary : (dia.bloqueado ? '#a0a0a0' : '#1d2d50') }}>{dia.numero}</span>
               </button>
             );
           })}
@@ -299,10 +289,10 @@ const HomePageTrabajador: React.FC = () => {
                 setPedido({entradasIds: entradas, fondoId: f?.platoId ?? null, postreId: p?.platoId ?? null, guarnicionId: f?.guarnicionId ?? null});
                 setModoEdicion(true); setActiveTab('PERSONALIZADO'); setSeccionAbierta('ENTRADA');
               }}
-              disabled={isDeadlinePassed}
-              className={`w-full py-4 rounded-xl font-black text-center transition-all relative z-10 text-white ${isDeadlinePassed ? 'bg-gray-100 text-gray-400' : 'bg-[#70a344] shadow-md active:scale-95'}`}
+              disabled={isDeadlinePassed || fechaBloqueada}
+              className={`w-full py-4 rounded-xl font-black text-center transition-all relative z-10 text-white ${(isDeadlinePassed || fechaBloqueada) ? 'bg-gray-100 text-gray-400' : 'bg-[#70a344] shadow-md active:scale-95'}`}
             >
-              {isDeadlinePassed ? 'Modificación cerrada' : 'Modificar pedido'}
+              {(isDeadlinePassed || fechaBloqueada) ? 'Modificación cerrada' : 'Modificar pedido'}
             </button>
           </div>
         ) : (
