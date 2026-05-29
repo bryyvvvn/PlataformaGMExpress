@@ -9,30 +9,189 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-// --- ENUMS ---
+model Empresa {
+  id                    Int               @id @default(autoincrement())
+  nombre                String            @unique @db.VarChar(100)
+  correo_contacto       String?           @db.VarChar(100)
+  razonSocial           String?           @db.VarChar(150)
+  rut                   String?           @db.VarChar(20)
+  nombreComercial       String?           @db.VarChar(100)
+  telefono              String?           @db.VarChar(30)
+  direccion             String?           @db.VarChar(150)
+  comuna                String?           @db.VarChar(80)
+  region                String?           @db.VarChar(80)
+  sector                String?           @db.VarChar(80)
+  nombreFaena           String?           @db.VarChar(100)
+  direccionFaena        String?           @db.VarChar(150)
+  representanteLegal    String?           @db.VarChar(150)
+  rutRepresentanteLegal String?           @db.VarChar(20)
+  estado                EstadoEmpresa     @default(ACTIVA)
+  creado_en             DateTime          @default(now())
+  actualizado_en        DateTime          @default(now())
+  ContactoEmpresa       ContactoEmpresa[]
+  ConvenioEmpresa       ConvenioEmpresa?
+  pedidos               Pedido[]
+  usuarios              Usuario[]
+
+  @@index([estado])
+  @@index([rut])
+}
+
+model Usuario {
+  id        String   @id
+  nombre    String   @db.VarChar(100)
+  rol       Rol      @default(TRABAJADOR)
+  empresaId Int?
+  correo    String?  @db.VarChar(100)
+  pedidos   Pedido[]
+  empresa   Empresa? @relation(fields: [empresaId], references: [id])
+
+  @@index([empresaId, rol])
+}
+
+model Guarnicion {
+  id                 Int                @id @default(autoincrement())
+  nombre             String             @unique @db.VarChar(100)
+  detallesPedido     DetallePedido[]
+  menuDiaSelecciones MenuDiaSeleccion[]
+  menuDetalles       MenuDetalle[]      @relation("GuarnicionToMenuDetalle")
+}
+
+model Plato {
+  id             Int             @id @default(autoincrement())
+  nombre         String          @unique @db.VarChar(100)
+  url_imagen     String?
+  categoria      CategoriaPlato  @default(FONDO)
+  tipo           VarianteMenu    @default(NORMAL)
+  detallesPedido DetallePedido[]
+  menuDetalles   MenuDetalle[]
+}
+
+model MenuSemanal {
+  id                 Int                @id @default(autoincrement())
+  fecha_inicio       DateTime
+  fecha_fin          DateTime
+  creado_en          DateTime           @default(now())
+  detalles           MenuDetalle[]
+  menuDiaSelecciones MenuDiaSeleccion[]
+}
+
+model MenuDetalle {
+  id                 Int                @id @default(autoincrement())
+  dia_semana         String
+  menuSemanalId      Int
+  platoId            Int
+  fecha_dia          DateTime?
+  menuSemanal        MenuSemanal        @relation(fields: [menuSemanalId], references: [id], onDelete: Cascade)
+  plato              Plato              @relation(fields: [platoId], references: [id])
+  seleccionesEntrada MenuDiaSeleccion[] @relation("MenuDiaEntrada")
+  seleccionesFondo   MenuDiaSeleccion[] @relation("MenuDiaFondo")
+  seleccionesPostre  MenuDiaSeleccion[] @relation("MenuDiaPostre")
+  guarniciones       Guarnicion[]       @relation("GuarnicionToMenuDetalle")
+
+  @@index([menuSemanalId, fecha_dia])
+}
+
+model MenuDiaSeleccion {
+  id               Int         @id @default(autoincrement())
+  fecha_dia        DateTime
+  creado_en        DateTime    @default(now())
+  actualizado_en   DateTime    @updatedAt
+  menuSemanalId    Int
+  entradaDetalleId Int
+  fondoDetalleId   Int
+  postreDetalleId  Int
+  guarnicionId     Int?
+  entradaDetalle   MenuDetalle @relation("MenuDiaEntrada", fields: [entradaDetalleId], references: [id])
+  fondoDetalle     MenuDetalle @relation("MenuDiaFondo", fields: [fondoDetalleId], references: [id])
+  guarnicion       Guarnicion? @relation(fields: [guarnicionId], references: [id])
+  menuSemanal      MenuSemanal @relation(fields: [menuSemanalId], references: [id], onDelete: Cascade)
+  postreDetalle    MenuDetalle @relation("MenuDiaPostre", fields: [postreDetalleId], references: [id])
+
+  @@unique([menuSemanalId, fecha_dia])
+  @@index([entradaDetalleId])
+  @@index([fondoDetalleId])
+  @@index([postreDetalleId])
+  @@index([guarnicionId])
+}
+
+model Pedido {
+  id        Int             @id @default(autoincrement())
+  fecha     DateTime        @default(now())
+  estado    EstadoPedido    @default(PENDIENTE)
+  empresaId Int
+  usuarioId String
+  detalles  DetallePedido[]
+  empresa   Empresa         @relation(fields: [empresaId], references: [id])
+  usuario   Usuario         @relation(fields: [usuarioId], references: [id])
+
+  @@index([empresaId, fecha])
+}
+
+model DetallePedido {
+  id           Int         @id @default(autoincrement())
+  pedidoId     Int
+  platoId      Int
+  cantidad     Int         @default(1)
+  guarnicionId Int?
+  guarnicion   Guarnicion? @relation(fields: [guarnicionId], references: [id])
+  pedido       Pedido      @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  plato        Plato       @relation(fields: [platoId], references: [id])
+}
+
+model ConfiguracionSistema {
+  id               Int      @id @default(1)
+  horaLimite       String   @default("17:00") @db.VarChar(5)
+  diasAnticipacion Int      @default(2)
+  actualizadoEn    DateTime @default(now())
+}
+
+model ContactoEmpresa {
+  id               Int                 @id @default(autoincrement())
+  empresaId        Int
+  tipo             TipoContactoEmpresa
+  nombresApellidos String?             @db.VarChar(150)
+  rut              String?             @db.VarChar(20)
+  rolCargo         String?             @db.VarChar(100)
+  telefono         String?             @db.VarChar(30)
+  email            String?             @db.VarChar(100)
+  fechaNacimiento  DateTime?
+  activo           Boolean             @default(true)
+  creado_en        DateTime            @default(now())
+  actualizado_en   DateTime            @default(now())
+  Empresa          Empresa             @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+
+  @@index([empresaId])
+  @@index([tipo])
+}
+
+model ConvenioEmpresa {
+  id                    Int      @id @default(autoincrement())
+  empresaId             Int      @unique
+  permitePlato          Boolean  @default(true)
+  permiteEntrada        Boolean  @default(true)
+  permitePostre         Boolean  @default(true)
+  permitePan            Boolean  @default(true)
+  permiteJugo           Boolean  @default(true)
+  permiteBebida         Boolean  @default(false)
+  permiteAguaSaborizada Boolean  @default(false)
+  creado_en             DateTime @default(now())
+  actualizado_en        DateTime @default(now())
+  Empresa               Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+}
 
 enum Rol {
-  ADMIN
   REPRESENTANTE
   TRABAJADOR
-}
-
-enum EstadoEmpresa {
-  ACTIVA
-  INACTIVA
-}
-
-enum TipoContactoEmpresa {
-  TITULAR
-  SUPLENTE
+  ADMIN
 }
 
 enum EstadoPedido {
-  PENDIENTE     
-  CONFIRMADO      
-  EN_PRODUCCION 
-  ENTREGADO      
-  CANCELADO      
+  PENDIENTE
+  ENTREGADO
+  CANCELADO
+  CONFIRMADO
+  EN_PRODUCCION
 }
 
 enum CategoriaPlato {
@@ -45,204 +204,17 @@ enum CategoriaPlato {
 enum VarianteMenu {
   NORMAL
   VEGANO
-  VEGETARIANO
   HIPOCALORICO
   SIN_GLUTEN
+  VEGETARIANO
 }
 
-// --- TABLAS ---
-
-model Empresa {
-  id              Int       @id @default(autoincrement())
-
-  nombre          String    @unique @db.VarChar(100)
-  razonSocial     String?   @db.VarChar(150)
-  rut             String?   @db.VarChar(20)
-  nombreComercial String?   @db.VarChar(100)
-
-  correo_contacto String?   @db.VarChar(100)
-  telefono        String?   @db.VarChar(30)
-
-  direccion       String?   @db.VarChar(150)
-  comuna          String?   @db.VarChar(80)
-  region          String?   @db.VarChar(80)
-  sector          String?   @db.VarChar(80)
-
-  nombreFaena     String?   @db.VarChar(100)
-  direccionFaena  String?   @db.VarChar(150)
-
-  representanteLegal    String? @db.VarChar(150)
-  rutRepresentanteLegal String? @db.VarChar(20)
-
-  estado          EstadoEmpresa @default(ACTIVA)
-
-  usuarios        Usuario[]
-  pedidos         Pedido[]
-  contactos       ContactoEmpresa[]
-  convenio        ConvenioEmpresa?
-
-  creado_en       DateTime  @default(now())
-  actualizado_en  DateTime  @default(now()) @updatedAt
-
-  @@index([rut])
-  @@index([estado])
+enum EstadoEmpresa {
+  ACTIVA
+  INACTIVA
 }
 
-model ContactoEmpresa {
-  id                 Int      @id @default(autoincrement())
-
-  empresaId          Int
-  empresa            Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
-
-  tipo               TipoContactoEmpresa
-
-  nombresApellidos   String?  @db.VarChar(150)
-  rut                String?  @db.VarChar(20)
-  rolCargo           String?  @db.VarChar(100)
-  telefono           String?  @db.VarChar(30)
-  email              String?  @db.VarChar(100)
-  fechaNacimiento    DateTime?
-
-  activo             Boolean  @default(true)
-
-  creado_en          DateTime @default(now())
-  actualizado_en     DateTime @updatedAt
-
-  @@index([empresaId])
-  @@index([tipo])
-}
-
-model ConvenioEmpresa {
-  id                       Int      @id @default(autoincrement())
-
-  empresaId                Int      @unique
-  empresa                  Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
-
-  permitePlato             Boolean  @default(true)
-  permiteEntrada           Boolean  @default(true)
-  permitePostre            Boolean  @default(true)
-  permitePan               Boolean  @default(true)
-  permiteJugo              Boolean  @default(true)
-  permiteBebida            Boolean  @default(false)
-  permiteAguaSaborizada    Boolean  @default(false)
-
-  creado_en                DateTime @default(now())
-  actualizado_en           DateTime @updatedAt
-}
-
-model Usuario {
-  id        String   @id 
-  nombre    String   @db.VarChar(100)
-  rol       Rol      @default(TRABAJADOR)
-  empresaId Int?
-  empresa   Empresa? @relation(fields: [empresaId], references: [id])
-  pedidos   Pedido[]
-
-  @@index([empresaId, rol])
-}
-
-// 🔥 NUEVA TABLA DE GUARNICIONES
-model Guarnicion {
-  id             Int             @id @default(autoincrement())
-  nombre         String          @unique @db.VarChar(100)
-  
-  detallesPedido DetallePedido[] 
-  menuDetalles   MenuDetalle[]   // Relación Muchos a Muchos implícita con el menú del día
-  menuDiaSelecciones MenuDiaSeleccion[]
-}
-
-model Plato {
-  id           Int            @id @default(autoincrement())
-  nombre       String         @unique @db.VarChar(100)
-  url_imagen   String?        @db.Text
-  categoria    CategoriaPlato @default(FONDO)  
-  tipo         VarianteMenu   @default(NORMAL)
-  
-  menuDetalles   MenuDetalle[]
-  detallesPedido DetallePedido[]
-}
-
-model MenuSemanal {
-  id           Int           @id @default(autoincrement())
-  fecha_inicio DateTime
-  fecha_fin    DateTime
-  creado_en    DateTime      @default(now())
-  detalles     MenuDetalle[]
-  menuDiaSelecciones MenuDiaSeleccion[]
-}
-
-model MenuDetalle {
-  id                       Int       @id @default(autoincrement())
-  dia_semana               String
-  fecha_dia                DateTime?
-  
-  menuSemanalId Int
-  platoId       Int
-  
-  menuSemanal   MenuSemanal  @relation(fields: [menuSemanalId], references: [id], onDelete: Cascade)
-  plato         Plato        @relation(fields: [platoId], references: [id])
-  
-  guarniciones  Guarnicion[] // Relación Muchos a Muchos implícita con Guarnicion
-  seleccionesEntrada MenuDiaSeleccion[] @relation("MenuDiaEntrada")
-  seleccionesFondo   MenuDiaSeleccion[] @relation("MenuDiaFondo")
-  seleccionesPostre  MenuDiaSeleccion[] @relation("MenuDiaPostre")
-
-  @@index([menuSemanalId, fecha_dia])
-}
-
-model MenuDiaSeleccion {
-  id               Int      @id @default(autoincrement())
-  fecha_dia        DateTime
-  creado_en        DateTime @default(now())
-  actualizado_en   DateTime @updatedAt
-
-  menuSemanalId    Int
-  entradaDetalleId Int
-  fondoDetalleId   Int
-  postreDetalleId  Int
-  guarnicionId     Int?
-
-  menuSemanal      MenuSemanal @relation(fields: [menuSemanalId], references: [id], onDelete: Cascade)
-  entradaDetalle   MenuDetalle @relation("MenuDiaEntrada", fields: [entradaDetalleId], references: [id])
-  fondoDetalle     MenuDetalle @relation("MenuDiaFondo", fields: [fondoDetalleId], references: [id])
-  postreDetalle    MenuDetalle @relation("MenuDiaPostre", fields: [postreDetalleId], references: [id])
-  guarnicion       Guarnicion? @relation(fields: [guarnicionId], references: [id])
-
-  @@unique([menuSemanalId, fecha_dia])
-  @@index([entradaDetalleId])
-  @@index([fondoDetalleId])
-  @@index([postreDetalleId])
-  @@index([guarnicionId])
-}
-
-// --- TABLAS DE PEDIDOS ---
-
-model Pedido {
-  id        Int          @id @default(autoincrement())
-  fecha     DateTime     @default(now())
-  estado    EstadoPedido @default(PENDIENTE)
-  
-  empresaId Int
-  usuarioId String
-  
-  empresa   Empresa      @relation(fields: [empresaId], references: [id])
-  usuario   Usuario      @relation(fields: [usuarioId], references: [id])
-  detalles  DetallePedido[]
-
-  @@index([empresaId, fecha])
-}
-
-model DetallePedido {
-  id           Int          @id @default(autoincrement())
-  pedidoId     Int
-  platoId      Int
-  
-  // Guardamos qué acompañamiento eligió el usuario
-  guarnicionId Int?         
-  guarnicion   Guarnicion?  @relation(fields: [guarnicionId], references: [id])
-  
-  cantidad     Int          @default(1)
-  
-  pedido       Pedido       @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
-  plato        Plato        @relation(fields: [platoId], references: [id])
+enum TipoContactoEmpresa {
+  TITULAR
+  SUPLENTE
 }

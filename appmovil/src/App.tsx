@@ -6,17 +6,14 @@ import HomePageRepresentante from './pages/HomePageRepresentante';
 import Login from './pages/Login';
 import Historial from './pages/Historial'; 
 import Trabajadores from './pages/Trabajadores'; // 🔥 Nueva importación
+import LoadingView from './components/LoadingView';
 import { usePerfil } from './hooks/usePerfil';
 
 const SelectorDeHome = () => {
   const { rol, empresaId, empresaNombre, cargandoRol } = usePerfil();
 
   if (cargandoRol) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="w-10 h-10 border-4 border-gray-100 border-t-[#70a344] rounded-full animate-spin" />
-      </div>
-    );
+    return <LoadingView message="Cargando perfil..." />;
   }
 
   return rol === 'REPRESENTANTE' 

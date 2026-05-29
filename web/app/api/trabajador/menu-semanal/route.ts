@@ -95,10 +95,36 @@ export async function GET(req: NextRequest) {
     }
 
     const seleccion = menuActivo.menuDiaSelecciones[0];
+    const entradas = menuActivo.detalles
+      .filter((d) => d.plato.categoria === "ENTRADA")
+      .map(formatearDetalle);
+
+    const ensaladaSurtida = await db.plato.findFirst({
+      where: {
+        nombre: { equals: "Ensalada surtida", mode: "insensitive" },
+        categoria: "ENTRADA",
+      },
+    });
+
+    const entradasConSurtida = ensaladaSurtida
+      ? entradas.some((p) => p.nombre.toLowerCase().trim() === "ensalada surtida")
+        ? entradas
+        : [
+            {
+              id: ensaladaSurtida.id,
+              nombre: ensaladaSurtida.nombre,
+              url_imagen: ensaladaSurtida.url_imagen,
+              categoria: ensaladaSurtida.categoria,
+              tipo: ensaladaSurtida.tipo,
+              guarniciones: [],
+              menuDetalleId: null,
+            },
+            ...entradas,
+          ]
+      : entradas;
+
     const menuFormateado = {
-      entradas: menuActivo.detalles
-        .filter((d) => d.plato.categoria === "ENTRADA")
-        .map(formatearDetalle),
+      entradas: entradasConSurtida,
 
       fondos: menuActivo.detalles
         .filter((d) => d.plato.categoria === "FONDO")

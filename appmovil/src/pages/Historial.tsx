@@ -3,6 +3,7 @@ import { Utensils, ArrowLeft, Clock, Info } from 'lucide-react'; // Añadido Inf
 import { useUser } from '@clerk/clerk-react';
 import { useHistorial } from '../hooks/useHistorial';
 import { useNavigate } from 'react-router-dom';
+import LoadingView from '../components/LoadingView';
 
 export const Historial: React.FC = () => {
   const { user } = useUser();
@@ -27,9 +28,7 @@ export const Historial: React.FC = () => {
 
       <main className="flex-1 p-6 pb-20">
         {cargando ? (
-          <div className="flex justify-center py-20 text-[#70a344]">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-current"></div>
-          </div>
+          <LoadingView message="Cargando historial..." />
         ) : historial.length === 0 ? (
           <div className="text-center py-20 flex flex-col items-center justify-center gap-3 bg-white rounded-3xl border border-gray-100 p-10">
             <Clock size={40} className="text-gray-200" />

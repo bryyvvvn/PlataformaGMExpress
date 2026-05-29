@@ -6,6 +6,8 @@ interface TarjetaPlatoProps {
   categoriaKey: 'entradaId' | 'fondoId' | 'postreId';
   isSelected: boolean;
   isDeadlinePassed: boolean;
+  hideSelectionIcon?: boolean;
+  extraInfo?: string;
   onSelect: (categoria: 'entradaId' | 'fondoId' | 'postreId', id: number) => void;
 }
 
@@ -14,6 +16,8 @@ export const TarjetaPlato: React.FC<TarjetaPlatoProps> = ({
   categoriaKey, 
   isSelected, 
   isDeadlinePassed, 
+  hideSelectionIcon = false,
+  extraInfo,
   onSelect 
 }) => {
   // Ya no necesitamos renderizar las guarniciones aquí, 
@@ -23,7 +27,7 @@ export const TarjetaPlato: React.FC<TarjetaPlatoProps> = ({
     <button
       onClick={() => onSelect(categoriaKey, plato.id)}
       disabled={isDeadlinePassed}
-      className={`p-3 rounded-2xl border-2 text-left transition-all flex items-center gap-4 border-gray-100 bg-white ${
+      className={`w-full p-3 rounded-2xl border-2 text-left transition-all flex items-center gap-4 border-gray-100 bg-white ${
         isSelected ? 'shadow-md scale-[1.01]' : 'shadow-sm'
       }`}
     >
@@ -42,15 +46,16 @@ export const TarjetaPlato: React.FC<TarjetaPlatoProps> = ({
             {plato.tipo}
           </span>
         </div>
-        <p className="font-bold text-gray-800 text-sm leading-tight truncate">{plato.nombre}</p>
-        
-        {/* 👇 Se eliminó el bloque que renderizaba el "+ ARROZ GRANEADO..." */}
-        
+        <p className="font-bold text-gray-800 text-sm leading-tight truncate">{String(plato.nombre).toUpperCase()}</p>
+        {extraInfo && (
+          <p className="mt-2 text-[11px] font-bold text-gray-500 truncate">{extraInfo}</p>
+        )}
       </div>
-      <div className="flex-shrink-0 pr-2">
-        {/* El ticket verde se mantiene intacto aquí abajo para cuando se selecciona */}
-        {isSelected ? <CheckCircle2 size={24} className="text-green-500" /> : <div className="w-6 h-6 rounded-full border-2 border-gray-300"></div>}
-      </div>
+      {!hideSelectionIcon && (
+        <div className="flex-shrink-0 pr-2">
+          {isSelected ? <CheckCircle2 size={24} className="text-green-500" /> : <div className="w-6 h-6 rounded-full border-2 border-gray-300"></div>}
+        </div>
+      )}
     </button>
   );
 };

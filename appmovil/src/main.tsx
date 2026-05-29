@@ -24,10 +24,7 @@ ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>
     <ClerkProvider
       publishableKey={publishableKey}
-      localization={{
-        ...esES,
-        ...CLERK_CONFIG.localization,
-      }}
+      localization={esES}
       appearance={CLERK_CONFIG.appearance}
     >
       <App />

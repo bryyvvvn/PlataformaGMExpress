@@ -3,11 +3,11 @@ import { API_BASE_URL }        from '../constants/api';
 
 // ─── TIPOS ────────────────────────────────────────────────────────────────────
 
-interface PedidoPayload {
-  entradaId:    number | null;
-  fondoId:      number | null;
-  postreId:     number | null;
-  guarnicionId?: number | null; // Sprint N: elección de guarnición en la UI
+export interface PedidoPayload {
+  entradasIds: number[];    // ✅ ASÍ DEBE QUEDAR
+  fondoId: number | null;
+  postreId: number | null;
+  guarnicionId: number | null;
 }
 
 // ─── HOOK ─────────────────────────────────────────────────────────────────────
@@ -56,7 +56,7 @@ export const usePedidos = (usuarioId: string | undefined, fecha?: string) => {
     try {
       const payload = {
         usuarioId,
-        entradaId: pedido.entradaId,
+        entradasIds: pedido.entradasIds,
         fondoId: pedido.fondoId,
         postreId: pedido.postreId,
         // Convierte el sentinel -1 (Sin guarnición) a null para el servidor
