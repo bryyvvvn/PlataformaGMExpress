@@ -5,7 +5,7 @@ import { Sidebar } from '../components/Sidebar';
 import { TarjetaTrabajador } from '../components/TarjetaTrabajador';
 import { useTrabajadores } from '../hooks/useTrabajadores'; 
 import { useCalendario } from '../hooks/useCalendario';
-import { API_BASE_URL } from '../constants/api';
+import { usePlanilla } from '../hooks/usePlanilla';
 
 interface HomePageRepresentanteProps {
   empresaId: number | null;
@@ -14,7 +14,7 @@ interface HomePageRepresentanteProps {
 
 const HomePageRepresentante: React.FC<HomePageRepresentanteProps> = ({ empresaId, empresaNombre }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [enviandoTodo, setEnviandoTodo] = useState(false);
+  const { enviarPlanilla, loading: enviandoTodo } = usePlanilla();
   
   const { setSemanaOffset, getSemanaTexto, fechaSeleccionadaISO, fechaTexto } = useCalendario();
   const { trabajadores, cargando, resumenEmpresa } = useTrabajadores(empresaId, fechaSeleccionadaISO);
@@ -27,30 +27,13 @@ const HomePageRepresentante: React.FC<HomePageRepresentanteProps> = ({ empresaId
     );
     if (!confirmar) return;
 
-    setEnviandoTodo(true);
-    
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/representante/enviar-planilla`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          empresaId: empresaId,
-          fecha: fechaSeleccionadaISO
-        })
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        alert(`¡Planilla enviada a GM Express con éxito! Se confirmaron ${data.pedidosConfirmados} pedidos.`);
-        window.location.reload(); 
-      } else {
-        alert("Hubo un problema al intentar enviar la planilla. Intenta de nuevo.");
-      }
-    } catch (e) {
-      console.error(e);
-      alert("Error de conexión con el servidor.");
-    } finally {
-      setEnviandoTodo(false);
+    if (!empresaId) { alert('Empresa inválida'); return; }
+    const { ok, data } = await enviarPlanilla(empresaId, fechaSeleccionadaISO);
+    if (ok) {
+      alert(`¡Planilla enviada a GM Express con éxito! Se confirmaron ${data?.pedidosConfirmados ?? 0} pedidos.`);
+      window.location.reload();
+    } else {
+      alert('Hubo un problema al intentar enviar la planilla. Intenta de nuevo.');
     }
   };
 

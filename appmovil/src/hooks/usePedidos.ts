@@ -16,6 +16,7 @@ export const usePedidos = (usuarioId: string | undefined, fecha?: string) => {
   const [yaPedioHoy,            setYaPedioHoy]            = useState(false);
   const [cargandoVerificacion,  setCargandoVerificacion]  = useState(true);
   const [enviando,              setEnviando]              = useState(false);
+  const [eliminando,            setEliminando]            = useState(false);
   const [pedidoExistente,       setPedidoExistente]       = useState<any | null>(null);
 
   // ── 1. EXTRAEMOS LA VERIFICACIÓN A UN CALLBACK PARA PODER REUTILIZARLA ──────
@@ -111,6 +112,28 @@ export const usePedidos = (usuarioId: string | undefined, fecha?: string) => {
     }
   };
 
+  const eliminarPedido = async (fechaParam?: string): Promise<boolean> => {
+    if (!usuarioId) return false;
+
+    setEliminando(true);
+    try {
+      const url = `${API_BASE_URL}/api/trabajador/pedidos?usuarioId=${usuarioId}${fechaParam ? `&fecha=${fechaParam}` : (fecha ? `&fecha=${fecha}` : '')}`;
+      const res = await fetch(url, { method: 'DELETE' });
+      if (res.ok) {
+        setPedidoExistente(null);
+        setYaPedioHoy(false);
+        try { await refrescarVerificacion(); } catch (e) { /* ignore */ }
+        return true;
+      }
+      return false;
+    } catch (e) {
+      console.error('[usePedidos] Error eliminando pedido:', e);
+      return false;
+    } finally {
+      setEliminando(false);
+    }
+  };
+
   // ── 3. EXPORTAMOS LA FUNCIÓN DE REFRESCO ────────────────────────────────────
-  return { yaPedioHoy, pedidoExistente, cargandoVerificacion, enviarPedido, enviando, refrescarVerificacion };
+  return { yaPedioHoy, pedidoExistente, cargandoVerificacion, enviarPedido, enviando, refrescarVerificacion, eliminarPedido, eliminando };
 };

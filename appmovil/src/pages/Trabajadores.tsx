@@ -7,7 +7,7 @@ import { useTrabajadores } from '../hooks/useTrabajadores';
 const Trabajadores: React.FC = () => {
   const navigate = useNavigate();
   const { rol, empresaId, empresaNombre } = usePerfil();
-  const { resumenEmpresa, trabajadores, cargando } = useTrabajadores(empresaId, rol);
+  const { resumenEmpresa, trabajadores, cargando } = useTrabajadores(empresaId);
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col animate-in fade-in duration-500">
