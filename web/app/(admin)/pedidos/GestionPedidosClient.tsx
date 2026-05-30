@@ -10,7 +10,10 @@ import {
   FileSpreadsheet,
 } from "lucide-react"
 import type { SemanaConsolidada } from "@/lib/pedidos/consolidado"
-import { obtenerDisponibilidadDespuesCierre } from "@/lib/pedidos/cierre-pedidos"
+import {
+  obtenerDisponibilidadHistorico,
+  obtenerDisponibilidadProduccion,
+} from "@/lib/pedidos/cierre-pedidos"
 import {
   Accordion,
   AccordionContent,
@@ -253,11 +256,17 @@ export function GestionPedidosClient({ semana }: GestionPedidosClientProps) {
         </TabsList>
 
         {semana.dias.map((dia) => {
-          const disponibilidad = ahora
-            ? obtenerDisponibilidadDespuesCierre(dia.fechaISO, ahora)
+          const disponibilidadHistorico = ahora
+            ? obtenerDisponibilidadHistorico(dia.fechaISO, ahora)
             : {
                 permitido: false,
                 mensaje: "Verificando disponibilidad del histórico...",
+              }
+          const disponibilidadProduccion = ahora
+            ? obtenerDisponibilidadProduccion(dia.fechaISO, ahora)
+            : {
+                permitido: false,
+                mensaje: "Verificando disponibilidad de producción...",
               }
 
           return (
@@ -409,9 +418,12 @@ export function GestionPedidosClient({ semana }: GestionPedidosClientProps) {
                   <div>
                     <p className="font-semibold">Acciones de Exportación</p>
                     <p className="text-sm text-muted-foreground">
-                      {disponibilidad.permitido
+                      Producción: {disponibilidadProduccion.mensaje}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Histórico: {disponibilidadHistorico.permitido
                         ? "La exportación histórica está disponible."
-                        : disponibilidad.mensaje}
+                        : disponibilidadHistorico.mensaje}
                     </p>
                     {errorExportacion && (
                       <p
@@ -429,7 +441,7 @@ export function GestionPedidosClient({ semana }: GestionPedidosClientProps) {
                       }
                       disabled={
                         !activeTab ||
-                        !disponibilidad.permitido ||
+                        !disponibilidadProduccion.permitido ||
                         descargandoProduccion ||
                         dia.confirmadas === 0
                       }
@@ -446,7 +458,7 @@ export function GestionPedidosClient({ semana }: GestionPedidosClientProps) {
                       }
                       disabled={
                         !activeTab ||
-                        !disponibilidad.permitido ||
+                        !disponibilidadHistorico.permitido ||
                         descargandoHistorico
                       }
                       className="bg-[#1b2c56] text-white"

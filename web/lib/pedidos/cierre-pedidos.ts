@@ -11,6 +11,18 @@ export const ERROR_HISTORICO_ANTES_CIERRE =
 export const ERROR_HISTORICO_FECHA_FUTURA =
   "No se puede exportar el histórico de una fecha futura"
 
+export const MENSAJE_PRODUCCION_DISPONIBLE =
+  "Pedidos confirmados listos para adelantar producción."
+
+export const ERROR_PRODUCCION_DESPUES_CIERRE =
+  "Producción actual solo está disponible antes del cierre de pedidos."
+
+export const ERROR_PRODUCCION_FECHA_PASADA =
+  "No se puede adelantar producción para una fecha pasada"
+
+export const ERROR_PRODUCCION_FECHA_FUTURA =
+  "No se puede adelantar producción para una fecha futura"
+
 type MotivoDisponibilidadHistorico =
   | "DISPONIBLE"
   | "FECHA_INVALIDA"
@@ -22,6 +34,20 @@ export type DisponibilidadHistorico = {
   permitido: boolean
   motivo: MotivoDisponibilidadHistorico
   mensaje: string | null
+}
+
+type MotivoDisponibilidadProduccion =
+  | "DISPONIBLE"
+  | "FECHA_INVALIDA"
+  | "FIN_DE_SEMANA"
+  | "FECHA_PASADA"
+  | "FECHA_FUTURA"
+  | "DESPUES_DEL_CIERRE"
+
+export type DisponibilidadProduccion = {
+  permitido: boolean
+  motivo: MotivoDisponibilidadProduccion
+  mensaje: string
 }
 
 function parseFechaISO(fechaISO: string): Date | null {
@@ -136,6 +162,59 @@ export function obtenerDisponibilidadHistorico(
   referencia = new Date()
 ): DisponibilidadHistorico {
   return obtenerDisponibilidadDespuesCierre(fechaISO, referencia)
+}
+
+export function obtenerDisponibilidadProduccion(
+  fechaISO: string,
+  referencia = new Date()
+): DisponibilidadProduccion {
+  if (!esFechaISOValida(fechaISO)) {
+    return {
+      permitido: false,
+      motivo: "FECHA_INVALIDA",
+      mensaje: "La fecha seleccionada no es válida",
+    }
+  }
+
+  if (!esDiaLaboral(fechaISO)) {
+    return {
+      permitido: false,
+      motivo: "FIN_DE_SEMANA",
+      mensaje: "Producción actual solo está disponible para días laborales.",
+    }
+  }
+
+  const ahoraChile = obtenerFechaHoraChile(referencia)
+
+  if (fechaISO < ahoraChile.fechaISO) {
+    return {
+      permitido: false,
+      motivo: "FECHA_PASADA",
+      mensaje: ERROR_PRODUCCION_FECHA_PASADA,
+    }
+  }
+
+  if (fechaISO > ahoraChile.fechaISO) {
+    return {
+      permitido: false,
+      motivo: "FECHA_FUTURA",
+      mensaje: ERROR_PRODUCCION_FECHA_FUTURA,
+    }
+  }
+
+  if (ahoraChile.minutosDelDia >= obtenerMinutosCierre()) {
+    return {
+      permitido: false,
+      motivo: "DESPUES_DEL_CIERRE",
+      mensaje: ERROR_PRODUCCION_DESPUES_CIERRE,
+    }
+  }
+
+  return {
+    permitido: true,
+    motivo: "DISPONIBLE",
+    mensaje: MENSAJE_PRODUCCION_DISPONIBLE,
+  }
 }
 
 export function puedeExportarHistorico(

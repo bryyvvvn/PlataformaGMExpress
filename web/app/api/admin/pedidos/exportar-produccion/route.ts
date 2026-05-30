@@ -5,7 +5,7 @@ import { chileStartOfDay } from "@/lib/chile-time"
 import {
   esDiaLaboral,
   esFechaISOValida,
-  obtenerDisponibilidadDespuesCierre,
+  obtenerDisponibilidadProduccion,
 } from "@/lib/pedidos/cierre-pedidos"
 import { generarExcelProduccion } from "@/lib/pedidos/excel"
 
@@ -63,7 +63,7 @@ export async function POST(request: Request) {
     )
   }
 
-  const disponibilidad = obtenerDisponibilidadDespuesCierre(fecha)
+  const disponibilidad = obtenerDisponibilidadProduccion(fecha)
 
   if (!disponibilidad.permitido) {
     return NextResponse.json(
