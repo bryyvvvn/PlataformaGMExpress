@@ -1,24 +1,10 @@
+// web/app/auth/login/page.tsx
 "use client"
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { SignIn } from '@clerk/nextjs'
+// Ajusta la ruta de importación si tu carpeta lib está en otro nivel
+import { clerkAppearance } from '@/lib/clerk' 
 
 export default function LoginPage() {
-  const [user, setUser] = useState("")
-  const [pass, setPass] = useState("")
-  const router = useRouter()
-
-  const handleLogin = async () => {
-    // Lógica temporal para Maickol y Valeria
-    if ((user === "maickol" || user === "valeria") && pass === "gm2026") {
-        document.cookie = "admin_session=true; path=/; max-age=86400" 
-      router.push("/dashboard")
-    } else {
-      alert("Credenciales incorrectas")
-    }
-  }
-
   return (
     <div className="flex h-screen items-center justify-center bg-secondary">
       <div className="w-full max-w-md space-y-8 rounded-2xl bg-white p-10 shadow-xl">
@@ -26,14 +12,12 @@ export default function LoginPage() {
           <h2 className="text-3xl font-bold text-secondary">GM Express</h2>
           <p className="mt-2 text-sm text-gray-600">Acceso Administrativo</p>
         </div>
+        
         <div className="space-y-4">
-          <Input placeholder="Usuario" value={user} onChange={(e) => setUser(e.target.value)} />
-          <Input type="password" placeholder="Contraseña" value={pass} onChange={(e) => setPass(e.target.value)} />
-          <Button className="w-full bg-primary hover:bg-primary/90" onClick={handleLogin}>
-            Entrar
-          </Button>
+          <SignIn routing="hash" appearance={clerkAppearance} />
         </div>
+
       </div>
-    </div> 
+    </div>
   )
 }

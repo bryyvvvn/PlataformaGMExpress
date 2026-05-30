@@ -1,17 +1,17 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Clock, CheckCircle2, Menu, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, X, Trash2 } from 'lucide-react';
-import { THEME, DEADLINE_HOUR } from '../constants/theme';
+import { THEME, DEADLINE_HOUR } from '../../constants/theme';
 import { useUser } from '@clerk/clerk-react';
-import { TarjetaPlato } from '../components/TarjetaPlato';
-import { BottomSheet } from '../components/BottomSheet';
-import LoadingView from '../components/LoadingView';
-import { useCountdown } from '../hooks/useCountdown';
-import { useMenuAPI } from '../hooks/useMenuAPI';
-import { usePedidos } from '../hooks/usePedidos';
-import { useCalendario } from '../hooks/useCalendario';
-import { useHistorial } from '../hooks/useHistorial';
-import { Sidebar } from '../components/Sidebar';
-import { API_BASE_URL } from '../constants/api';
+import { TarjetaPlato } from '../../components/TarjetaPlato';
+import { BottomSheet } from '../../components/BottomSheet';
+import LoadingView from '../../components/LoadingView';
+import { useCountdown } from '../../hooks/useCountdown';
+import { useMenuAPI } from '../../hooks/useMenuAPI';
+import { usePedidos } from '../../hooks/usePedidos';
+import { useCalendario } from '../../hooks/useCalendario';
+import { useHistorial } from '../../hooks/useHistorial';
+import { Sidebar } from '../../components/Sidebar';
+import { API_BASE_URL } from '../../constants/api';
  
 type Categoria = 'ENTRADA' | 'FONDO' | 'POSTRE' | null;
 type TipoMenu = 'MENU_DIA' | 'PERSONALIZADO' | 'OTRO';

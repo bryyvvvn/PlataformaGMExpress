@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { SignIn, SignUp } from '@clerk/clerk-react';
-import { THEME, APP_NAME } from '../constants/theme';
+import { THEME, APP_NAME } from '../../constants/theme';
 
 const Login: React.FC = () => {
   const [isSignUp, setIsSignUp] = useState(false);
