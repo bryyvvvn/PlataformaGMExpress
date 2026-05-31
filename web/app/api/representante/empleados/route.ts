@@ -38,13 +38,15 @@ export async function GET(request: Request) {
       select: {
         id: true,
         nombre: true,
+        // 👇 AQUÍ ESTÁ LA MAGIA: Le pedimos a Prisma que traiga el arreglo de días
+        diasBloqueados: true, 
         pedidos: {
           where: { fecha: { gte: inicioSemana, lte: finSemana } },
           orderBy: { fecha: 'asc' },
-          select: {  // 🔥 CAMBIO CLAVE: Usamos 'select' en vez de 'include' para traer el 'estado'
+          select: {  
             id: true,
             fecha: true,
-            estado: true, // Esto enciende la etiqueta "Confirmado" en el Front
+            estado: true, 
             detalles: {
               include: {
                 plato: true,
@@ -56,7 +58,6 @@ export async function GET(request: Request) {
       }
     });
 
-    // 🔥 Le quitamos el .filter() para que siempre devuelva a TODOS los trabajadores
     const planillaFormateada = usuarios.map(usuario => {
         const pedidosFormateados = usuario.pedidos.map(p => {
           const listaPlatos = p.detalles.map(d => {
@@ -76,6 +77,8 @@ export async function GET(request: Request) {
         return {
           id: usuario.id,
           nombre: usuario.nombre,
+          // 👇 Y AQUÍ se lo enviamos al frontend
+          diasBloqueados: usuario.diasBloqueados, 
           pedidos: pedidosFormateados
         };
       });

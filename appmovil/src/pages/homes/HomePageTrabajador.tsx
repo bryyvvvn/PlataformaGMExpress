@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Clock, CheckCircle2, Menu, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, X, Trash2 } from 'lucide-react';
+import { Clock, CheckCircle2, Menu, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, X, Trash2, CalendarOff } from 'lucide-react';
 import { THEME, DEADLINE_HOUR } from '../../constants/theme';
 import { useUser } from '@clerk/clerk-react';
 import { TarjetaPlato } from '../../components/TarjetaPlato';
@@ -40,8 +40,27 @@ const HomePageTrabajador: React.FC = () => {
   const [seccionAbierta, setSeccionAbierta] = useState<Categoria>(null);
   const [modoEdicion, setModoEdicion] = useState(false);
   
- 
+  const [diasBloqueadosAdmin, setDiasBloqueadosAdmin] = useState<number[]>([]);
+
   useEffect(() => { window.scrollTo(0, 0); }, []);
+
+  useEffect(() => {
+    const fetchPerfil = async () => {
+      if (!user?.id) return;
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/usuarios/perfil?clerkId=${user.id}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.diasBloqueados) {
+            setDiasBloqueadosAdmin(data.diasBloqueados);
+          }
+        }
+      } catch (error) {
+        console.error("Error obteniendo perfil del trabajador:", error);
+      }
+    };
+    fetchPerfil();
+  }, [user?.id]);
 
   const { timeRemaining } = useCountdown(DEADLINE_HOUR);
   const { menuHoy, cargando: cargandoMenu } = useMenuAPI(fechaSeleccionadaISO);
@@ -54,10 +73,38 @@ const HomePageTrabajador: React.FC = () => {
  
   const isSelectedDateToday = diasSemanaArray[diaSeleccionadoIdx]?.esHoy ?? false;
   const isDeadlinePassed = false; 
-  const fechaBloqueada = diasSemanaArray[diaSeleccionadoIdx]?.bloqueado ?? false;
+  
+  const numDiaSeleccionado = new Date(fechaSeleccionadaISO + 'T12:00:00').getDay();
+  const esBloqueadoPermanente = diasBloqueadosAdmin.includes(numDiaSeleccionado);
+  const fechaBloqueada = (diasSemanaArray[diaSeleccionadoIdx]?.bloqueado ?? false) || esBloqueadoPermanente;
+  
   const fechaSeleccionadaTienePedido = fechasBloqueadas.has(fechaSeleccionadaISO);
-  // Bloquear UI solo si es hoy con deadline pasado, o si la fecha seleccionada es de semana pasada y NO tiene pedido
   const bloquearUI = (isSelectedDateToday && isDeadlinePassed) || (fechaBloqueada && !fechaSeleccionadaTienePedido);
+
+  // NUEVO: Analizamos la semana entera para saber cuál es el primer día disponible o si TODOS están bloqueados
+  const indicePrimerDiaHabil = useMemo(() => {
+    return diasSemanaArray.findIndex(dia => {
+      const numDia = new Date(dia.iso + 'T12:00:00').getDay();
+      const bloqueadoPorAdmin = diasBloqueadosAdmin.includes(numDia);
+      const visualmenteBloqueado = dia.bloqueado || bloqueadoPorAdmin;
+      const tienePedido = fechasBloqueadas.has(dia.iso);
+      
+      // Es un día válido si NO está bloqueado, O si tiene un pedido que deba revisar
+      return !(visualmenteBloqueado && !tienePedido);
+    });
+  }, [diasSemanaArray, diasBloqueadosAdmin, fechasBloqueadas]);
+
+  // Si no encontró ningún día hábil en toda la semana, entonces todos están bloqueados.
+  const todosBloqueados = indicePrimerDiaHabil === -1;
+
+  // EFECTO DE AUTO-SALTO: Busca el primer día disponible si el actual está bloqueado
+  useEffect(() => {
+    if (fechaBloqueada && !fechaSeleccionadaTienePedido && diasSemanaArray.length > 0) {
+      if (indicePrimerDiaHabil !== -1 && indicePrimerDiaHabil !== diaSeleccionadoIdx) {
+        setDiaSeleccionadoIdx(indicePrimerDiaHabil);
+      }
+    }
+  }, [fechaBloqueada, fechaSeleccionadaTienePedido, diasSemanaArray.length, indicePrimerDiaHabil, diaSeleccionadoIdx, setDiaSeleccionadoIdx]);
 
   const fondoObj = (menuHoy.fondos || []).find((p: any) => p.id === pedido.fondoId);
   const fondoNeedsGuarnicion = Boolean(fondoObj && (fondoObj.guarniciones || []).length > 0);
@@ -215,15 +262,27 @@ const HomePageTrabajador: React.FC = () => {
         <div className="flex justify-between items-center">
           {diasSemanaArray.map((dia, index) => {
             const tienePedido = fechasBloqueadas.has(dia.iso);
+            
+            const numDiaMenu = new Date(dia.iso + 'T12:00:00').getDay();
+            const esBloqueadoPerm = diasBloqueadosAdmin.includes(numDiaMenu);
+            const visualmenteBloqueado = dia.bloqueado || esBloqueadoPerm;
+
+            // NUEVO: Verificamos si el día debe estar "seleccionado en verde" (Si todos están bloqueados, NADIE se pone verde)
+            const isSelectedAndValid = dia.esSeleccionado && !todosBloqueados;
+
             return (
               <button
                 key={index}
-                onClick={() => { if (!(dia.bloqueado && !tienePedido)) setDiaSeleccionadoIdx(index); }}
-                className={['flex flex-col items-center justify-center w-[17%] aspect-square rounded-[20px] transition-all', dia.esSeleccionado ? 'border-2 scale-110 shadow-md' : 'border shadow-sm', tienePedido ? 'bg-green-50 border-green-200' : (dia.bloqueado ? 'bg-gray-100 border-gray-200 text-gray-300' : 'bg-white border-gray-200'), (dia.bloqueado && !tienePedido) ? 'cursor-not-allowed' : 'cursor-pointer'].join(' ')}
-                style={dia.esSeleccionado ? { borderColor: THEME.colors.primary } : {}}
+                onClick={() => { if (!(visualmenteBloqueado && !tienePedido)) setDiaSeleccionadoIdx(index); }}
+                className={['flex flex-col items-center justify-center w-[17%] aspect-square rounded-[20px] transition-all', 
+                  isSelectedAndValid ? 'border-2 scale-110 shadow-md' : 'border shadow-sm', 
+                  tienePedido ? 'bg-green-50 border-green-200' : (visualmenteBloqueado ? 'bg-gray-100 border-gray-200 text-gray-300' : 'bg-white border-gray-200'), 
+                  (visualmenteBloqueado && !tienePedido) ? 'cursor-not-allowed' : 'cursor-pointer'
+                ].join(' ')}
+                style={isSelectedAndValid ? { borderColor: THEME.colors.primary } : {}}
               >
                 <span className={`text-[10px] font-black mb-1 uppercase ${tienePedido ? 'text-[#70a344]' : 'text-gray-400'}`}>{dia.letra}</span>
-                <span className="text-lg font-black" style={{ color: tienePedido || dia.esSeleccionado ? THEME.colors.primary : (dia.bloqueado ? '#a0a0a0' : '#1d2d50') }}>{dia.numero}</span>
+                <span className="text-lg font-black" style={{ color: tienePedido || isSelectedAndValid ? THEME.colors.primary : (visualmenteBloqueado ? '#a0a0a0' : '#1d2d50') }}>{dia.numero}</span>
               </button>
             );
           })}
@@ -231,7 +290,16 @@ const HomePageTrabajador: React.FC = () => {
       </div>
  
       <div className="mt-8 px-6 space-y-4">
-        {(cargandoVerificacion || cargandoMenu) ? (
+        {todosBloqueados ? (
+          // NUEVO: Mensaje elegante si no hay ni un solo día disponible en la semana
+          <div className="bg-white rounded-[2rem] p-8 border border-gray-100 shadow-sm text-center mt-4 flex flex-col items-center justify-center">
+            <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4">
+              <CalendarOff size={32} className="text-gray-400" />
+            </div>
+            <h3 className="font-black text-xl text-[#1d2d50] mb-2">Sin días disponibles</h3>
+            <p className="text-gray-400 text-sm font-medium">No tienes días habilitados para realizar pedidos durante esta semana.</p>
+          </div>
+        ) : (cargandoVerificacion || cargandoMenu) ? (
           <div className="space-y-4 max-w-md mx-auto mt-2">
             <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm">
               <div className="h-5 bg-gray-200 rounded-full w-1/3 mb-6 animate-pulse" />
@@ -360,7 +428,6 @@ const HomePageTrabajador: React.FC = () => {
                 const isHeaderSelected = cat === 'ENTRADA' ? pedido.entradasIds.length > 0 : pedido[(cat.toLowerCase() + 'Id') as 'fondoId' | 'postreId'] !== null;
                 const platos = menuHoy[key] ?? [];
 
-                // 1. Lógica de ordenamiento: Surtida primero, Sopa después, resto al final
                 const platosOrdenados = cat !== 'ENTRADA' ? platos : (() => {
                   const ensaladaSurtida = platos.filter((plato: any) => plato.nombre.toLowerCase().trim().includes('ensalada surtida'));
                   const sopa = platos.filter((plato: any) => {
@@ -372,14 +439,13 @@ const HomePageTrabajador: React.FC = () => {
                     return nombre.includes('ensalada') && !nombre.includes('ensalada surtida');
                   });
                   const resto = platos.filter((plato: any) => {
-                    const nombre = plato.nombre.toLowerCase().trim();
+                    const nombre = plato.toLowerCase().trim();
                     return !nombre.includes('sopa') && !nombre.includes('ensalada');
                   });
 
                   const idsOrdenados = new Set([...ensaladaSurtida, ...sopa, ...otrasEnsaladas, ...resto].map((plato: any) => plato.id));
                   const ordenado = [...ensaladaSurtida, ...sopa, ...otrasEnsaladas, ...resto];
 
-                  // Conserva el orden original para cualquier plato duplicado accidentalmente filtrado dos veces
                   const adicionales = platos.filter((plato: any) => !idsOrdenados.has(plato.id));
                   return [...ordenado, ...adicionales];
                 })();
