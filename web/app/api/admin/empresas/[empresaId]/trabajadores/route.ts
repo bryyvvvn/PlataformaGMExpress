@@ -40,6 +40,9 @@ export async function GET(_req: Request, { params }: RouteContext) {
       select: {
         id: true,
         nombre: true,
+        apellido: true,
+        nombreUsuario: true,
+        correo: true,
         rol: true,
         _count: {
           select: {
@@ -49,12 +52,25 @@ export async function GET(_req: Request, { params }: RouteContext) {
       },
     })
 
-    const trabajadores = usuarios.map((usuario) => ({
-      id: usuario.id,
-      nombre: usuario.nombre,
-      rol: usuario.rol,
-      pedidos: usuario._count.pedidos,
-    }))
+    const trabajadores = usuarios.map((usuario) => {
+      const nombreCompleto = [usuario.nombre, usuario.apellido]
+        .filter(Boolean)
+        .join(" ")
+        .trim()
+
+      const nombreVisible =
+        nombreCompleto ||
+        usuario.nombreUsuario?.trim() ||
+        usuario.correo?.trim() ||
+        "Usuario sin nombre"
+
+      return {
+        id: usuario.id,
+        nombre: nombreVisible,
+        rol: usuario.rol,
+        pedidos: usuario._count.pedidos,
+      }
+    })
 
     const totalTrabajadores = trabajadores.filter(
       (usuario) => usuario.rol === Rol.TRABAJADOR

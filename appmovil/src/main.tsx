@@ -22,10 +22,10 @@ if (!rootElement) {
 
 ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>
-    <ClerkProvider
-      publishableKey={publishableKey}
-      localization={esES}
+    <ClerkProvider 
+      publishableKey={CLERK_CONFIG.publishableKey}
       appearance={CLERK_CONFIG.appearance}
+      localization={CLERK_CONFIG.localization} 
     >
       <App />
     </ClerkProvider>

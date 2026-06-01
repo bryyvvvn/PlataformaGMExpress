@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Clock, CheckCircle2, Menu, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, X, Trash2 } from 'lucide-react';
+// HomePageTrabajador.tsx
+import React, { useState, useEffect, useMemo } from 'react';
+import { Clock, CheckCircle2, Menu, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, X, Trash2, CalendarOff } from 'lucide-react';
 import { THEME, DEADLINE_HOUR } from '../../constants/theme';
 import { useUser } from '@clerk/clerk-react';
 import { TarjetaPlato } from '../../components/TarjetaPlato';
@@ -12,26 +13,33 @@ import { useCalendario } from '../../hooks/useCalendario';
 import { useHistorial } from '../../hooks/useHistorial';
 import { Sidebar } from '../../components/Sidebar';
 import { API_BASE_URL } from '../../constants/api';
- 
+import { VerificadorRut } from '../../components/VerificadorRut';
+
 type Categoria = 'ENTRADA' | 'FONDO' | 'POSTRE' | null;
 type TipoMenu = 'MENU_DIA' | 'PERSONALIZADO' | 'OTRO';
- 
+
+// Función para poner la primera letra en mayúscula
+const capitalizar = (texto: string | null | undefined) => {
+  if (!texto) return '';
+  return texto.charAt(0).toUpperCase() + texto.slice(1).toLowerCase();
+};
+
 const HomePageTrabajador: React.FC = () => {
   const { user } = useUser();
   const nombreUsuario = user?.firstName || user?.username || 'Usuario';
- 
+
   const {
     setSemanaOffset, fechaTexto, diasSemanaArray, getSemanaTexto,
     diaSeleccionadoIdx, setDiaSeleccionadoIdx, fechaSeleccionadaISO,
   } = useCalendario();
- 
+
   const [pedido, setPedido] = useState({
     entradasIds:  [] as number[], 
     fondoId:      null as number | null,
     postreId:     null as number | null,
     guarnicionId: null as number | null,
   });
- 
+
   const [activeTab, setActiveTab] = useState<TipoMenu>('MENU_DIA');
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetFondo, setSheetFondo] = useState<any | null>(null);
@@ -40,8 +48,27 @@ const HomePageTrabajador: React.FC = () => {
   const [seccionAbierta, setSeccionAbierta] = useState<Categoria>(null);
   const [modoEdicion, setModoEdicion] = useState(false);
   
- 
+  const [diasBloqueadosAdmin, setDiasBloqueadosAdmin] = useState<number[]>([]);
+
   useEffect(() => { window.scrollTo(0, 0); }, []);
+
+  useEffect(() => {
+    const fetchPerfil = async () => {
+      if (!user?.id) return;
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/usuarios/perfil?clerkId=${user.id}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.diasBloqueados) {
+            setDiasBloqueadosAdmin(data.diasBloqueados);
+          }
+        }
+      } catch (error) {
+        console.error("Error obteniendo perfil del trabajador:", error);
+      }
+    };
+    fetchPerfil();
+  }, [user?.id]);
 
   const { timeRemaining } = useCountdown(DEADLINE_HOUR);
   const { menuHoy, cargando: cargandoMenu } = useMenuAPI(fechaSeleccionadaISO);
@@ -51,16 +78,41 @@ const HomePageTrabajador: React.FC = () => {
   useEffect(() => { if (user?.id) cargarHistorial(); }, [user?.id, cargarHistorial]);
 
   const fechasBloqueadas = useMemo(() => new Set(historial.map((p: any) => p.fecha.split('T')[0])), [historial]);
- 
+
   const isSelectedDateToday = diasSemanaArray[diaSeleccionadoIdx]?.esHoy ?? false;
   const isDeadlinePassed = false; 
-  const fechaBloqueada = diasSemanaArray[diaSeleccionadoIdx]?.bloqueado ?? false;
+  
+  const numDiaSeleccionado = new Date(fechaSeleccionadaISO + 'T12:00:00').getDay();
+  const esBloqueadoPermanente = diasBloqueadosAdmin.includes(numDiaSeleccionado);
+  const fechaBloqueada = (diasSemanaArray[diaSeleccionadoIdx]?.bloqueado ?? false) || esBloqueadoPermanente;
+  
   const fechaSeleccionadaTienePedido = fechasBloqueadas.has(fechaSeleccionadaISO);
-  // Bloquear UI solo si es hoy con deadline pasado, o si la fecha seleccionada es de semana pasada y NO tiene pedido
   const bloquearUI = (isSelectedDateToday && isDeadlinePassed) || (fechaBloqueada && !fechaSeleccionadaTienePedido);
 
+  const indicePrimerDiaHabil = useMemo(() => {
+    return diasSemanaArray.findIndex(dia => {
+      const numDia = new Date(dia.iso + 'T12:00:00').getDay();
+      const bloqueadoPorAdmin = diasBloqueadosAdmin.includes(numDia);
+      const visualmenteBloqueado = dia.bloqueado || bloqueadoPorAdmin;
+      const tienePedido = fechasBloqueadas.has(dia.iso);
+      return !(visualmenteBloqueado && !tienePedido);
+    });
+  }, [diasSemanaArray, diasBloqueadosAdmin, fechasBloqueadas]);
+
+  const todosBloqueados = indicePrimerDiaHabil === -1;
+
+  useEffect(() => {
+    if (fechaBloqueada && !fechaSeleccionadaTienePedido && diasSemanaArray.length > 0) {
+      if (indicePrimerDiaHabil !== -1 && indicePrimerDiaHabil !== diaSeleccionadoIdx) {
+        setDiaSeleccionadoIdx(indicePrimerDiaHabil);
+      }
+    }
+  }, [fechaBloqueada, fechaSeleccionadaTienePedido, diasSemanaArray.length, indicePrimerDiaHabil, diaSeleccionadoIdx, setDiaSeleccionadoIdx]);
+
   const fondoObj = (menuHoy.fondos || []).find((p: any) => p.id === pedido.fondoId);
-  const fondoNeedsGuarnicion = Boolean(fondoObj && (fondoObj.guarniciones || []).length > 0);
+  // 🔥 LÓGICA ACTUALIZADA: Si es PLATO_UNICO, no necesita guarnición
+  const isPlatoUnico = fondoObj?.tipo === 'PLATO_UNICO';
+  const fondoNeedsGuarnicion = Boolean(fondoObj && (fondoObj.guarniciones || []).length > 0 && !isPlatoUnico);
   
   const menuDiaSeleccionado = Boolean(
     menuHoy.menuDia &&
@@ -79,13 +131,13 @@ const HomePageTrabajador: React.FC = () => {
   );
 
   const puedeEnviar = activeTab === 'MENU_DIA' ? menuDiaSeleccionado : estaCompletoPersonalizado;
- 
+
   useEffect(() => {
     setPedido({ entradasIds: [], fondoId: null, postreId: null, guarnicionId: null });
     setSeccionAbierta(null);
     setModoEdicion(false); 
   }, [fechaSeleccionadaISO]);
- 
+
   useEffect(() => {
     if (activeTab === 'PERSONALIZADO' && !cargandoMenu && !bloquearUI && (!pedidoExistente || modoEdicion)) {
       setSeccionAbierta('ENTRADA'); 
@@ -102,9 +154,9 @@ const HomePageTrabajador: React.FC = () => {
       }, 300);
     }
   }, [seccionAbierta]);
- 
+
   const toggleSeccion = (cat: Categoria) => setSeccionAbierta(prev => (prev === cat ? null : cat));
- 
+
   const seleccionarMenuDelDia = () => {
     if (!menuHoy.menuDia || bloquearUI) return;
     setPedido({
@@ -120,7 +172,6 @@ const HomePageTrabajador: React.FC = () => {
     if (activeTab === 'PERSONALIZADO' || activeTab === 'MENU_DIA') {
       const exito = await enviarPedido(pedido);
       if (exito) { setSeccionAbierta(null); setModoEdicion(false); cargarHistorial(); }
-
     } else { alert("La lógica para este tipo de menú se implementará próximamente."); }
   };
 
@@ -134,15 +185,31 @@ const HomePageTrabajador: React.FC = () => {
       try { await refrescarVerificacion(); } catch (e) { }
     }
   };
- 
+
   const seleccionarPlato = (categoria: 'fondoId' | 'postreId', id: number) => {
     if (bloquearUI) return;
+    
     if (categoria === 'fondoId') {
       const sel = (menuHoy.fondos || []).find((p: any) => p.id === id);
+      
+      // 🔥 LÓGICA ACTUALIZADA: Verifica si es plato único ANTES de abrir la hoja
+      if (sel?.tipo === 'PLATO_UNICO') {
+         // Si es plato único, lo selecciona directamente sin guarnición
+         setPedido(prev => ({ ...prev, fondoId: id, guarnicionId: null }));
+         setTimeout(() => setSeccionAbierta('POSTRE'), 400);
+         return; 
+      }
+      
+      // Si no es plato único y tiene guarniciones, abre el menú inferior
       if ((sel?.guarniciones ?? []).length > 0) {
-        setSheetFondo(sel); setSheetSelectedGuarnicion(null); setSheetOpen(true); return;
+        setSheetFondo(sel); 
+        setSheetSelectedGuarnicion(null); 
+        setSheetOpen(true); 
+        return;
       }
     }
+    
+    // Comportamiento por defecto
     setPedido(prev => ({ ...prev, [categoria]: prev[categoria] === id ? null : id }));
     if (categoria === 'fondoId') setTimeout(() => setSeccionAbierta('POSTRE'), 400);
   };
@@ -178,24 +245,24 @@ const HomePageTrabajador: React.FC = () => {
       setTimeout(() => setSeccionAbierta('FONDO'), 400);
     }
   };
- 
+
   if (eliminando) return <LoadingView message="Eliminando pedido..." />;
- 
+
   return (
-    <div className="min-h-screen pb-40" style={{ backgroundColor: THEME.colors.background }} onClick={() => setSeccionAbierta(null)}>
+    <div className="min-h-screen pb-40 relative" style={{ backgroundColor: THEME.colors.background }} onClick={() => setSeccionAbierta(null)}>
       <Sidebar isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} rolPropVisible="Trabajador" empresaNombre="Starco" />
- 
+
       <div className="pt-5 pb-3 flex justify-between items-center px-6" style={{ backgroundColor: THEME.colors.secondary }}>
         <h1 className="text-[24px] font-black italic text-white m-0 leading-none">GM <span style={{ color: THEME.colors.primary }}>EXPRESS</span></h1>
         <button onClick={() => setIsMenuOpen(true)} className="p-2 text-white"><Menu size={24} /></button>
       </div>
       <div className="h-1 w-full" style={{ backgroundColor: THEME.colors.primary }} />
- 
+
       <div className="px-6 pt-7 pb-10 text-white rounded-b-[40px] shadow-lg" style={{ backgroundColor: THEME.colors.secondary }}>
-        <h2 className="text-xl font-bold opacity-95">Hola, {nombreUsuario}</h2>
+        <h2 className="text-xl font-bold opacity-95">Hola, {capitalizar(user?.firstName)} {capitalizar(user?.lastName)}</h2>
         <p className="text-[10px] opacity-70 mt-1 uppercase font-bold tracking-widest">{fechaTexto}</p>
       </div>
- 
+
       <div className="mx-6 -mt-8 p-5 rounded-3xl shadow-2xl bg-white border-b-4 transition-all" style={{ borderBottomColor: isDeadlinePassed ? THEME.colors.error : THEME.colors.primary }}>
         <div className="flex items-center gap-4">
           <div className={`p-3 rounded-2xl ${isDeadlinePassed ? 'bg-red-50' : 'bg-green-50'}`}><Clock size={24} className={isDeadlinePassed ? 'text-red-500' : 'text-green-600'} /></div>
@@ -205,7 +272,7 @@ const HomePageTrabajador: React.FC = () => {
           </div>
         </div>
       </div>
- 
+
       <div className="mt-10 px-6">
         <div className="flex items-center justify-between mb-4">
           <button onClick={() => setSemanaOffset(-1)} className="p-2 bg-white rounded-xl shadow-sm border border-gray-50"><ChevronLeft size={20} /></button>
@@ -215,23 +282,40 @@ const HomePageTrabajador: React.FC = () => {
         <div className="flex justify-between items-center">
           {diasSemanaArray.map((dia, index) => {
             const tienePedido = fechasBloqueadas.has(dia.iso);
+            const numDiaMenu = new Date(dia.iso + 'T12:00:00').getDay();
+            const esBloqueadoPerm = diasBloqueadosAdmin.includes(numDiaMenu);
+            const visualmenteBloqueado = dia.bloqueado || esBloqueadoPerm;
+            const isSelectedAndValid = dia.esSeleccionado && !todosBloqueados;
+
             return (
               <button
                 key={index}
-                onClick={() => { if (!(dia.bloqueado && !tienePedido)) setDiaSeleccionadoIdx(index); }}
-                className={['flex flex-col items-center justify-center w-[17%] aspect-square rounded-[20px] transition-all', dia.esSeleccionado ? 'border-2 scale-110 shadow-md' : 'border shadow-sm', tienePedido ? 'bg-green-50 border-green-200' : (dia.bloqueado ? 'bg-gray-100 border-gray-200 text-gray-300' : 'bg-white border-gray-200'), (dia.bloqueado && !tienePedido) ? 'cursor-not-allowed' : 'cursor-pointer'].join(' ')}
-                style={dia.esSeleccionado ? { borderColor: THEME.colors.primary } : {}}
+                onClick={() => { if (!(visualmenteBloqueado && !tienePedido)) setDiaSeleccionadoIdx(index); }}
+                className={['flex flex-col items-center justify-center w-[17%] aspect-square rounded-[20px] transition-all', 
+                  isSelectedAndValid ? 'border-2 scale-110 shadow-md' : 'border shadow-sm', 
+                  tienePedido ? 'bg-green-50 border-green-200' : (visualmenteBloqueado ? 'bg-gray-100 border-gray-200 text-gray-300' : 'bg-white border-gray-200'), 
+                  (visualmenteBloqueado && !tienePedido) ? 'cursor-not-allowed' : 'cursor-pointer'
+                ].join(' ')}
+                style={isSelectedAndValid ? { borderColor: THEME.colors.primary } : {}}
               >
                 <span className={`text-[10px] font-black mb-1 uppercase ${tienePedido ? 'text-[#70a344]' : 'text-gray-400'}`}>{dia.letra}</span>
-                <span className="text-lg font-black" style={{ color: tienePedido || dia.esSeleccionado ? THEME.colors.primary : (dia.bloqueado ? '#a0a0a0' : '#1d2d50') }}>{dia.numero}</span>
+                <span className="text-lg font-black" style={{ color: tienePedido || isSelectedAndValid ? THEME.colors.primary : (visualmenteBloqueado ? '#a0a0a0' : '#1d2d50') }}>{dia.numero}</span>
               </button>
             );
           })}
         </div>
       </div>
- 
+
       <div className="mt-8 px-6 space-y-4">
-        {(cargandoVerificacion || cargandoMenu) ? (
+        {todosBloqueados ? (
+          <div className="bg-white rounded-[2rem] p-8 border border-gray-100 shadow-sm text-center mt-4 flex flex-col items-center justify-center">
+            <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4">
+              <CalendarOff size={32} className="text-gray-400" />
+            </div>
+            <h3 className="font-black text-xl text-[#1d2d50] mb-2">Sin días disponibles</h3>
+            <p className="text-gray-400 text-sm font-medium">No tienes días habilitados para realizar pedidos durante esta semana.</p>
+          </div>
+        ) : (cargandoVerificacion || cargandoMenu) ? (
           <div className="space-y-4 max-w-md mx-auto mt-2">
             <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm">
               <div className="h-5 bg-gray-200 rounded-full w-1/3 mb-6 animate-pulse" />
@@ -360,26 +444,14 @@ const HomePageTrabajador: React.FC = () => {
                 const isHeaderSelected = cat === 'ENTRADA' ? pedido.entradasIds.length > 0 : pedido[(cat.toLowerCase() + 'Id') as 'fondoId' | 'postreId'] !== null;
                 const platos = menuHoy[key] ?? [];
 
-                // 1. Lógica de ordenamiento: Surtida primero, Sopa después, resto al final
                 const platosOrdenados = cat !== 'ENTRADA' ? platos : (() => {
                   const ensaladaSurtida = platos.filter((plato: any) => plato.nombre.toLowerCase().trim().includes('ensalada surtida'));
-                  const sopa = platos.filter((plato: any) => {
-                    const nombre = plato.nombre.toLowerCase().trim();
-                    return nombre.includes('sopa');
-                  });
-                  const otrasEnsaladas = platos.filter((plato: any) => {
-                    const nombre = plato.nombre.toLowerCase().trim();
-                    return nombre.includes('ensalada') && !nombre.includes('ensalada surtida');
-                  });
-                  const resto = platos.filter((plato: any) => {
-                    const nombre = plato.nombre.toLowerCase().trim();
-                    return !nombre.includes('sopa') && !nombre.includes('ensalada');
-                  });
+                  const sopa = platos.filter((plato: any) => plato.nombre.toLowerCase().trim().includes('sopa'));
+                  const otrasEnsaladas = platos.filter((plato: any) => plato.nombre.toLowerCase().trim().includes('ensalada') && !plato.nombre.toLowerCase().trim().includes('ensalada surtida'));
+                  const resto = platos.filter((plato: any) => !plato.nombre.toLowerCase().trim().includes('sopa') && !plato.nombre.toLowerCase().trim().includes('ensalada'));
 
                   const idsOrdenados = new Set([...ensaladaSurtida, ...sopa, ...otrasEnsaladas, ...resto].map((plato: any) => plato.id));
                   const ordenado = [...ensaladaSurtida, ...sopa, ...otrasEnsaladas, ...resto];
-
-                  // Conserva el orden original para cualquier plato duplicado accidentalmente filtrado dos veces
                   const adicionales = platos.filter((plato: any) => !idsOrdenados.has(plato.id));
                   return [...ordenado, ...adicionales];
                 })();
@@ -457,14 +529,17 @@ const HomePageTrabajador: React.FC = () => {
           </div>
         </BottomSheet>
       )}
- 
+
       {!(cargandoVerificacion || cargandoMenu) && !bloquearUI && (!pedidoExistente || modoEdicion) && (
-        <div className="fixed bottom-0 left-0 w-full p-6 bg-white/90 backdrop-blur-xl shadow-[0_-10px_40px_rgba(0,0,0,0.05)]">
+        <div className="fixed bottom-0 left-0 w-full p-6 bg-white/90 backdrop-blur-xl shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-40">
           <button onClick={manejarEnvio} disabled={!puedeEnviar || enviando} className={`w-full py-5 rounded-[24px] font-black text-lg transition-all flex items-center justify-center gap-3 ${puedeEnviar ? 'bg-[#70a344] shadow-xl text-white' : 'bg-gray-200 text-gray-500'}`}>
             {enviando ? 'Enviando...' : modoEdicion ? 'Guardar Cambios' : 'Confirmar Pedido'}
           </button>
         </div>
       )}
+
+      {/* Componente renderizado */}
+      <VerificadorRut />
     </div>
   );
 };

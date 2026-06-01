@@ -156,7 +156,7 @@ export default function EditarEmpresaPage() {
   const [contactoSuplenteForm, setContactoSuplenteForm] =
     useState<ContactoEmpresaForm>(CONTACTO_DEFAULTS)
 
-  const detalleHref = empresaId ? `/dashboard/empresas/${empresaId}` : "/dashboard/empresas"
+  const detalleHref = empresaId ? `/empresas/${empresaId}` : "/empresas"
 
   const hidratarFormulario = useCallback((empresa: EmpresaDetalle) => {
     const contactoTitular = empresa.contactos.find(
@@ -293,7 +293,7 @@ export default function EditarEmpresaPage() {
         throw new Error(data?.error ?? "No se pudo actualizar la empresa")
       }
 
-      router.push(`/dashboard/empresas/${empresaId}`)
+      router.push(`/empresas/${empresaId}`)
     } catch (err) {
       console.error("[EditarEmpresaPage] Error guardando empresa:", err)
       setError(err instanceof Error ? err.message : "No se pudo actualizar la empresa")
@@ -313,7 +313,7 @@ export default function EditarEmpresaPage() {
   if (!empresaId || (!empresaCargada && error)) {
     return (
       <div className="mx-auto w-full max-w-7xl space-y-6 px-6 py-6">
-        <Link href="/dashboard/empresas" className={buttonVariants({ variant: "outline" })}>
+        <Link href="/empresas" className={buttonVariants({ variant: "outline" })}>
           <ArrowLeft className="mr-2 h-4 w-4" />
           Volver
         </Link>

@@ -13,7 +13,7 @@ export interface Plato {
   nombre:      string;
   url_imagen:  string | null;
   categoria:   "ENTRADA" | "FONDO" | "POSTRE" | "BEBESTIBLE";
-  tipo:        "NORMAL" | "VEGANO" | "VEGETARIANO" | "HIPOCALORICO" | "SIN_GLUTEN";
+  tipo:        "NORMAL" | "VEGANO" | "VEGETARIANO" | "HIPOCALORICO" | "PLATO_UNICO";
   guarniciones: Guarnicion[];
   menuDetalleId?: number;
 }

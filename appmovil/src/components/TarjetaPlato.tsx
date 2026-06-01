@@ -1,3 +1,4 @@
+// TarjetaPlato.tsx
 import React from 'react';
 import { CheckCircle2 } from 'lucide-react';
 
@@ -20,8 +21,6 @@ export const TarjetaPlato: React.FC<TarjetaPlatoProps> = ({
   extraInfo,
   onSelect 
 }) => {
-  // Ya no necesitamos renderizar las guarniciones aquí, 
-  // se manejarán exclusivamente en el BottomSheet (menú inferior) y en el resumen.
 
   return (
     <button
@@ -41,9 +40,10 @@ export const TarjetaPlato: React.FC<TarjetaPlatoProps> = ({
           <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${
             plato.tipo === 'VEGANO' ? 'bg-green-100 text-green-700' :
             plato.tipo === 'HIPOCALORICO' ? 'bg-blue-100 text-blue-700' :
+            plato.tipo === 'PLATO_UNICO' ? 'bg-purple-100 text-purple-700' : // 🔥 Nuevo estilo para PLATO_UNICO
             'bg-orange-100 text-orange-700'
           }`}>
-            {plato.tipo}
+            {plato.tipo.replace('_', ' ')} {/* Formatea PLATO_UNICO a PLATO UNICO */}
           </span>
         </div>
         <p className="font-bold text-gray-800 text-sm leading-tight truncate">{String(plato.nombre).toUpperCase()}</p>
