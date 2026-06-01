@@ -5,14 +5,12 @@ import db from '../../../../lib/db';
 import { Rol } from '@prisma/client';
 
 export async function POST(req: Request) {
-  // 1. Obtener la llave secreta del Webhook
   const WEBHOOK_SECRET = process.env.CLERK_WEBHOOK_SECRET;
 
   if (!WEBHOOK_SECRET) {
     throw new Error('Falta la variable de entorno CLERK_WEBHOOK_SECRET');
   }
 
-  // 2. Obtener las cabeceras de seguridad
   const headerPayload = await headers();
   const svix_id = headerPayload.get("svix-id");
   const svix_timestamp = headerPayload.get("svix-timestamp");
@@ -22,11 +20,9 @@ export async function POST(req: Request) {
     return new Response('Faltan cabeceras de Svix', { status: 400 });
   }
 
-  // 3. Obtener el cuerpo de la petición
   const payload = await req.json();
   const body = JSON.stringify(payload);
 
-  // 4. Verificar la autenticidad de Clerk
   const wh = new Webhook(WEBHOOK_SECRET);
   let evt: WebhookEvent;
 
@@ -43,23 +39,31 @@ export async function POST(req: Request) {
 
   const eventType = evt.type;
 
-  // 5. Sincronización con Neon (usando 'db')
   if (eventType === 'user.created' || eventType === 'user.updated') {
+    // 🔥 Separamos los datos exactos que vienen de Clerk
     const { id, first_name, last_name, username } = evt.data;
-    const nombreCompleto = `${first_name || ''} ${last_name || ''}`.trim() || username || 'Usuario sin nombre';
+    
+    // Si el usuario no tiene 'username' en Clerk, usamos su primer nombre como respaldo
+    const nick = username || first_name || 'Nuevo Usuario';
 
     try {
       await db.usuario.upsert({
         where: { id: id },
-        update: { nombre: nombreCompleto },
+        update: { 
+          nombre: first_name || null,
+          apellido: last_name || null,
+          nombreUsuario: nick // Actualizamos el nick si cambia
+        },
         create: {
           id: id,
-          nombre: nombreCompleto,
+          nombreUsuario: nick,
+          nombre: first_name || null,
+          apellido: last_name || null,
           rol: Rol.TRABAJADOR, 
-          empresaId: 1, // 👈 Recuerda que esto asume que la empresa 1 ya existe
+          empresaId: 1, 
         }
       });
-      console.log(`✅ Usuario ${id} (${nombreCompleto}) sincronizado exitosamente.`);
+      console.log(`✅ Usuario ${id} sincronizado exitosamente.`);
     } catch (error) {
       console.error('❌ Error sincronizando usuario:', error);
       return new Response('Error de base de datos', { status: 500 });

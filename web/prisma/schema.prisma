@@ -38,13 +38,17 @@ model Empresa {
 }
 
 model Usuario {
-  id        String   @id
-  nombre    String   @db.VarChar(100)
-  rol       Rol      @default(TRABAJADOR)
-  empresaId Int?
-  correo    String?  @db.VarChar(100)
-  pedidos   Pedido[]
-  empresa   Empresa? @relation(fields: [empresaId], references: [id])
+  id             String    @id
+  nombreUsuario         String?    @db.VarChar(100)
+  rol            Rol       @default(TRABAJADOR)
+  rut            String?   @unique @db.VarChar(20) // 🔥 NUEVO: Opcional para que no choque con Clerk
+  empresaId      Int?
+  correo         String?   @db.VarChar(100)
+  pedidos        Pedido[]
+  empresa        Empresa?  @relation(fields: [empresaId], references: [id])
+  diasBloqueados Int[]     @default([])
+  nombre    String?
+  apellido  String?
 
   @@index([empresaId, rol])
 }
@@ -205,8 +209,8 @@ enum VarianteMenu {
   NORMAL
   VEGANO
   HIPOCALORICO
-  SIN_GLUTEN
   VEGETARIANO
+  PLATO_UNICO
 }
 
 enum EstadoEmpresa {
