@@ -9,16 +9,17 @@ import {
   CalendarDays,
   ClipboardList,
   Building2,
-  Users
+  Users,
+  Settings,
 } from "lucide-react"
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Gestión de Pedidos", href: "/pedidos", icon: ClipboardList },
-  { name: "Subir Platos", href: "/platos", icon: UtensilsCrossed },
   { name: "Planificador", href: "/planificador", icon: CalendarDays },
+  { name: "Gestión de Pedidos", href: "/pedidos", icon: ClipboardList },
   { name: "Empresas Clientes", href: "/empresas", icon: Building2 },
   { name: "Usuarios de App", href: "/usuarios", icon: Users },
+  { name: "Configuración", href: "/configuracion", icon: Settings },
 ]
 
 export function Sidebar() {
