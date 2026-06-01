@@ -14,11 +14,11 @@ import {
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Gestión de Pedidos", href: "/dashboard/pedidos", icon: ClipboardList },
-  { name: "Subir Platos", href: "/dashboard/platos", icon: UtensilsCrossed },
-  { name: "Planificador", href: "/dashboard/planificador", icon: CalendarDays },
-  { name: "Empresas Clientes", href: "/dashboard/empresas", icon: Building2 },
-  { name: "Usuarios de App", href: "/dashboard/usuarios", icon: Users },
+  { name: "Gestión de Pedidos", href: "/pedidos", icon: ClipboardList },
+  { name: "Subir Platos", href: "/platos", icon: UtensilsCrossed },
+  { name: "Planificador", href: "/planificador", icon: CalendarDays },
+  { name: "Empresas Clientes", href: "/empresas", icon: Building2 },
+  { name: "Usuarios de App", href: "/usuarios", icon: Users },
 ]
 
 export function Sidebar() {
@@ -40,7 +40,7 @@ export function Sidebar() {
           Menú Principal
         </div>
         {navigation.map((item) => {
-          const isActive = pathname === item.href
+          const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`)
           return (
             <Link
               key={item.name}

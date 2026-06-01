@@ -417,7 +417,7 @@ export async function GET() {
           region: true,
           sector: true,
           estado: true,
-          convenio: {
+          ConvenioEmpresa: {
             select: {
               id: true,
               permitePlato: true,

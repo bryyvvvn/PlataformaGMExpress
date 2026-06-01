@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { Menu, Send, ChevronLeft, ChevronRight, CheckCircle2 } from 'lucide-react';
-import { THEME } from '../constants/theme';
-import { Sidebar } from '../components/Sidebar';
-import { TarjetaTrabajador } from '../components/TarjetaTrabajador';
-import { useTrabajadores } from '../hooks/useTrabajadores'; 
-import { useCalendario } from '../hooks/useCalendario';
-import { usePlanilla } from '../hooks/usePlanilla';
+import { THEME } from '../../constants/theme';
+import { Sidebar } from '../../components/Sidebar';
+import { TarjetaTrabajador } from '../../components/TarjetaTrabajador';
+import { useTrabajadores } from '../../hooks/useTrabajadores'; 
+import { useCalendario } from '../../hooks/useCalendario';
+import { usePlanilla } from '../../hooks/usePlanilla';
 
 interface HomePageRepresentanteProps {
   empresaId: number | null;

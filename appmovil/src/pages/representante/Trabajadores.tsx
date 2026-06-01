@@ -1,8 +1,8 @@
 import React from 'react';
 import { ArrowLeft, Users, Info } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { usePerfil } from '../hooks/usePerfil';
-import { useTrabajadores } from '../hooks/useTrabajadores';
+import { usePerfil } from '../../hooks/usePerfil';
+import { useTrabajadores } from '../../hooks/useTrabajadores';
 
 const Trabajadores: React.FC = () => {
   const navigate = useNavigate();

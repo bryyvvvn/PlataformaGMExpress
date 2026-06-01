@@ -1,9 +1,9 @@
 import React, { useEffect } from 'react';
 import { Utensils, ArrowLeft, Clock, Info } from 'lucide-react'; // Añadido Info icon
 import { useUser } from '@clerk/clerk-react';
-import { useHistorial } from '../hooks/useHistorial';
+import { useHistorial } from '../../hooks/useHistorial';
 import { useNavigate } from 'react-router-dom';
-import LoadingView from '../components/LoadingView';
+import LoadingView from '../../components/LoadingView';
 
 export const Historial: React.FC = () => {
   const { user } = useUser();

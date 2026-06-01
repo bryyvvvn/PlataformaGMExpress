@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
+import { ClerkProvider } from '@clerk/nextjs'
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -17,16 +18,17 @@ export const metadata: Metadata = {
   description: 'Plataforma de Administración GM Express',
 }
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode
-}>) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        {children}
-      </body>
-    </html>
+    // Forzamos las rutas directamente en el componente
+    <ClerkProvider 
+      signInUrl="/auth/login" 
+      signUpUrl="/auth/login" 
+      signInFallbackRedirectUrl="/dashboard" // O a donde quieras que vaya al entrar
+    >
+      <html lang="es">
+        <body>{children}</body>
+      </html>
+    </ClerkProvider>
   )
 }

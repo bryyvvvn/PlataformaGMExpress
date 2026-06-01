@@ -1,11 +1,11 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { SignedIn, SignedOut } from '@clerk/clerk-react';
-import HomePageTrabajador from './pages/HomePageTrabajador';
-import HomePageRepresentante from './pages/HomePageRepresentante';
-import Login from './pages/Login';
-import Historial from './pages/Historial'; 
-import Trabajadores from './pages/Trabajadores'; // 🔥 Nueva importación
+import HomePageTrabajador from './pages/homes/HomePageTrabajador';
+import HomePageRepresentante from './pages/homes/HomePageRepresentante';
+import Login from './pages/auth/Login';
+import Historial from './pages/trabajador/Historial'; 
+import Trabajadores from './pages/representante/Trabajadores'; 
 import LoadingView from './components/LoadingView';
 import { usePerfil } from './hooks/usePerfil';
 
