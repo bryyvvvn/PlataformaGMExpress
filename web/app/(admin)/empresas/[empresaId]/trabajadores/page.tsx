@@ -59,7 +59,7 @@ export default function TrabajadoresEmpresaPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const detalleHref = empresaId ? `/dashboard/empresas/${empresaId}` : "/dashboard/empresas"
+  const detalleHref = empresaId ? `/empresas/${empresaId}` : "/empresas"
 
   const cargarTrabajadores = useCallback(async () => {
     if (!empresaId) {
@@ -112,7 +112,7 @@ export default function TrabajadoresEmpresaPage() {
   if (error || !data) {
     return (
       <div className="mx-auto w-full max-w-7xl space-y-6 px-6 py-6">
-        <Link href="/dashboard/empresas" className={buttonVariants({ variant: "outline" })}>
+        <Link href="/empresas" className={buttonVariants({ variant: "outline" })}>
           <ArrowLeft className="mr-2 h-4 w-4" />
           Volver
         </Link>
@@ -135,7 +135,7 @@ export default function TrabajadoresEmpresaPage() {
     <div className="mx-auto w-full max-w-7xl space-y-6 px-6 py-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-3">
-          <Link href="/dashboard/empresas" className={buttonVariants({ variant: "outline" })}>
+          <Link href="/empresas" className={buttonVariants({ variant: "outline" })}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Volver
           </Link>
@@ -218,14 +218,13 @@ export default function TrabajadoresEmpresaPage() {
                     <TableHead>ID usuario</TableHead>
                     <TableHead>Rol</TableHead>
                     <TableHead className="text-center">Pedidos</TableHead>
-                    <TableHead className="text-right">Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {data.trabajadores.map((trabajador) => (
                     <TableRow key={trabajador.id}>
                       <TableCell className="font-medium">
-                        {trabajador.nombre}
+                        {trabajador.nombre.toUpperCase()}
                       </TableCell>
                       <TableCell className="font-mono text-xs">
                         {trabajador.id}
@@ -248,11 +247,6 @@ export default function TrabajadoresEmpresaPage() {
                       </TableCell>
                       <TableCell className="text-center font-bold">
                         {trabajador.pedidos}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button type="button" variant="outline" size="sm" disabled>
-                          Pendiente
-                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}

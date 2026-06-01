@@ -218,7 +218,7 @@ export default function NuevaEmpresaPage() {
 
   const cancelar = () => {
     if (guardandoEmpresa) return
-    router.push("/dashboard/empresas")
+    router.push("/empresas")
   }
 
   const crearEmpresa = async () => {
@@ -254,7 +254,7 @@ export default function NuevaEmpresaPage() {
         throw new Error(data?.error ?? "No se pudo crear la empresa")
       }
 
-      router.push("/dashboard/empresas")
+      router.push("/empresas")
     } catch (err) {
       console.error("[NuevaEmpresaPage] Error creando empresa:", err)
       setErrorCrearEmpresa(err instanceof Error ? err.message : "No se pudo crear la empresa")

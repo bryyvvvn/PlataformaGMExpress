@@ -184,7 +184,7 @@ export default function EmpresaDetallePage() {
     return (
       <div className="mx-auto w-full max-w-7xl space-y-6 px-6 py-6">
         <Link
-          href="/dashboard/empresas"
+          href="/empresas"
           className={buttonVariants({ variant: "outline" })}
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
@@ -214,7 +214,7 @@ export default function EmpresaDetallePage() {
     <div className="mx-auto w-full max-w-7xl space-y-6 px-6 py-6">
       <div className="flex flex-col gap-4">
         <Link
-          href="/dashboard/empresas"
+          href="/empresas"
           className={buttonVariants({
             variant: "outline",
             className: "w-fit",
@@ -245,7 +245,7 @@ export default function EmpresaDetallePage() {
           </div>
 
           <Link
-            href={`/dashboard/empresas/${empresa.id}/editar`}
+            href={`/empresas/${empresa.id}/editar`}
             className={buttonVariants({ variant: "outline" })}
           >
             <Pencil className="mr-2 h-4 w-4" />
