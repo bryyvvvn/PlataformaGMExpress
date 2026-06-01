@@ -1,18 +1,34 @@
-import { Sidebar } from "@/components/admin/sidebar"
+import { auth } from '@clerk/nextjs/server';
+import { redirect } from 'next/navigation';
+import db from '@/lib/db'; 
 
-export default function AdminLayout({
+export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const { userId } = await auth();
+
+  // Si no está logueado, lo mandamos al login
+  if (!userId) {
+    redirect('/auth/login');
+  }
+
+  // 🔥 EL CAMBIO ESTÁ AQUÍ: Buscamos por 'id' en lugar de 'clerkId'
+  const usuarioDB = await db.usuario.findUnique({
+    where: { id: userId }, 
+    select: { rol: true }
+  });
+
+  // 🚨 Si NO es administrador, lo expulsamos del panel
+  if (usuarioDB?.rol !== 'ADMIN') {
+    redirect('/acceso-denegado'); 
+  }
+
+  // Si es ADMIN, lo dejamos ver el contenido
   return (
-    <div className="flex min-h-screen bg-muted/30">
-      <Sidebar />
-      <div className="flex flex-1 flex-col pl-64">
-        <main className="flex-1">
-          {children}
-        </main>
-      </div>
-    </div>
-  )
+    <>
+      {children}
+    </>
+  );
 }
