@@ -17,6 +17,7 @@ export async function GET(request: Request) {
         nombre: true, 
         rol: true, 
         diasBloqueados: true,
+        rut: true,
         empresaId: true,
         empresa: {
           select: { nombre: true }

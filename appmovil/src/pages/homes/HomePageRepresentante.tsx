@@ -6,6 +6,7 @@ import { TarjetaTrabajador } from '../../components/TarjetaTrabajador';
 import { useTrabajadores } from '../../hooks/useTrabajadores'; 
 import { useCalendario } from '../../hooks/useCalendario';
 import { usePlanilla } from '../../hooks/usePlanilla';
+import { VerificadorRut } from '../../components/VerificadorRut'; // 🔥 Importación añadida
 
 interface HomePageRepresentanteProps {
   empresaId: number | null;
@@ -154,6 +155,9 @@ const HomePageRepresentante: React.FC<HomePageRepresentanteProps> = ({ empresaId
 
         </div>
       )}
+
+      {/* 🔥 Componente renderizado */}
+      <VerificadorRut />
     </div>
   );
 };

@@ -38,15 +38,15 @@ model Empresa {
 }
 
 model Usuario {
-  id        String   @id
-  nombre    String   @db.VarChar(100)
-  rol       Rol      @default(TRABAJADOR)
-  empresaId Int?
-  correo    String?  @db.VarChar(100)
-  pedidos   Pedido[]
-  empresa   Empresa? @relation(fields: [empresaId], references: [id])
-
-  diasBloqueados Int[]    @default([])
+  id             String    @id
+  nombre         String    @db.VarChar(100)
+  rol            Rol       @default(TRABAJADOR)
+  rut            String?   @unique @db.VarChar(20) // 🔥 NUEVO: Opcional para que no choque con Clerk
+  empresaId      Int?
+  correo         String?   @db.VarChar(100)
+  pedidos        Pedido[]
+  empresa        Empresa?  @relation(fields: [empresaId], references: [id])
+  diasBloqueados Int[]     @default([])
 
   @@index([empresaId, rol])
 }
