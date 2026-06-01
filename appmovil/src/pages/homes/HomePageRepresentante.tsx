@@ -6,14 +6,24 @@ import { TarjetaTrabajador } from '../../components/TarjetaTrabajador';
 import { useTrabajadores } from '../../hooks/useTrabajadores'; 
 import { useCalendario } from '../../hooks/useCalendario';
 import { usePlanilla } from '../../hooks/usePlanilla';
-import { VerificadorRut } from '../../components/VerificadorRut'; // 🔥 Importación añadida
+import { VerificadorRut } from '../../components/VerificadorRut';
+// 🔥 1. Importamos el hook de Clerk para sacar el nombre del usuario
+import { useUser } from '@clerk/clerk-react';
 
 interface HomePageRepresentanteProps {
   empresaId: number | null;
   empresaNombre: string;
 }
 
+// 🔥 Función para poner la primera letra en mayúscula
+const capitalizar = (texto: string | null | undefined) => {
+  if (!texto) return '';
+  return texto.charAt(0).toUpperCase() + texto.slice(1).toLowerCase();
+};
+
 const HomePageRepresentante: React.FC<HomePageRepresentanteProps> = ({ empresaId, empresaNombre }) => {
+  // 🔥 2. Extraemos el usuario actual
+  const { user } = useUser();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { enviarPlanilla, loading: enviandoTodo } = usePlanilla();
   
@@ -38,10 +48,7 @@ const HomePageRepresentante: React.FC<HomePageRepresentanteProps> = ({ empresaId
     }
   };
 
-  // 🔥 1. Calculamos la CANTIDAD TOTAL de pedidos en toda la semana
   const totalPedidos = trabajadores.reduce((acc, t) => acc + (t.pedidos?.length || 0), 0);
-
-  // 🔥 2. Verificamos si queda algún pedido PENDIENTE
   const hayPedidosPendientes = trabajadores.some(t => 
     t.pedidos && t.pedidos.some((p: any) => p.estado === 'PENDIENTE')
   );
@@ -55,7 +62,6 @@ const HomePageRepresentante: React.FC<HomePageRepresentanteProps> = ({ empresaId
         empresaNombre={empresaNombre}
       />
 
-      {/* HEADER PRINCIPAL */}
       <div className="pt-5 pb-3 flex justify-between items-center px-6" style={{ backgroundColor: THEME.colors.secondary }}>
         <h1 className="text-[24px] font-black italic text-white m-0 leading-none">
           GM <span style={{ color: THEME.colors.primary }}>EXPRESS</span>
@@ -66,17 +72,16 @@ const HomePageRepresentante: React.FC<HomePageRepresentanteProps> = ({ empresaId
       </div>
       <div className="h-1 w-full" style={{ backgroundColor: THEME.colors.primary }} />
 
-      {/* DETALLES DE LA EMPRESA */}
+      {/* 🔥 DETALLES DEL USUARIO Y LA EMPRESA ACTUALIZADO */}
       <div className="px-6 pt-7 pb-10 text-white rounded-b-[40px] shadow-lg" style={{ backgroundColor: THEME.colors.secondary }}>
-        <h2 className="text-xl font-bold opacity-95">{empresaNombre || 'Mi Empresa'}</h2>
-        <p className="text-[10px] opacity-70 mt-1 uppercase font-bold tracking-widest">{fechaTexto}</p>
+        <h2 className="text-xl font-bold opacity-95">Hola, {capitalizar(user?.firstName)} {capitalizar(user?.lastName)}</h2>
+        <p className="text-sm opacity-90 mt-0.5">{empresaNombre || 'Mi Empresa'}</p>
+        <p className="text-[10px] opacity-70 mt-2 uppercase font-bold tracking-widest">{fechaTexto}</p>
       </div>
 
-      {/* PLANILLA RESUMEN */}
       <div className="mt-8 px-6">
         <h3 className="font-black text-sm text-[#1d2d50] uppercase tracking-wider pl-1 mb-4">Planilla Resumen</h3>
 
-        {/* CONTROLES DE SEMANA */}
         <div className="flex items-center justify-between mb-4">
           <button onClick={() => setSemanaOffset(-1)} className="p-2 bg-white rounded-xl shadow-sm border border-gray-50 active:scale-90 transition-transform">
             <ChevronLeft size={20} className="text-gray-600" />
@@ -89,7 +94,6 @@ const HomePageRepresentante: React.FC<HomePageRepresentanteProps> = ({ empresaId
           </button>
         </div>
 
-        {/* 🔥 LÓGICA CORREGIDA: Primero verificamos si está cargando */}
         {cargando ? (
           <div className="space-y-3">
             {(() => {
@@ -108,12 +112,10 @@ const HomePageRepresentante: React.FC<HomePageRepresentanteProps> = ({ empresaId
             })()}
           </div>
         ) : trabajadores.length === 0 ? (
-          /* Solo si ya terminó de cargar y está vacío, mostramos el mensaje */
           <div className="bg-white rounded-[24px] p-8 text-center border border-gray-100 shadow-sm text-gray-400 text-sm font-medium">
             Aún no hay trabajadores registrados en tu empresa.
           </div>
         ) : (
-          /* Si ya cargó y hay trabajadores, mostramos la lista */
           <div className="space-y-3">
             {trabajadores.map((trabajador) => (
               <TarjetaTrabajador key={trabajador.id} trabajador={trabajador} />
@@ -122,12 +124,10 @@ const HomePageRepresentante: React.FC<HomePageRepresentanteProps> = ({ empresaId
         )}
       </div>
 
-      {/* BOTÓN DE CIERRE FIJO DINÁMICO */}
       {!cargando && trabajadores.length > 0 && (
         <div className="fixed bottom-0 left-0 w-full p-6 bg-white/90 backdrop-blur-xl shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-30">
           
           {totalPedidos === 0 ? (
-            // 1. SI NADIE HA PEDIDO NADA AÚN
             <button 
               disabled
               className="w-full h-14 bg-gray-100 text-gray-400 rounded-[20px] font-black text-base shadow-sm flex items-center justify-center gap-2 uppercase tracking-wide"
@@ -136,7 +136,6 @@ const HomePageRepresentante: React.FC<HomePageRepresentanteProps> = ({ empresaId
               Esperando pedidos
             </button>
           ) : hayPedidosPendientes ? (
-            // 2. SI HAY PEDIDOS PENDIENTES
             <button 
               onClick={manejarEnviarTodo}
               disabled={enviandoTodo}
@@ -146,7 +145,6 @@ const HomePageRepresentante: React.FC<HomePageRepresentanteProps> = ({ empresaId
               {enviandoTodo ? 'Enviando planilla...' : `Enviar planilla`}
             </button>
           ) : (
-            // 3. SI TODOS LOS PEDIDOS ESTÁN CONFIRMADOS
             <div className="w-full h-14 bg-gray-100 text-gray-400 rounded-[20px] font-black text-sm shadow-sm flex items-center justify-center gap-2 uppercase tracking-widest">
               <CheckCircle2 size={18} className="text-gray-400" />
                 Planilla Confirmada

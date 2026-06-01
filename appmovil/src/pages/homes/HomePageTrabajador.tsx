@@ -1,3 +1,4 @@
+// HomePageTrabajador.tsx
 import React, { useState, useEffect, useMemo } from 'react';
 import { Clock, CheckCircle2, Menu, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, X, Trash2, CalendarOff } from 'lucide-react';
 import { THEME, DEADLINE_HOUR } from '../../constants/theme';
@@ -12,10 +13,16 @@ import { useCalendario } from '../../hooks/useCalendario';
 import { useHistorial } from '../../hooks/useHistorial';
 import { Sidebar } from '../../components/Sidebar';
 import { API_BASE_URL } from '../../constants/api';
-import { VerificadorRut } from '../../components/VerificadorRut'; // 🔥 Importación añadida
+import { VerificadorRut } from '../../components/VerificadorRut';
 
 type Categoria = 'ENTRADA' | 'FONDO' | 'POSTRE' | null;
 type TipoMenu = 'MENU_DIA' | 'PERSONALIZADO' | 'OTRO';
+
+// Función para poner la primera letra en mayúscula
+const capitalizar = (texto: string | null | undefined) => {
+  if (!texto) return '';
+  return texto.charAt(0).toUpperCase() + texto.slice(1).toLowerCase();
+};
 
 const HomePageTrabajador: React.FC = () => {
   const { user } = useUser();
@@ -103,7 +110,9 @@ const HomePageTrabajador: React.FC = () => {
   }, [fechaBloqueada, fechaSeleccionadaTienePedido, diasSemanaArray.length, indicePrimerDiaHabil, diaSeleccionadoIdx, setDiaSeleccionadoIdx]);
 
   const fondoObj = (menuHoy.fondos || []).find((p: any) => p.id === pedido.fondoId);
-  const fondoNeedsGuarnicion = Boolean(fondoObj && (fondoObj.guarniciones || []).length > 0);
+  // 🔥 LÓGICA ACTUALIZADA: Si es PLATO_UNICO, no necesita guarnición
+  const isPlatoUnico = fondoObj?.tipo === 'PLATO_UNICO';
+  const fondoNeedsGuarnicion = Boolean(fondoObj && (fondoObj.guarniciones || []).length > 0 && !isPlatoUnico);
   
   const menuDiaSeleccionado = Boolean(
     menuHoy.menuDia &&
@@ -179,12 +188,28 @@ const HomePageTrabajador: React.FC = () => {
 
   const seleccionarPlato = (categoria: 'fondoId' | 'postreId', id: number) => {
     if (bloquearUI) return;
+    
     if (categoria === 'fondoId') {
       const sel = (menuHoy.fondos || []).find((p: any) => p.id === id);
+      
+      // 🔥 LÓGICA ACTUALIZADA: Verifica si es plato único ANTES de abrir la hoja
+      if (sel?.tipo === 'PLATO_UNICO') {
+         // Si es plato único, lo selecciona directamente sin guarnición
+         setPedido(prev => ({ ...prev, fondoId: id, guarnicionId: null }));
+         setTimeout(() => setSeccionAbierta('POSTRE'), 400);
+         return; 
+      }
+      
+      // Si no es plato único y tiene guarniciones, abre el menú inferior
       if ((sel?.guarniciones ?? []).length > 0) {
-        setSheetFondo(sel); setSheetSelectedGuarnicion(null); setSheetOpen(true); return;
+        setSheetFondo(sel); 
+        setSheetSelectedGuarnicion(null); 
+        setSheetOpen(true); 
+        return;
       }
     }
+    
+    // Comportamiento por defecto
     setPedido(prev => ({ ...prev, [categoria]: prev[categoria] === id ? null : id }));
     if (categoria === 'fondoId') setTimeout(() => setSeccionAbierta('POSTRE'), 400);
   };
@@ -234,7 +259,7 @@ const HomePageTrabajador: React.FC = () => {
       <div className="h-1 w-full" style={{ backgroundColor: THEME.colors.primary }} />
 
       <div className="px-6 pt-7 pb-10 text-white rounded-b-[40px] shadow-lg" style={{ backgroundColor: THEME.colors.secondary }}>
-        <h2 className="text-xl font-bold opacity-95">Hola, {nombreUsuario}</h2>
+        <h2 className="text-xl font-bold opacity-95">Hola, {capitalizar(user?.firstName)} {capitalizar(user?.lastName)}</h2>
         <p className="text-[10px] opacity-70 mt-1 uppercase font-bold tracking-widest">{fechaTexto}</p>
       </div>
 
@@ -513,7 +538,7 @@ const HomePageTrabajador: React.FC = () => {
         </div>
       )}
 
-      {/* 🔥 Componente renderizado */}
+      {/* Componente renderizado */}
       <VerificadorRut />
     </div>
   );
