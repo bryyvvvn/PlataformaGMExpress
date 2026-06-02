@@ -264,13 +264,16 @@ export default function NuevaEmpresaPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-6 px-6 py-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <div className="mx-auto w-full max-w-7xl space-y-4 p-4">
+      <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+            Empresas
+          </p>
+          <h1 className="text-xl font-semibold text-[#1B2C56]">
             Agregar Nueva Empresa
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-sm text-slate-600">
             Complete los datos para registrar una nueva empresa cliente
           </p>
         </div>
@@ -284,7 +287,7 @@ export default function NuevaEmpresaPage() {
         </Button>
       </div>
 
-      <div className="w-full rounded-xl border border-border bg-card px-4 py-5 shadow-sm sm:px-6">
+      <div className="w-full rounded-md border border-slate-200 bg-white px-4 py-4 shadow-sm">
         <div className="flex w-full items-start">
           {PASOS_CREAR_EMPRESA.map((paso, index) => {
             const Icon = paso.icon
@@ -335,9 +338,9 @@ export default function NuevaEmpresaPage() {
         </div>
       </div>
 
-      <Card className="w-full border-border bg-card shadow-sm">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-[#1b2c56]">
+      <Card className="w-full rounded-md border-slate-200 bg-white shadow-sm">
+        <CardHeader className="border-b border-slate-200 px-4 py-3">
+          <CardTitle className="flex items-center gap-2 text-sm font-semibold text-[#1B2C56]">
             <PasoActualIcon className="h-5 w-5" />
             {pasoCrearEmpresa === 0 && "Datos Generales de la Empresa"}
             {pasoCrearEmpresa === 1 && "Interlocutor Titular"}

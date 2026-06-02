@@ -53,15 +53,18 @@ export default function EmpresasView() {
   const empresasActivas = empresas.filter((e) => e.estado === "ACTIVA").length
 
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-6 px-6 py-6">
+    <div className="mx-auto w-full max-w-7xl space-y-4 p-4">
       {/* --- CABECERA --- */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+            Administración
+          </p>
+          <h1 className="text-xl font-semibold text-[#1B2C56]">
             Empresas Clientes
           </h1>
-          <p className="text-muted-foreground">
-            {empresasActivas} empresas activas - {totalTrabajadores} trabajadores totales
+          <p className="text-sm text-slate-600">
+            {empresasActivas} empresas activas · {totalTrabajadores} trabajadores totales
           </p>
         </div>
         <Link
@@ -76,68 +79,70 @@ export default function EmpresasView() {
       </div>
 
       {/* --- TARJETAS DE ESTADÍSTICAS --- */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Card className="border-border bg-card">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <Card className="rounded-md border-slate-200 bg-white shadow-sm">
+          <CardHeader className="px-4 pb-1 pt-4">
+            <CardTitle className="text-xs font-medium uppercase tracking-wide text-slate-500">
               Total Empresas
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-foreground">{empresas.length}</div>
+          <CardContent className="px-4 pb-4 pt-0">
+            <div className="text-2xl font-semibold text-[#1B2C56]">{empresas.length}</div>
           </CardContent>
         </Card>
-        <Card className="border-border bg-card">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+        <Card className="rounded-md border-slate-200 bg-white shadow-sm">
+          <CardHeader className="px-4 pb-1 pt-4">
+            <CardTitle className="text-xs font-medium uppercase tracking-wide text-slate-500">
               Empresas Activas
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-[#75aa46]">{empresasActivas}</div>
+          <CardContent className="px-4 pb-4 pt-0">
+            <div className="text-2xl font-semibold text-[#75AA46]">{empresasActivas}</div>
           </CardContent>
         </Card>
-        <Card className="border-border bg-card">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+        <Card className="rounded-md border-slate-200 bg-white shadow-sm">
+          <CardHeader className="px-4 pb-1 pt-4">
+            <CardTitle className="text-xs font-medium uppercase tracking-wide text-slate-500">
               Total Trabajadores
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-[#1b2c56]">{totalTrabajadores}</div>
+          <CardContent className="px-4 pb-4 pt-0">
+            <div className="text-2xl font-semibold text-[#1B2C56]">{totalTrabajadores}</div>
           </CardContent>
         </Card>
       </div>
 
       {/* --- TABLA DE EMPRESAS --- */}
-      <Card className="overflow-hidden border-border bg-card">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-foreground">
-            <Building2 className="h-5 w-5 text-[#1b2c56]" />
+      <Card className="overflow-hidden rounded-md border-slate-200 bg-white shadow-sm">
+        <CardHeader className="border-b border-slate-200 px-4 py-3">
+          <CardTitle className="flex items-center gap-2 text-sm font-semibold text-[#1B2C56]">
+            <Building2 className="h-4 w-4" />
             Listado de Empresas
           </CardTitle>
-          <CardDescription>Gestiona los clientes corporativos de GM Express</CardDescription>
+          <CardDescription className="text-xs text-slate-500">
+            Gestiona los clientes corporativos de GM Express
+          </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           {loading ? (
-            <div className="px-6 py-8 text-sm text-muted-foreground">
+            <div className="px-4 py-6 text-sm text-slate-600">
               Cargando empresas...
             </div>
           ) : error ? (
-            <div className="space-y-4 px-6 py-8">
-              <p className="text-sm text-muted-foreground">{error}</p>
+            <div className="space-y-3 px-4 py-6">
+              <p className="text-sm text-slate-600">{error}</p>
               <Button variant="outline" onClick={cargarEmpresas}>
                 Reintentar
               </Button>
             </div>
           ) : empresas.length === 0 ? (
-            <div className="px-6 py-8 text-sm text-muted-foreground">
+            <div className="px-4 py-6 text-sm text-slate-600">
               No hay empresas registradas.
             </div>
           ) : (
             <div>
               {errorEstadoEmpresa && (
-                <p className="mx-6 mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-destructive">
+                <p className="mx-4 mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
                   {errorEstadoEmpresa}
                 </p>
               )}
@@ -145,22 +150,22 @@ export default function EmpresasView() {
               <div className="w-full overflow-x-auto">
                 <Table className="min-w-[900px]">
                   <TableHeader>
-                    <TableRow>
-                      <TableHead>Nombre</TableHead>
-                      <TableHead>RUT</TableHead>
-                      <TableHead className="text-center">Trabajadores</TableHead>
-                      <TableHead>Estado</TableHead>
-                      <TableHead>Convenio</TableHead>
-                      <TableHead className="text-right">Acciones</TableHead>
+                    <TableRow className="border-slate-200 bg-slate-50 hover:bg-slate-50">
+                      <TableHead className="text-xs font-semibold uppercase tracking-wide text-[#1B2C56]">Nombre</TableHead>
+                      <TableHead className="text-xs font-semibold uppercase tracking-wide text-[#1B2C56]">RUT</TableHead>
+                      <TableHead className="text-center text-xs font-semibold uppercase tracking-wide text-[#1B2C56]">Trabajadores</TableHead>
+                      <TableHead className="text-xs font-semibold uppercase tracking-wide text-[#1B2C56]">Estado</TableHead>
+                      <TableHead className="text-xs font-semibold uppercase tracking-wide text-[#1B2C56]">Convenio</TableHead>
+                      <TableHead className="text-right text-xs font-semibold uppercase tracking-wide text-[#1B2C56]">Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {empresas.map((empresa) => (
-                      <TableRow key={empresa.id}>
+                      <TableRow key={empresa.id} className="text-sm">
                         <TableCell>
                           <div>
-                            <p className="font-medium">{empresa.nombre}</p>
-                            <p className="text-xs text-muted-foreground">
+                            <p className="font-medium text-slate-900">{empresa.nombre}</p>
+                            <p className="text-xs text-slate-500">
                               {empresa.correo_contacto ?? "Sin correo registrado"}
                             </p>
                           </div>
@@ -195,7 +200,7 @@ export default function EmpresasView() {
                         </TableCell>
                         <TableCell className="text-right">
                           <DropdownMenu>
-                            <DropdownMenuTrigger className="inline-flex h-8 w-8 items-center justify-center rounded-lg hover:bg-muted">
+                            <DropdownMenuTrigger className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-slate-100">
                               <MoreHorizontal className="h-4 w-4" />
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
@@ -242,10 +247,10 @@ export default function EmpresasView() {
       {/* --- MODAL DE CONVENIOS --- */}
       {empresaConvenioSeleccionada && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-          <div className="w-full max-w-md rounded-lg border border-border bg-background p-6 shadow-xl">
-            <div className="space-y-2">
-              <h2 className="text-lg font-semibold text-foreground">Editar convenio</h2>
-              <p className="text-sm text-muted-foreground">
+          <div className="w-full max-w-md rounded-md border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="space-y-1">
+              <h2 className="text-sm font-semibold text-[#1B2C56]">Editar convenio</h2>
+              <p className="text-sm text-slate-600">
                 Selecciona los productos disponibles para {empresaConvenioSeleccionada.nombre}.
               </p>
             </div>

@@ -5,7 +5,8 @@ import { NextResponse } from 'next/server'
 const isPublicRoute = createRouteMatcher([
   // ¡ELIMINAMOS /sign-in DE AQUÍ!
   '/sign-up(.*)',
-  '/auth(.*)',         
+  '/auth/login(.*)',
+  '/auth(.*)',
   
   '/api/webhooks(.*)', 
   '/api/admin(.*)',

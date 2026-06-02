@@ -76,6 +76,7 @@ export async function GET(req: NextRequest) {
               { fecha_dia: null, dia_semana: diaNombre },
             ],
           },
+          orderBy: [{ fecha_dia: "asc" }, { id: "asc" }],
           include: { plato: true, guarniciones: true },
         },
         menuDiaSelecciones: {
