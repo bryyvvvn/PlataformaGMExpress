@@ -51,7 +51,6 @@ const TarjetaTrabajadorListado = ({ t }: { t: any }) => {
             Trabajador Activo
           </span>
         </div>
-        
       </div>
 
       <div className="pt-3 border-t border-gray-50">
@@ -207,15 +206,12 @@ const Trabajadores: React.FC = () => {
               </div>
             ))}
           </div>
-        ) : trabajadores.length > 0 ? (
+        ) : (
+          /* 🔥 AHORA CARGAMOS DIRECTAMENTE LA LISTA O NADA */
           <div className="space-y-4 max-w-md mx-auto">
             {trabajadores.map((t) => (
               <TarjetaTrabajadorListado key={t.id} t={t} />
             ))}
-          </div>
-        ) : (
-          <div className="text-center text-gray-400 mt-10 text-sm font-medium">
-            No hay trabajadores registrados en esta empresa.
           </div>
         )}
       </main>
