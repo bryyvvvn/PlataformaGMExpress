@@ -1,6 +1,7 @@
 import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import db from '@/lib/db'; 
+import { Sidebar } from '@/components/admin/sidebar'
 
 export default async function AdminLayout({
   children,
@@ -28,7 +29,8 @@ export default async function AdminLayout({
   // Si es ADMIN, lo dejamos ver el contenido
   return (
     <>
-      {children}
+      <Sidebar />
+      <main className="ml-64">{children}</main>
     </>
   );
 }
