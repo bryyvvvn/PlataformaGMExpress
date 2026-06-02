@@ -21,10 +21,10 @@ interface HeaderProps {
 
 export function Header({ title, subtitle }: HeaderProps) {
   return (
-    <header className="sticky top-0 z-40 flex h-20 items-center justify-between border-b border-border bg-background/95 px-6 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-slate-200 bg-white px-4 shadow-sm">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">{title}</h1>
-        {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
+        <h1 className="text-lg font-semibold text-[#1B2C56]">{title}</h1>
+        {subtitle && <p className="text-xs text-slate-600">{subtitle}</p>}
       </div>
 
       <div className="flex items-center gap-4">
@@ -33,7 +33,7 @@ export function Header({ title, subtitle }: HeaderProps) {
           <Input
             type="search"
             placeholder="Buscar..."
-            className="w-64 rounded-xl border-border bg-muted/50 pl-9 focus-visible:ring-primary"
+            className="h-8 w-64 rounded-md border-slate-200 bg-slate-50 pl-9 text-sm"
           />
         </div>
 

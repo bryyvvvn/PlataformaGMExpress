@@ -304,22 +304,22 @@ export default function EditarEmpresaPage() {
 
   if (loading) {
     return (
-      <div className="mx-auto w-full max-w-7xl space-y-6 px-6 py-6">
-        <p className="text-sm text-muted-foreground">Cargando empresa...</p>
+      <div className="mx-auto w-full max-w-7xl space-y-4 p-4">
+        <p className="text-sm text-slate-600">Cargando empresa...</p>
       </div>
     )
   }
 
   if (!empresaId || (!empresaCargada && error)) {
     return (
-      <div className="mx-auto w-full max-w-7xl space-y-6 px-6 py-6">
+      <div className="mx-auto w-full max-w-7xl space-y-4 p-4">
         <Link href="/empresas" className={buttonVariants({ variant: "outline" })}>
           <ArrowLeft className="mr-2 h-4 w-4" />
           Volver
         </Link>
-        <Card>
-          <CardContent className="space-y-4 px-6 py-8">
-            <p className="text-sm text-muted-foreground">
+        <Card className="rounded-md border-slate-200 bg-white shadow-sm">
+          <CardContent className="space-y-3 px-4 py-6">
+            <p className="text-sm text-slate-600">
               {error ?? "No se pudo cargar la empresa"}
             </p>
             {empresaId && (
@@ -334,7 +334,7 @@ export default function EditarEmpresaPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-6 px-6 py-6">
+    <div className="mx-auto w-full max-w-7xl space-y-4 p-4">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-3">
           <Link href={detalleHref} className={buttonVariants({ variant: "outline" })}>
@@ -343,7 +343,7 @@ export default function EditarEmpresaPage() {
           </Link>
           <div>
             <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-3xl font-bold tracking-tight text-foreground">
+              <h1 className="text-xl font-semibold text-[#1B2C56]">
                 Editar empresa
               </h1>
               <Badge
@@ -357,7 +357,7 @@ export default function EditarEmpresaPage() {
                 {form.estado === "ACTIVA" ? "Activa" : "Inactiva"}
               </Badge>
             </div>
-            <p className="text-muted-foreground">
+            <p className="text-sm text-slate-600">
               {empresaNombre || "Actualiza los datos administrativos de la empresa"}
             </p>
           </div>
@@ -379,10 +379,10 @@ export default function EditarEmpresaPage() {
         </p>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-[#1b2c56]">
-            <Building2 className="h-5 w-5" />
+      <Card className="rounded-md border-slate-200 bg-white shadow-sm">
+        <CardHeader className="border-b border-slate-200 px-4 py-3">
+          <CardTitle className="flex items-center gap-2 text-sm font-semibold text-[#1B2C56]">
+            <Building2 className="h-4 w-4" />
             Datos generales
           </CardTitle>
           <CardDescription>Información administrativa principal</CardDescription>
@@ -476,10 +476,10 @@ export default function EditarEmpresaPage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-[#1b2c56]">
-            <MapPin className="h-5 w-5" />
+      <Card className="rounded-md border-slate-200 bg-white shadow-sm">
+        <CardHeader className="border-b border-slate-200 px-4 py-3">
+          <CardTitle className="flex items-center gap-2 text-sm font-semibold text-[#1B2C56]">
+            <MapPin className="h-4 w-4" />
             Ubicación / faena
           </CardTitle>
           <CardDescription>Dirección y datos operativos</CardDescription>
@@ -551,10 +551,10 @@ export default function EditarEmpresaPage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-[#1b2c56]">
-            <UserRound className="h-5 w-5" />
+      <Card className="rounded-md border-slate-200 bg-white shadow-sm">
+        <CardHeader className="border-b border-slate-200 px-4 py-3">
+          <CardTitle className="flex items-center gap-2 text-sm font-semibold text-[#1B2C56]">
+            <UserRound className="h-4 w-4" />
             Representante legal
           </CardTitle>
         </CardHeader>
@@ -585,11 +585,11 @@ export default function EditarEmpresaPage() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-[#1b2c56]">
-              <UserRound className="h-5 w-5" />
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card className="rounded-md border-slate-200 bg-white shadow-sm">
+          <CardHeader className="border-b border-slate-200 px-4 py-3">
+            <CardTitle className="flex items-center gap-2 text-sm font-semibold text-[#1B2C56]">
+              <UserRound className="h-4 w-4" />
               Interlocutor titular
             </CardTitle>
             <CardDescription>
@@ -675,10 +675,10 @@ export default function EditarEmpresaPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-[#1b2c56]">
-              <Users className="h-5 w-5" />
+        <Card className="rounded-md border-slate-200 bg-white shadow-sm">
+          <CardHeader className="border-b border-slate-200 px-4 py-3">
+            <CardTitle className="flex items-center gap-2 text-sm font-semibold text-[#1B2C56]">
+              <Users className="h-4 w-4" />
               Interlocutor suplente
             </CardTitle>
             <CardDescription>

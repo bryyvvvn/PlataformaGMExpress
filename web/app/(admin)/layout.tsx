@@ -30,7 +30,7 @@ export default async function AdminLayout({
   return (
     <>
       <Sidebar />
-      <main className="ml-64">{children}</main>
+      <main className="ml-64 min-h-screen bg-slate-50">{children}</main>
     </>
   );
 }
