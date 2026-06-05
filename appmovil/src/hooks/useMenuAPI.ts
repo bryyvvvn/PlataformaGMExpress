@@ -14,6 +14,10 @@ export interface Plato {
   url_imagen:  string | null;
   categoria:   "ENTRADA" | "FONDO" | "POSTRE" | "BEBESTIBLE";
   tipo:        "NORMAL" | "VEGANO" | "VEGETARIANO" | "HIPOCALORICO" | "PLATO_UNICO";
+  calorias?:   number | null;
+  proteinas?:  number | null;
+  carbohidratos?: number | null;
+  grasas?:     number | null;
   guarniciones: Guarnicion[];
   menuDetalleId?: number;
 }

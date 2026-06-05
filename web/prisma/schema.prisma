@@ -69,6 +69,11 @@ model Plato {
   tipo           VarianteMenu    @default(NORMAL)
   detallesPedido DetallePedido[]
   menuDetalles   MenuDetalle[]
+
+  calorias       Int?            
+  proteinas      Int?            
+  carbohidratos  Int?            
+  grasas         Int?
 }
 
 model MenuSemanal {
