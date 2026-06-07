@@ -66,7 +66,6 @@ export const TarjetaPlato: React.FC<TarjetaPlatoProps> = ({
               return (
                 <div className="leading-tight">
                   {parts.map((part, idx) => (
-                    // 🔥 Corrección: Ahora todas las partes tienen el mismo estilo (font-bold text-[#1d2d50] text-[14px])
                     <div key={idx} className="font-bold text-[#1d2d50] text-[14px] truncate">
                       {part.toUpperCase()}
                     </div>
@@ -106,25 +105,27 @@ export const TarjetaPlato: React.FC<TarjetaPlatoProps> = ({
         )}
       </div>
 
-      {/* 🔴 FILA 2: DISEÑO NUTRICIONAL (Solo 3 Bloques y más grandes) */}
-      {(plato.calorias || plato.proteinas) && (
+      {/* 🔴 FILA 2: DISEÑO NUTRICIONAL */}
+      {/* Se asegura de que se renderice si AL MENOS uno de los macros existe (incluso si es 0) */}
+      {(plato.calorias != null || plato.proteinas != null || plato.carbohidratos != null) && (
         <div className="w-full mt-1 flex items-center gap-2.5">
           
-          {plato.calorias && (
+          {/* Se usa != null para que el 0 sea un valor válido y dibuje la cajita */}
+          {plato.calorias != null && (
             <div className="flex-1 flex flex-col items-center justify-center bg-orange-50/80 rounded-xl py-2 border border-orange-100/50">
               <span className="text-base font-black text-orange-600 leading-none mb-1">{plato.calorias}</span>
               <span className="text-[10px] font-bold text-orange-400 uppercase tracking-widest leading-none">Kcal</span>
             </div>
           )}
 
-          {plato.proteinas && (
+          {plato.proteinas != null && (
             <div className="flex-1 flex flex-col items-center justify-center bg-rose-50/80 rounded-xl py-2 border border-rose-100/50">
               <span className="text-base font-black text-rose-600 leading-none mb-1">{plato.proteinas}g</span>
               <span className="text-[10px] font-bold text-rose-400 uppercase tracking-widest leading-none">Prot</span>
             </div>
           )}
 
-          {plato.carbohidratos && (
+          {plato.carbohidratos != null && (
             <div className="flex-1 flex flex-col items-center justify-center bg-amber-50/80 rounded-xl py-2 border border-amber-100/50">
               <span className="text-base font-black text-amber-600 leading-none mb-1">{plato.carbohidratos}g</span>
               <span className="text-[10px] font-bold text-amber-500 uppercase tracking-widest leading-none">Carbs</span>
