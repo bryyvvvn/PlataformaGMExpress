@@ -417,7 +417,7 @@ export async function GET() {
           region: true,
           sector: true,
           estado: true,
-          convenio: {
+          ConvenioEmpresa: {
             select: {
               id: true,
               permitePlato: true,
@@ -456,8 +456,9 @@ export async function GET() {
       pedidosCount.set(item.empresaId, item._count._all)
     }
 
-    const data = empresas.map((empresa) => ({
+    const data = empresas.map(({ ConvenioEmpresa: convenio, ...empresa }) => ({
       ...empresa,
+      convenio,
       trabajadores: usuariosCount.get(`${empresa.id}:${Rol.TRABAJADOR}`) ?? 0,
       representantes: usuariosCount.get(`${empresa.id}:${Rol.REPRESENTANTE}`) ?? 0,
       pedidos: pedidosCount.get(empresa.id) ?? 0,
@@ -523,7 +524,7 @@ export async function POST(req: NextRequest) {
         })
       }
 
-      return tx.empresa.findUniqueOrThrow({
+      const empresaCreada = await tx.empresa.findUniqueOrThrow({
         where: { id: nuevaEmpresa.id },
         select: {
           id: true,
@@ -542,7 +543,7 @@ export async function POST(req: NextRequest) {
           representanteLegal: true,
           rutRepresentanteLegal: true,
           estado: true,
-          convenio: {
+          ConvenioEmpresa: {
             select: {
               id: true,
               permitePlato: true,
@@ -554,7 +555,7 @@ export async function POST(req: NextRequest) {
               permiteAguaSaborizada: true,
             },
           },
-          contactos: {
+          ContactoEmpresa: {
             select: {
               id: true,
               tipo: true,
@@ -569,6 +570,18 @@ export async function POST(req: NextRequest) {
           },
         },
       })
+
+      const {
+        ConvenioEmpresa: convenio,
+        ContactoEmpresa: contactos,
+        ...empresaBase
+      } = empresaCreada
+
+      return {
+        ...empresaBase,
+        convenio,
+        contactos,
+      }
     })
 
     return NextResponse.json({ empresa }, { status: 201 })

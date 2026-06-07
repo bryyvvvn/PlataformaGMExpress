@@ -10,10 +10,10 @@ export default function DashboardError({
   reset: () => void;
 }) {
   return (
-    <div className="flex min-h-full flex-col">
+    <div className="flex min-h-full flex-col bg-slate-50">
       <Header title="Inicio" />
-      <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8">
-        <p className="text-muted-foreground">
+      <div className="flex flex-1 flex-col items-center justify-center gap-4 p-4">
+        <p className="text-sm text-slate-600">
           No pudimos cargar el resumen. Intenta de nuevo.
         </p>
         <Button onClick={reset} variant="outline">

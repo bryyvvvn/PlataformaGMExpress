@@ -449,7 +449,7 @@ export async function GET(_req: Request, { params }: RouteContext) {
         estado: true,
         creado_en: true,
         actualizado_en: true,
-        convenio: {
+        ConvenioEmpresa: {
           select: {
             id: true,
             permitePlato: true,
@@ -461,7 +461,7 @@ export async function GET(_req: Request, { params }: RouteContext) {
             permiteAguaSaborizada: true,
           },
         },
-        contactos: {
+        ContactoEmpresa: {
           orderBy: [{ activo: "desc" }, { tipo: "asc" }, { id: "asc" }],
           select: {
             id: true,
@@ -500,9 +500,17 @@ export async function GET(_req: Request, { params }: RouteContext) {
       }),
     ])
 
+    const {
+      ConvenioEmpresa: convenio,
+      ContactoEmpresa: contactos,
+      ...empresaDetalle
+    } = empresa
+
     return NextResponse.json({
       empresa: {
-        ...empresa,
+        ...empresaDetalle,
+        convenio,
+        contactos,
         metricas: {
           trabajadores,
           representantes,
@@ -587,7 +595,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
         })
       }
 
-      return tx.empresa.findUniqueOrThrow({
+      const empresaActualizada = await tx.empresa.findUniqueOrThrow({
         where: { id: empresaId },
         select: {
           id: true,
@@ -606,7 +614,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
           representanteLegal: true,
           rutRepresentanteLegal: true,
           estado: true,
-          contactos: {
+          ContactoEmpresa: {
             orderBy: [{ activo: "desc" }, { tipo: "asc" }, { id: "asc" }],
             select: {
               id: true,
@@ -622,6 +630,13 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
           },
         },
       })
+
+      const { ContactoEmpresa: contactos, ...empresaDetalle } = empresaActualizada
+
+      return {
+        ...empresaDetalle,
+        contactos,
+      }
     })
 
     return NextResponse.json({ empresa })

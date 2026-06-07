@@ -1,5 +1,4 @@
 import type { NextConfig } from 'next';
-import path from 'path';
 
 const nextConfig: NextConfig = {
   turbopack: {
@@ -8,7 +7,7 @@ const nextConfig: NextConfig = {
 
   // Permite que el emulador Android y ngrok accedan a los recursos de dev de Next.js
   allowedDevOrigins: [
-    '192.168.1.85', 
+    '192.168.1.25',
     'collide-imaginary-thermos.ngrok-free.dev' 
   ],
 

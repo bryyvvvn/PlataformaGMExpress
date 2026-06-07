@@ -59,7 +59,7 @@ export default function TrabajadoresEmpresaPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const detalleHref = empresaId ? `/dashboard/empresas/${empresaId}` : "/dashboard/empresas"
+  const detalleHref = empresaId ? `/empresas/${empresaId}` : "/empresas"
 
   const cargarTrabajadores = useCallback(async () => {
     if (!empresaId) {
@@ -101,8 +101,8 @@ export default function TrabajadoresEmpresaPage() {
 
   if (loading) {
     return (
-      <div className="mx-auto w-full max-w-7xl space-y-6 px-6 py-6">
-        <p className="text-sm text-muted-foreground">
+      <div className="mx-auto w-full max-w-7xl space-y-4 p-4">
+        <p className="text-sm text-slate-600">
           Cargando trabajadores...
         </p>
       </div>
@@ -111,15 +111,15 @@ export default function TrabajadoresEmpresaPage() {
 
   if (error || !data) {
     return (
-      <div className="mx-auto w-full max-w-7xl space-y-6 px-6 py-6">
-        <Link href="/dashboard/empresas" className={buttonVariants({ variant: "outline" })}>
+      <div className="mx-auto w-full max-w-7xl space-y-4 p-4">
+        <Link href="/empresas" className={buttonVariants({ variant: "outline" })}>
           <ArrowLeft className="mr-2 h-4 w-4" />
           Volver
         </Link>
 
-        <Card>
-          <CardContent className="space-y-4 px-6 py-8">
-            <p className="text-sm text-muted-foreground">
+        <Card className="rounded-md border-slate-200 bg-white shadow-sm">
+          <CardContent className="space-y-3 px-4 py-6">
+            <p className="text-sm text-slate-600">
               {error ?? "No se pudieron cargar los trabajadores"}
             </p>
             <Button variant="outline" onClick={cargarTrabajadores}>
@@ -132,19 +132,22 @@ export default function TrabajadoresEmpresaPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-6 px-6 py-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-3">
-          <Link href="/dashboard/empresas" className={buttonVariants({ variant: "outline" })}>
+    <div className="mx-auto w-full max-w-7xl space-y-4 p-4">
+      <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-2">
+          <Link href="/empresas" className={buttonVariants({ variant: "outline" })}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Volver
           </Link>
 
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-foreground">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+              Empresa
+            </p>
+            <h1 className="text-xl font-semibold text-[#1B2C56]">
               Trabajadores
             </h1>
-            <p className="text-muted-foreground">{data.empresa.nombre}</p>
+            <p className="text-sm text-slate-600">{data.empresa.nombre}</p>
           </div>
         </div>
 
@@ -153,79 +156,78 @@ export default function TrabajadoresEmpresaPage() {
         </Link>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Card className="rounded-md border-slate-200 bg-white shadow-sm">
+          <CardHeader className="px-4 pb-1 pt-4">
+            <CardTitle className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-slate-500">
               <Users className="h-4 w-4" />
               Total usuarios
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-[#1b2c56]">
+          <CardContent className="px-4 pb-4 pt-0">
+            <div className="text-2xl font-semibold text-[#1B2C56]">
               {data.resumen.total}
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+        <Card className="rounded-md border-slate-200 bg-white shadow-sm">
+          <CardHeader className="px-4 pb-1 pt-4">
+            <CardTitle className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-slate-500">
               <UserRound className="h-4 w-4" />
               Trabajadores
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-[#75aa46]">
+          <CardContent className="px-4 pb-4 pt-0">
+            <div className="text-2xl font-semibold text-[#75AA46]">
               {data.resumen.trabajadores}
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+        <Card className="rounded-md border-slate-200 bg-white shadow-sm">
+          <CardHeader className="px-4 pb-1 pt-4">
+            <CardTitle className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-slate-500">
               <ClipboardList className="h-4 w-4" />
               Representantes
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-foreground">
+          <CardContent className="px-4 pb-4 pt-0">
+            <div className="text-2xl font-semibold text-[#1B2C56]">
               {data.resumen.representantes}
             </div>
           </CardContent>
         </Card>
       </div>
 
-      <Card className="overflow-hidden border-border bg-card">
-        <CardHeader>
-          <CardTitle>Usuarios asociados</CardTitle>
-          <CardDescription>
+      <Card className="overflow-hidden rounded-md border-slate-200 bg-white shadow-sm">
+        <CardHeader className="border-b border-slate-200 px-4 py-3">
+          <CardTitle className="text-sm font-semibold text-[#1B2C56]">Usuarios asociados</CardTitle>
+          <CardDescription className="text-xs text-slate-500">
             Trabajadores y representantes vinculados a esta empresa
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           {data.trabajadores.length === 0 ? (
-            <div className="px-6 py-8 text-sm text-muted-foreground">
+            <div className="px-4 py-6 text-sm text-slate-600">
               Esta empresa aún no tiene trabajadores registrados.
             </div>
           ) : (
             <div className="w-full overflow-x-auto">
               <Table className="min-w-[760px]">
                 <TableHeader>
-                  <TableRow>
-                    <TableHead>Nombre</TableHead>
-                    <TableHead>ID usuario</TableHead>
-                    <TableHead>Rol</TableHead>
-                    <TableHead className="text-center">Pedidos</TableHead>
-                    <TableHead className="text-right">Acciones</TableHead>
+                  <TableRow className="border-slate-200 bg-slate-50 hover:bg-slate-50">
+                    <TableHead className="text-xs font-semibold uppercase tracking-wide text-[#1B2C56]">Nombre</TableHead>
+                    <TableHead className="text-xs font-semibold uppercase tracking-wide text-[#1B2C56]">ID usuario</TableHead>
+                    <TableHead className="text-xs font-semibold uppercase tracking-wide text-[#1B2C56]">Rol</TableHead>
+                    <TableHead className="text-center text-xs font-semibold uppercase tracking-wide text-[#1B2C56]">Pedidos</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {data.trabajadores.map((trabajador) => (
-                    <TableRow key={trabajador.id}>
+                    <TableRow key={trabajador.id} className="text-sm">
                       <TableCell className="font-medium">
-                        {trabajador.nombre}
+                        {trabajador.nombre.toUpperCase()}
                       </TableCell>
                       <TableCell className="font-mono text-xs">
                         {trabajador.id}
@@ -248,11 +250,6 @@ export default function TrabajadoresEmpresaPage() {
                       </TableCell>
                       <TableCell className="text-center font-bold">
                         {trabajador.pedidos}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button type="button" variant="outline" size="sm" disabled>
-                          Pendiente
-                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
