@@ -3,13 +3,15 @@ import React from 'react';
 import { CheckCircle2 } from 'lucide-react';
 
 interface TarjetaPlatoProps {
-  plato: any; 
-  categoriaKey: 'entradaId' | 'fondoId' | 'postreId';
+  plato: any;
+  categoriaKey: 'entradaId' | 'fondoId' | 'postreId' | 'otro' | 'canjeId' | 'sandwichId' | 'bebidaId';
   isSelected: boolean;
   isDeadlinePassed: boolean;
+  disabled?: boolean;
   hideSelectionIcon?: boolean;
-  extraInfo?: string;
-  onSelect: (categoria: 'entradaId' | 'fondoId' | 'postreId', id: number) => void;
+  extraInfo?: string | string[];
+  grayTag?: boolean;
+  onSelect: (categoria: string, id: number) => void;
 }
 
 export const TarjetaPlato: React.FC<TarjetaPlatoProps> = ({ 
@@ -17,18 +19,20 @@ export const TarjetaPlato: React.FC<TarjetaPlatoProps> = ({
   categoriaKey, 
   isSelected, 
   isDeadlinePassed, 
+  disabled = false,
   hideSelectionIcon = false,
   extraInfo,
+  grayTag = false,
   onSelect 
 }) => {
 
   return (
     <button
       onClick={() => onSelect(categoriaKey, plato.id)}
-      disabled={isDeadlinePassed}
+      disabled={isDeadlinePassed || disabled}
       className={`w-full p-3.5 rounded-2xl border-2 text-left transition-all flex flex-col gap-3 bg-white ${
         isSelected ? 'shadow-md scale-[1.01] border-[#70a344]' : 'border-gray-100 shadow-sm hover:border-gray-200'
-      }`}
+      } ${ (isDeadlinePassed || disabled) ? 'opacity-60 cursor-not-allowed' : ''}`}
     >
       
       {/* 🔴 FILA 1: FOTO, NOMBRE Y CHECKBOX */}
@@ -42,18 +46,56 @@ export const TarjetaPlato: React.FC<TarjetaPlatoProps> = ({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1.5">
             <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${
-              plato.tipo === 'VEGANO' ? 'bg-green-100 text-green-700' :
-              plato.tipo === 'HIPOCALORICO' ? 'bg-blue-100 text-blue-700' :
-              plato.tipo === 'PLATO_UNICO' ? 'bg-purple-100 text-purple-700' :
-              'bg-orange-100 text-orange-700'
+              grayTag
+                ? 'bg-gray-100 text-gray-600'
+                : plato.tipo === 'VEGANO' ? 'bg-green-100 text-green-700' :
+                  plato.tipo === 'HIPOCALORICO' ? 'bg-blue-100 text-blue-700' :
+                  plato.tipo === 'PLATO_UNICO' ? 'bg-purple-100 text-purple-700' :
+                  'bg-orange-100 text-orange-700'
             }`}>
               {plato.tipo.replace('_', ' ')}
             </span>
           </div>
-          <p className="font-bold text-[#1d2d50] text-[15px] leading-tight truncate">{String(plato.nombre).toUpperCase()}</p>
+          {
+            (() => {
+              const name = String(plato.nombre || '');
+              const parts = name.split(/[+,;]+/).map(s => s.trim()).filter(Boolean);
+              if (parts.length <= 1) {
+                return <p className="font-bold text-[#1d2d50] text-[14px] leading-tight truncate">{name.toUpperCase()}</p>;
+              }
+              return (
+                <div className="leading-tight">
+                  {parts.map((part, idx) => (
+                    // 🔥 Corrección: Ahora todas las partes tienen el mismo estilo (font-bold text-[#1d2d50] text-[14px])
+                    <div key={idx} className="font-bold text-[#1d2d50] text-[14px] truncate">
+                      {part.toUpperCase()}
+                    </div>
+                  ))}
+                </div>
+              );
+            })()
+          }
           
           {extraInfo && (
-            <p className="mt-1 text-xs font-bold text-gray-500 truncate">{extraInfo}</p>
+            Array.isArray(extraInfo) ? (
+              <div className="mt-1 text-xs font-bold text-gray-500">
+                {extraInfo.map((line, idx) => (
+                  <div key={idx} className="truncate">{line}</div>
+                ))}
+              </div>
+            ) : (
+              (() => {
+                const parts = String(extraInfo).split(/[+,;]+/).map(s => s.trim()).filter(Boolean);
+                if (parts.length <= 1) return <p className="mt-1 text-xs font-bold text-gray-500 truncate">{extraInfo}</p>;
+                return (
+                  <div className="mt-1 text-xs font-bold text-gray-500">
+                    {parts.map((line, idx) => (
+                      <div key={idx} className="truncate">{line}</div>
+                    ))}
+                  </div>
+                );
+              })()
+            )
           )}
         </div>
 
@@ -70,7 +112,6 @@ export const TarjetaPlato: React.FC<TarjetaPlatoProps> = ({
           
           {plato.calorias && (
             <div className="flex-1 flex flex-col items-center justify-center bg-orange-50/80 rounded-xl py-2 border border-orange-100/50">
-              {/* Aumentamos de text-sm a text-base/text-lg para que destaque */}
               <span className="text-base font-black text-orange-600 leading-none mb-1">{plato.calorias}</span>
               <span className="text-[10px] font-bold text-orange-400 uppercase tracking-widest leading-none">Kcal</span>
             </div>

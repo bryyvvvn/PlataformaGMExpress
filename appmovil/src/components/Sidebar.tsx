@@ -39,11 +39,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, rolPropVisibl
           {rolPropVisible && empresaNombre ? (
             <div className="flex flex-col leading-none gap-1 overflow-hidden pr-4">
               {/* Línea 1: El Rol (Chiquito y gris sutil) */}
-              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+              <span className="text-xs font-black text-gray-400 uppercase tracking-widest">
                 {rolPropVisible}
               </span>
               {/* Línea 2: El Nombre de la empresa (Un poco más chico y truncado por si acaso) */}
-              <span className="text-sm font-black text-[#1d2d50] uppercase tracking-wide truncate">
+              <span className="text-xl font-black text-[#1d2d50] uppercase tracking-wide truncate">
                 {empresaNombre}
               </span>
             </div>
@@ -74,8 +74,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, rolPropVisibl
               <UserCircle size={40} className="text-gray-300" />
             )}
             <div className="flex flex-col overflow-hidden">
-              <span className="text-[9px] text-gray-400 font-black uppercase tracking-wider">Usuario</span>
-              <span className="text-xs font-black text-[#1d2d50] truncate">
+              <span className="text-xs text-gray-400 font-black uppercase tracking-wider">Usuario</span>
+              <span className="text-lg font-black text-[#1d2d50] truncate">
                 {user?.firstName || user?.username}
               </span>
             </div>
@@ -91,7 +91,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, rolPropVisibl
                 onClick={onClose}
                 className="w-full flex justify-between items-center p-4 bg-white border border-gray-100 rounded-[1.5rem] active:scale-95 transition-all group shadow-sm"
               >
-                <div className="flex items-center gap-3 text-gray-700 font-black text-xs">
+                <div className="flex items-center gap-3 text-gray-700 font-black text-s">
                   <div className="bg-blue-50 p-2 rounded-xl text-blue-500">
                     <Calendar size={18} />
                   </div>
@@ -108,7 +108,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, rolPropVisibl
                 onClick={onClose}
                 className="w-full flex justify-between items-center p-4 bg-white border border-gray-100 rounded-[1.5rem] active:scale-95 transition-all group shadow-sm"
               >
-                <div className="flex items-center gap-3 text-gray-700 font-black text-xs">
+                <div className="flex items-center gap-3 text-gray-700 font-black text-s">
                   <div className="bg-green-50 p-2 rounded-xl text-green-600">
                     <Users size={18} />
                   </div>
@@ -123,7 +123,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, rolPropVisibl
               onClick={() => { openUserProfile(); onClose(); }}
               className="w-full flex justify-between items-center p-4 bg-white border border-gray-100 rounded-[1.5rem] active:scale-95 transition-all group shadow-sm"
             >
-              <div className="flex items-center gap-3 text-gray-700 font-black text-xs">
+              <div className="flex items-center gap-3 text-gray-700 font-black text-s">
                 <div className="bg-gray-50 p-2 rounded-xl text-gray-500">
                   <Settings size={18} />
                 </div>
@@ -137,7 +137,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, rolPropVisibl
         {/* Botón de Salir */}
         <div className="p-5 border-t border-gray-50">
           <SignOutButton>
-            <button className="w-full h-14 flex items-center justify-center gap-2 bg-red-50 text-red-500 rounded-2xl font-black hover:bg-red-100 transition-colors active:scale-95 text-xs">
+            <button className="w-full h-14 flex items-center justify-center gap-2 bg-red-50 text-red-500 rounded-2xl font-black hover:bg-red-100 transition-colors active:scale-95 text-s">
               <LogOut size={16} />
               Cerrar Sesión
             </button>

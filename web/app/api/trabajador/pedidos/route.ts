@@ -91,8 +91,20 @@ export async function POST(request: Request) {
       fecha?: string | null;
     };
 
-    // Validación para asegurar que mandaron al menos una entrada
-    if (!usuarioId || !entradasIds || entradasIds.length === 0 || !fondoId || !postreId) {
+    // Soportamos dos formatos de pedido:
+    // 1) flujo clásico: entradasIds + fondoId + postreId
+    // 2) flujo 'otros': items: [{ platoId, guarnicionId?, cantidad? }]
+
+    const items = (body as any).items as Array<{ platoId: number; guarnicionId?: number | null; cantidad?: number }> | undefined;
+
+    if (!usuarioId) {
+      return NextResponse.json({ error: 'Falta usuarioId' }, { status: 400 });
+    }
+
+    const usingClassicFlow = Boolean(entradasIds && entradasIds.length > 0 && fondoId && postreId);
+    const usingItemsFlow = Boolean(items && Array.isArray(items) && items.length > 0);
+
+    if (!usingClassicFlow && !usingItemsFlow) {
       return NextResponse.json({ error: 'Faltan datos obligatorios' }, { status: 400 });
     }
 
@@ -119,14 +131,18 @@ export async function POST(request: Request) {
       },
     });
 
-    // 🔥 ARMAMOS EL ARREGLO DE DETALLES DINÁMICAMENTE
-    const detallesData = [
-      // Mapeamos todas las entradas seleccionadas
-      ...entradasIds.map((id: number) => ({ platoId: id })),
-      // Agregamos el fondo y el postre
-      { platoId: fondoId, guarnicionId: guarnicionId ?? null },
-      { platoId: postreId }
-    ];
+    // 🔥 ARMAMOS EL ARREGLO DE DETALLES DINÁMICAMENTE según el flujo usado
+    let detallesData: Array<{ platoId: number; guarnicionId?: number | null; cantidad?: number }> = [];
+
+    if (usingClassicFlow) {
+      detallesData = [
+        ...entradasIds.map((id: number) => ({ platoId: id })),
+        { platoId: fondoId, guarnicionId: guarnicionId ?? null },
+        { platoId: postreId }
+      ];
+    } else if (usingItemsFlow && items) {
+      detallesData = items.map(it => ({ platoId: it.platoId, guarnicionId: it.guarnicionId ?? null, cantidad: it.cantidad ?? 1 }));
+    }
 
     if (pedidoExistente) {
       await db.$transaction(async (tx) => {

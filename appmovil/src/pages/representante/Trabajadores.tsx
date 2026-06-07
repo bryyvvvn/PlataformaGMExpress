@@ -189,7 +189,11 @@ const Trabajadores: React.FC = () => {
       </header>
 
       <main className="flex-1 p-6 pb-20">
-        {cargando ? (
+        {/* 1. Mostramos el esqueleto de carga si:
+             - El hook dice que está cargando
+             - O si todavía no tenemos el empresaId (aún estamos obteniendo el perfil)
+        */}
+        {(cargando || !empresaId) ? (
           <div className="space-y-4 max-w-md mx-auto">
             {[1, 2, 3].map((i) => (
               <div key={i} className="h-40 bg-white rounded-[2rem] border border-gray-100 p-5 flex flex-col gap-4 animate-pulse">
@@ -207,13 +211,15 @@ const Trabajadores: React.FC = () => {
               </div>
             ))}
           </div>
-        ) : trabajadores.length > 0 ? (
+        ) : trabajadores && trabajadores.length > 0 ? (
+          /* 2. Mostramos la lista solo si hay datos reales */
           <div className="space-y-4 max-w-md mx-auto">
             {trabajadores.map((t) => (
               <TarjetaTrabajadorListado key={t.id} t={t} />
             ))}
           </div>
         ) : (
+          /* 3. Mostramos el mensaje vacío SOLO si ya cargó, hay empresaId, pero la lista está vacía */
           <div className="text-center text-gray-400 mt-10 text-sm font-medium">
             No hay trabajadores registrados en esta empresa.
           </div>

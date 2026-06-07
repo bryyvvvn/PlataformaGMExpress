@@ -1,8 +1,0 @@
-{
-  "crons": [
-    {
-      "path": "/api/cron/auto-asignar",
-      "schedule": "1 17 * * 1-5"
-    }
-  ]
-}

@@ -208,6 +208,10 @@ enum CategoriaPlato {
   FONDO
   POSTRE
   BEBESTIBLE
+  CANJE       
+  SANDWICH    
+  BEBIDA      
+  SNACK
 }
 
 enum VarianteMenu {
