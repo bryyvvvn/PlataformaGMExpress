@@ -9,34 +9,38 @@ import {
   CalendarDays,
   ClipboardList,
   Building2,
-  Users
+  Users,
+  Settings,
 } from "lucide-react"
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Gestión de Pedidos", href: "/pedidos", icon: ClipboardList },
-  { name: "Subir Platos", href: "/platos", icon: UtensilsCrossed },
   { name: "Planificador", href: "/planificador", icon: CalendarDays },
+  { name: "Gestión de Pedidos", href: "/pedidos", icon: ClipboardList },
   { name: "Empresas Clientes", href: "/empresas", icon: Building2 },
   { name: "Usuarios de App", href: "/usuarios", icon: Users },
+  { name: "Configuración", href: "/configuracion", icon: Settings },
 ]
 
 export function Sidebar() {
   const pathname = usePathname()
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-50 flex h-full w-64 flex-col bg-secondary shadow-xl">
-      <div className="flex h-20 items-center justify-center border-b border-white/10 px-6">
+    <aside className="fixed inset-y-0 left-0 z-50 flex h-full w-64 flex-col bg-[#1B2C56] border-r border-slate-800 shadow-2xl">
+      {/* Cabecera / Logo */}
+      <div className="flex h-16 items-center px-6 border-b border-white/10 bg-[#122042]">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary shadow-sm">
-            <UtensilsCrossed className="h-6 w-6 text-white" />
+          {/* AQUÍ IRÁ EL LOGO: Cuando tengas tiempo, cambia este div por: <img src="/logo.png" className="h-8 w-8 object-contain" alt="Logo" /> */}
+          <div className="flex h-8 w-8 items-center justify-center rounded bg-[#75AA46] shadow-sm">
+            <UtensilsCrossed className="h-5 w-5 text-white" />
           </div>
-          <span className="text-xl font-bold text-white tracking-tight">GM Express</span>
+          <span className="text-lg font-bold text-white tracking-wide">GM Express</span>
         </div>
       </div>
 
-      <nav className="flex-1 space-y-2 px-4 py-6 overflow-y-auto">
-        <div className="mb-4 px-2 text-xs font-semibold uppercase tracking-wider text-white/50">
+      {/* Navegación */}
+      <nav className="flex-1 space-y-1 px-3 py-6 overflow-y-auto">
+        <div className="mb-4 px-3 text-[11px] font-bold uppercase tracking-widest text-slate-400">
           Menú Principal
         </div>
         {navigation.map((item) => {
@@ -46,16 +50,16 @@ export function Sidebar() {
               key={item.name}
               href={item.href}
               className={cn(
-                "group flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200",
+                "group flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-all duration-150",
                 isActive
-                  ? "bg-primary text-white shadow-md"
-                  : "text-white/70 hover:bg-white/10 hover:text-white"
+                  ? "bg-[#75AA46] text-white shadow-sm"
+                  : "text-slate-300 hover:bg-white/5 hover:text-white"
               )}
             >
               <item.icon
                 className={cn(
-                  "h-5 w-5 shrink-0 transition-colors",
-                  isActive ? "text-white" : "text-white/50 group-hover:text-white"
+                  "h-4 w-4 shrink-0 transition-colors",
+                  isActive ? "text-white" : "text-slate-400 group-hover:text-white"
                 )}
               />
               {item.name}
@@ -63,6 +67,14 @@ export function Sidebar() {
           )
         })}
       </nav>
+
+      {/* Footer Logístico - Toque profesional */}
+      <div className="p-4 border-t border-white/10">
+         <div className="flex items-center gap-3 px-3 py-2 rounded-md bg-white/5 border border-white/5">
+            <div className="h-2 w-2 rounded-full bg-green-400 animate-pulse"></div>
+            <span className="text-xs font-medium text-slate-300">Sistema Operativo</span>
+         </div>
+      </div>
     </aside>
   )
 }

@@ -8,10 +8,10 @@ type StatsCardProps = {
 };
 
 const iconStyles = {
-  primary: "bg-primary/10 text-primary",
-  success: "bg-green-500/10 text-green-600",
-  warning: "bg-yellow-500/10 text-yellow-600",
-  destructive: "bg-red-500/10 text-red-600",
+  primary: "border border-slate-200 bg-slate-50 text-[#1B2C56]",
+  success: "border border-[#75AA46]/30 bg-[#75AA46]/10 text-[#75AA46]",
+  warning: "border border-amber-200 bg-amber-50 text-amber-700",
+  destructive: "border border-red-200 bg-red-50 text-red-700",
 } as const;
 
 export function StatsCard({
@@ -21,15 +21,15 @@ export function StatsCard({
   color = "primary",
 }: StatsCardProps) {
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">
+    <Card className="rounded-md border-slate-200 bg-white shadow-sm">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 px-4 pb-1 pt-4">
+        <CardTitle className="text-xs font-medium uppercase tracking-wide text-slate-500">
           {title}
         </CardTitle>
-        <div className={`rounded-lg p-2 ${iconStyles[color]}`}>{icon}</div>
+        <div className={`rounded-md p-1.5 ${iconStyles[color]}`}>{icon}</div>
       </CardHeader>
-      <CardContent>
-        <p className="text-2xl font-bold tabular-nums">{value}</p>
+      <CardContent className="px-4 pb-4 pt-0">
+        <p className="text-2xl font-semibold tabular-nums text-[#1B2C56]">{value}</p>
       </CardContent>
     </Card>
   );

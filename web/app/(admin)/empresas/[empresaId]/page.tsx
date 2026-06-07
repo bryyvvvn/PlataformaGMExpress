@@ -172,8 +172,8 @@ export default function EmpresaDetallePage() {
 
   if (loading) {
     return (
-      <div className="mx-auto w-full max-w-7xl space-y-6 px-6 py-6">
-        <p className="text-sm text-muted-foreground">
+      <div className="mx-auto w-full max-w-7xl space-y-4 p-4">
+        <p className="text-sm text-slate-600">
           Cargando detalle de empresa...
         </p>
       </div>
@@ -182,18 +182,18 @@ export default function EmpresaDetallePage() {
 
   if (error || !empresa) {
     return (
-      <div className="mx-auto w-full max-w-7xl space-y-6 px-6 py-6">
+      <div className="mx-auto w-full max-w-7xl space-y-4 p-4">
         <Link
-          href="/dashboard/empresas"
+          href="/empresas"
           className={buttonVariants({ variant: "outline" })}
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
           Volver
         </Link>
 
-        <Card>
-          <CardContent className="space-y-4 px-6 py-8">
-            <p className="text-sm text-muted-foreground">
+        <Card className="rounded-md border-slate-200 bg-white shadow-sm">
+          <CardContent className="space-y-3 px-4 py-6">
+            <p className="text-sm text-slate-600">
               {error ?? "No se pudo cargar el detalle de la empresa"}
             </p>
             <Button variant="outline" onClick={cargarDetalle}>
@@ -211,10 +211,10 @@ export default function EmpresaDetallePage() {
     "Sin razon social o correo registrado"
 
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-6 px-6 py-6">
-      <div className="flex flex-col gap-4">
+    <div className="mx-auto w-full max-w-7xl space-y-4 p-4">
+      <div className="flex flex-col gap-3">
         <Link
-          href="/dashboard/empresas"
+          href="/empresas"
           className={buttonVariants({
             variant: "outline",
             className: "w-fit",
@@ -227,7 +227,7 @@ export default function EmpresaDetallePage() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-3xl font-bold tracking-tight text-foreground">
+              <h1 className="text-xl font-semibold text-[#1B2C56]">
                 {empresa.nombre}
               </h1>
               <Badge
@@ -241,11 +241,11 @@ export default function EmpresaDetallePage() {
                 {empresa.estado === "ACTIVA" ? "Activa" : "Inactiva"}
               </Badge>
             </div>
-            <p className="text-muted-foreground">{subtitulo}</p>
+            <p className="text-sm text-slate-600">{subtitulo}</p>
           </div>
 
           <Link
-            href={`/dashboard/empresas/${empresa.id}/editar`}
+            href={`/empresas/${empresa.id}/editar`}
             className={buttonVariants({ variant: "outline" })}
           >
             <Pencil className="mr-2 h-4 w-4" />
@@ -254,55 +254,55 @@ export default function EmpresaDetallePage() {
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Card className="rounded-md border-slate-200 bg-white shadow-sm">
+          <CardHeader className="px-4 pb-1 pt-4">
+            <CardTitle className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-slate-500">
               <Users className="h-4 w-4" />
               Trabajadores
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-[#1b2c56]">
+          <CardContent className="px-4 pb-4 pt-0">
+            <div className="text-2xl font-semibold text-[#1B2C56]">
               {empresa.metricas.trabajadores}
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+        <Card className="rounded-md border-slate-200 bg-white shadow-sm">
+          <CardHeader className="px-4 pb-1 pt-4">
+            <CardTitle className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-slate-500">
               <UserRound className="h-4 w-4" />
               Representantes
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-[#75aa46]">
+          <CardContent className="px-4 pb-4 pt-0">
+            <div className="text-2xl font-semibold text-[#75AA46]">
               {empresa.metricas.representantes}
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+        <Card className="rounded-md border-slate-200 bg-white shadow-sm">
+          <CardHeader className="px-4 pb-1 pt-4">
+            <CardTitle className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-slate-500">
               <ClipboardList className="h-4 w-4" />
               Pedidos
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-foreground">
+          <CardContent className="px-4 pb-4 pt-0">
+            <div className="text-2xl font-semibold text-[#1B2C56]">
               {empresa.metricas.pedidos}
             </div>
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Building2 className="h-5 w-5 text-[#1b2c56]" />
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card className="rounded-md border-slate-200 bg-white shadow-sm">
+          <CardHeader className="border-b border-slate-200 px-4 py-3">
+            <CardTitle className="flex items-center gap-2 text-sm font-semibold text-[#1B2C56]">
+              <Building2 className="h-4 w-4" />
               Datos generales
             </CardTitle>
             <CardDescription>
@@ -333,10 +333,10 @@ export default function EmpresaDetallePage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <MapPin className="h-5 w-5 text-[#1b2c56]" />
+        <Card className="rounded-md border-slate-200 bg-white shadow-sm">
+          <CardHeader className="border-b border-slate-200 px-4 py-3">
+            <CardTitle className="flex items-center gap-2 text-sm font-semibold text-[#1B2C56]">
+              <MapPin className="h-4 w-4" />
               Ubicacion / faena
             </CardTitle>
             <CardDescription>Direccion y datos operativos</CardDescription>
@@ -357,10 +357,10 @@ export default function EmpresaDetallePage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <UserRound className="h-5 w-5 text-[#1b2c56]" />
+        <Card className="rounded-md border-slate-200 bg-white shadow-sm">
+          <CardHeader className="border-b border-slate-200 px-4 py-3">
+            <CardTitle className="flex items-center gap-2 text-sm font-semibold text-[#1B2C56]">
+              <UserRound className="h-4 w-4" />
               Representante legal
             </CardTitle>
           </CardHeader>
@@ -376,9 +376,9 @@ export default function EmpresaDetallePage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Convenio</CardTitle>
+        <Card className="rounded-md border-slate-200 bg-white shadow-sm">
+          <CardHeader className="border-b border-slate-200 px-4 py-3">
+            <CardTitle className="text-sm font-semibold text-[#1B2C56]">Convenio</CardTitle>
             <CardDescription>
               Productos disponibles para la empresa
             </CardDescription>
@@ -392,7 +392,7 @@ export default function EmpresaDetallePage() {
                   return (
                     <div
                       key={producto.campo}
-                      className="flex items-center justify-between rounded-lg border border-border px-3 py-2"
+                      className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-2"
                     >
                       <span className="text-sm font-medium">
                         {producto.label}
@@ -421,10 +421,10 @@ export default function EmpresaDetallePage() {
         </Card>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <CalendarDays className="h-5 w-5 text-[#1b2c56]" />
+      <Card className="rounded-md border-slate-200 bg-white shadow-sm">
+        <CardHeader className="border-b border-slate-200 px-4 py-3">
+          <CardTitle className="flex items-center gap-2 text-sm font-semibold text-[#1B2C56]">
+            <CalendarDays className="h-4 w-4" />
             Contactos
           </CardTitle>
           <CardDescription>
@@ -441,7 +441,7 @@ export default function EmpresaDetallePage() {
               {empresa.contactos.map((contacto) => (
                 <div
                   key={contacto.id}
-                  className="rounded-lg border border-border p-4"
+                  className="rounded-md border border-slate-200 p-4"
                 >
                   <div className="mb-4 flex flex-wrap items-center gap-2">
                     <Badge variant="secondary">{contacto.tipo}</Badge>

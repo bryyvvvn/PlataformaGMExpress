@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Menu, Send, ChevronLeft, ChevronRight, CheckCircle2 } from 'lucide-react';
+import { Menu, Send, ChevronLeft, ChevronRight, CheckCircle2, ClipboardList } from 'lucide-react';
 import { THEME } from '../../constants/theme';
 import { Sidebar } from '../../components/Sidebar';
 import { TarjetaTrabajador } from '../../components/TarjetaTrabajador';
@@ -7,7 +7,6 @@ import { useTrabajadores } from '../../hooks/useTrabajadores';
 import { useCalendario } from '../../hooks/useCalendario';
 import { usePlanilla } from '../../hooks/usePlanilla';
 import { VerificadorRut } from '../../components/VerificadorRut';
-// 🔥 1. Importamos el hook de Clerk para sacar el nombre del usuario
 import { useUser } from '@clerk/clerk-react';
 
 interface HomePageRepresentanteProps {
@@ -15,14 +14,12 @@ interface HomePageRepresentanteProps {
   empresaNombre: string;
 }
 
-// 🔥 Función para poner la primera letra en mayúscula
 const capitalizar = (texto: string | null | undefined) => {
   if (!texto) return '';
   return texto.charAt(0).toUpperCase() + texto.slice(1).toLowerCase();
 };
 
 const HomePageRepresentante: React.FC<HomePageRepresentanteProps> = ({ empresaId, empresaNombre }) => {
-  // 🔥 2. Extraemos el usuario actual
   const { user } = useUser();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { enviarPlanilla, loading: enviandoTodo } = usePlanilla();
@@ -48,10 +45,18 @@ const HomePageRepresentante: React.FC<HomePageRepresentanteProps> = ({ empresaId
     }
   };
 
+  // 🔥 LÓGICA DE ESTADÍSTICAS CORREGIDA
   const totalPedidos = trabajadores.reduce((acc, t) => acc + (t.pedidos?.length || 0), 0);
-  const hayPedidosPendientes = trabajadores.some(t => 
-    t.pedidos && t.pedidos.some((p: any) => p.estado === 'PENDIENTE')
-  );
+  
+  const pedidosConfirmados = trabajadores.reduce((acc, t) => 
+    acc + (t.pedidos?.filter((p: any) => p.estado === 'CONFIRMADO').length || 0)
+  , 0);
+  
+  // En lugar de buscar la palabra "PENDIENTE", verificamos matemáticamente si faltan por confirmar
+  const faltanConfirmar = totalPedidos > 0 && pedidosConfirmados < totalPedidos;
+  
+  // Solo está completado si hay pedidos y todos coinciden
+  const estaCompletado = totalPedidos > 0 && pedidosConfirmados === totalPedidos;
 
   return (
     <div className="min-h-screen pb-36" style={{ backgroundColor: THEME.colors.background }}>
@@ -72,11 +77,44 @@ const HomePageRepresentante: React.FC<HomePageRepresentanteProps> = ({ empresaId
       </div>
       <div className="h-1 w-full" style={{ backgroundColor: THEME.colors.primary }} />
 
-      {/* 🔥 DETALLES DEL USUARIO Y LA EMPRESA ACTUALIZADO */}
       <div className="px-6 pt-7 pb-10 text-white rounded-b-[40px] shadow-lg" style={{ backgroundColor: THEME.colors.secondary }}>
         <h2 className="text-xl font-bold opacity-95">Hola, {capitalizar(user?.firstName)} {capitalizar(user?.lastName)}</h2>
         <p className="text-sm opacity-90 mt-0.5">{empresaNombre || 'Mi Empresa'}</p>
         <p className="text-[10px] opacity-70 mt-2 uppercase font-bold tracking-widest">{fechaTexto}</p>
+      </div>
+
+      <div 
+        className="mx-6 -mt-8 p-5 rounded-3xl shadow-2xl bg-white border-b-4 transition-all" 
+        style={{ borderBottomColor: estaCompletado ? THEME.colors.primary : '#1d2d50' }}
+      >
+        {cargando ? (
+          <div className="flex items-center gap-4 animate-pulse">
+            <div className="w-12 h-12 bg-gray-200 rounded-2xl"></div>
+            <div className="flex-1 space-y-2">
+              <div className="h-3 bg-gray-200 rounded w-1/3"></div>
+              <div className="h-6 bg-gray-200 rounded w-1/2"></div>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-4">
+            <div className={`p-3 rounded-2xl ${estaCompletado ? 'bg-green-50' : 'bg-slate-50'}`}>
+              <ClipboardList size={24} className={estaCompletado ? 'text-[#70a344]' : 'text-[#1d2d50]'} />
+            </div>
+            <div>
+              <p className="text-[10px] text-gray-400 font-black uppercase mb-0.5">
+                {estaCompletado ? 'Planilla Lista' : 'Estado de Planilla'}
+              </p>
+              <div className="flex items-baseline gap-1.5">
+                <p className="text-2xl font-black tracking-tight text-[#1B2C56]">
+                  {pedidosConfirmados}/{totalPedidos}
+                </p>
+                <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">
+                  Confirmados
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="mt-8 px-6">
@@ -135,7 +173,7 @@ const HomePageRepresentante: React.FC<HomePageRepresentanteProps> = ({ empresaId
               <Send size={16} />
               Esperando pedidos
             </button>
-          ) : hayPedidosPendientes ? (
+          ) : faltanConfirmar ? ( // 🔥 AQUÍ USAMOS LA VARIABLE NUEVA
             <button 
               onClick={manejarEnviarTodo}
               disabled={enviandoTodo}
@@ -154,7 +192,6 @@ const HomePageRepresentante: React.FC<HomePageRepresentanteProps> = ({ empresaId
         </div>
       )}
 
-      {/* 🔥 Componente renderizado */}
       <VerificadorRut />
     </div>
   );
