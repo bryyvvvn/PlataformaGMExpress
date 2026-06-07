@@ -188,7 +188,11 @@ const Trabajadores: React.FC = () => {
       </header>
 
       <main className="flex-1 p-6 pb-20">
-        {cargando ? (
+        {/* 1. Mostramos el esqueleto de carga si:
+             - El hook dice que está cargando
+             - O si todavía no tenemos el empresaId (aún estamos obteniendo el perfil)
+        */}
+        {(cargando || !empresaId) ? (
           <div className="space-y-4 max-w-md mx-auto">
             {[1, 2, 3].map((i) => (
               <div key={i} className="h-40 bg-white rounded-[2rem] border border-gray-100 p-5 flex flex-col gap-4 animate-pulse">

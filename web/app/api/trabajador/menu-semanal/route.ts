@@ -112,11 +112,7 @@ export async function GET(req: NextRequest) {
         ? entradas
         : [
             {
-              id: ensaladaSurtida.id,
-              nombre: ensaladaSurtida.nombre,
-              url_imagen: ensaladaSurtida.url_imagen,
-              categoria: ensaladaSurtida.categoria,
-              tipo: ensaladaSurtida.tipo,
+              ...ensaladaSurtida,
               guarniciones: [],
               menuDetalleId: null,
             },

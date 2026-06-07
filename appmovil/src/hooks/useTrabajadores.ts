@@ -15,8 +15,7 @@ export const useTrabajadores = (empresaId: number | null, fechaSeleccionada?: st
   useEffect(() => {
     const obtenerDatos = async () => {
       if (!empresaId) {
-        setCargando(false);
-        return;
+        return; // Esperar a que llegue el empresaId, sin cambiar cargando
       }
 
       setCargando(true);

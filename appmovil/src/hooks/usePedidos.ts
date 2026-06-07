@@ -134,6 +134,58 @@ export const usePedidos = (usuarioId: string | undefined, fecha?: string) => {
     }
   };
 
+  // Enviar pedidos usando un arreglo genérico de items (para Canje / Colaciones Premium / Otros)
+  const enviarItems = async (items: Array<{ platoId: number; guarnicionId?: number | null; cantidad?: number }>): Promise<boolean> => {
+    if (!usuarioId) return false;
+
+    setEnviando(true);
+    try {
+      const payload = {
+        usuarioId,
+        items,
+        fecha: fecha ?? undefined,
+      };
+
+      const respuesta = await fetch(`${API_BASE_URL}/api/trabajador/pedidos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (respuesta.ok) {
+        setYaPedioHoy(true);
+        try {
+          const check = await fetch(`${API_BASE_URL}/api/trabajador/pedidos?usuarioId=${usuarioId}${fecha ? `&fecha=${fecha}` : ''}`);
+          const data = await check.json();
+          setPedidoExistente(data.pedido ?? null);
+        } catch (e) { /* ignore */ }
+        return true;
+      }
+
+      let errorData: any = null;
+      try { errorData = await respuesta.json(); } catch (e) { /* ignore */ }
+
+      if (respuesta.status === 403) {
+        alert('El horario de pedidos ha cerrado.');
+        return false;
+      }
+
+      if (respuesta.status === 409) {
+        setYaPedioHoy(true);
+        return false;
+      }
+
+      alert(`Error: ${errorData?.error || 'No se pudo procesar el pedido'}`);
+      return false;
+    } catch (error) {
+      console.error('[usePedidos] Error de red (items):', error);
+      alert(`Fallo de conexión con el servidor: ${error instanceof Error ? error.message : String(error)}`);
+      return false;
+    } finally {
+      setEnviando(false);
+    }
+  };
+
   // ── 3. EXPORTAMOS LA FUNCIÓN DE REFRESCO ────────────────────────────────────
-  return { yaPedioHoy, pedidoExistente, cargandoVerificacion, enviarPedido, enviando, refrescarVerificacion, eliminarPedido, eliminando };
+  return { yaPedioHoy, pedidoExistente, cargandoVerificacion, enviarPedido, enviarItems, enviando, refrescarVerificacion, eliminarPedido, eliminando };
 };

@@ -23,7 +23,7 @@ export const Historial: React.FC = () => {
         >
           <ArrowLeft size={24} className="text-gray-600" />
         </button>
-        <h1 className="text-xl font-black text-[#1d2d50]">Mi Historialasdasd</h1>
+        <h1 className="text-xl font-black text-[#1d2d50]">Mi Historial</h1>
       </header>
 
       <main className="flex-1 p-6 pb-20">
@@ -52,14 +52,13 @@ export const Historial: React.FC = () => {
                 <div key={ped.id} className="bg-white p-5 rounded-[2.5rem] border border-gray-100 shadow-sm">
                   <div className="flex justify-between items-center mb-4 pb-3 border-b border-gray-50">
                     <div className="flex flex-col">
-                      <span className="text-[10px] text-gray-400 font-black uppercase tracking-tighter">Fecha pedido</span>
-                      <span className="text-sm font-bold text-gray-700">
+                      <span className="text-xl font-bold text-gray-700">
                         {new Intl.DateTimeFormat('es-CL', { 
                           weekday: 'short', day: 'numeric', month: 'long' 
                         }).format(new Date(ped.fecha))}
                       </span>
                     </div>
-                    <span className="text-[10px] bg-gray-100 text-gray-500 px-3 py-1 rounded-full font-bold">
+                    <span className="text-[15px] bg-gray-100 text-gray-500 px-3 py-1 rounded-full font-bold">
                       #{ped.id}
                     </span>
                   </div>
@@ -70,7 +69,7 @@ export const Historial: React.FC = () => {
                         <div className="bg-green-50 p-2 rounded-2xl">
                           <Utensils size={14} className="text-[#70a344]" />
                         </div>
-                        <span className="text-sm font-semibold text-gray-600">{det.plato.nombre}</span>
+                        <span className="text-sm font-semibold text-gray-600 text-lg">{det.plato.nombre}</span>
                       </div>
                     ))}
                   </div>
