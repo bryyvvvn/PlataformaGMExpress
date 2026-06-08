@@ -9,6 +9,24 @@ import {
 
 export const dynamic = "force-dynamic";
 
+type ConvenioBebida = {
+  permiteBebida: boolean;
+  permiteJugo: boolean;
+  permiteAguaSaborizada: boolean;
+};
+
+type PlatoBebida = {
+  id: number;
+  nombre: string;
+  url_imagen: string | null;
+  categoria: string;
+  tipo: string;
+  calorias: number | null;
+  proteinas: number | null;
+  carbohidratos: number | null;
+  grasas: number | null;
+};
+
 function formatearDetalle(d: {
   id: number;
   plato: {
@@ -27,17 +45,71 @@ function formatearDetalle(d: {
   };
 }
 
+function construirEntradaDisplay(entradas: ReturnType<typeof formatearDetalle>[]) {
+  if (entradas.length === 0) return null;
+  if (entradas.length === 3) return "Ensalada surtida";
+  return entradas.map((entrada) => entrada.nombre).join(" + ");
+}
+
+function puedeVerBebidaPorConvenio(bebida: PlatoBebida | null, convenio: ConvenioBebida | null) {
+  if (!bebida || !convenio) return false;
+  if (bebida.categoria === "BEBIDA") return convenio.permiteBebida;
+  if (bebida.categoria === "JUGO") return convenio.permiteJugo;
+  if (bebida.categoria === "AGUA_SABORIZADA") return convenio.permiteAguaSaborizada;
+  return false;
+}
+
+async function obtenerConvenioUsuario(usuarioId: string | null): Promise<ConvenioBebida | null> {
+  if (!usuarioId) return null;
+
+  const usuario = await db.usuario.findUnique({
+    where: { id: usuarioId },
+    select: {
+      empresa: {
+        select: {
+          ConvenioEmpresa: {
+            select: {
+              permiteBebida: true,
+              permiteJugo: true,
+              permiteAguaSaborizada: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  return usuario?.empresa?.ConvenioEmpresa ?? null;
+}
+
 function formatearSeleccion(seleccion: {
   entradaDetalle: Parameters<typeof formatearDetalle>[0];
   fondoDetalle: Parameters<typeof formatearDetalle>[0];
   postreDetalle: Parameters<typeof formatearDetalle>[0];
   guarnicion: { id: number; nombre: string } | null;
-}) {
+  bebidaPlato: PlatoBebida | null;
+  entradasSeleccionadas: Array<{
+    orden: number;
+    menuDetalle: Parameters<typeof formatearDetalle>[0];
+  }>;
+}, convenio: ConvenioBebida | null) {
+  const entradas = seleccion.entradasSeleccionadas.length > 0
+    ? seleccion.entradasSeleccionadas
+        .sort((a, b) => a.orden - b.orden)
+        .map((item) => formatearDetalle(item.menuDetalle))
+    : [formatearDetalle(seleccion.entradaDetalle)];
+  const bebida = puedeVerBebidaPorConvenio(seleccion.bebidaPlato, convenio)
+    ? seleccion.bebidaPlato
+    : null;
+
   return {
-    entrada: formatearDetalle(seleccion.entradaDetalle),
+    entrada: entradas[0] ?? formatearDetalle(seleccion.entradaDetalle),
     fondo: formatearDetalle(seleccion.fondoDetalle),
     postre: formatearDetalle(seleccion.postreDetalle),
     guarnicion: seleccion.guarnicion,
+    entradasSeleccionadas: entradas,
+    entradaDisplay: construirEntradaDisplay(entradas),
+    bebida,
   };
 }
 
@@ -52,6 +124,7 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const fechaParam = searchParams.get("fecha");
+    const usuarioId = searchParams.get("usuarioId");
 
     const isoFecha: string =
       fechaParam && /^\d{4}-\d{2}-\d{2}$/.test(fechaParam)
@@ -61,6 +134,7 @@ export async function GET(req: NextRequest) {
     const diaNombre = getChileDayName(isoFecha);
     const inicioDia = chileStartOfDay(isoFecha);
     const finDia = chileEndOfDay(isoFecha);
+    const convenio = await obtenerConvenioUsuario(usuarioId);
 
     const menuActivo = await db.menuSemanal.findFirst({
       where: {
@@ -86,6 +160,13 @@ export async function GET(req: NextRequest) {
             fondoDetalle: { include: { plato: true, guarniciones: true } },
             postreDetalle: { include: { plato: true, guarniciones: true } },
             guarnicion: true,
+            bebidaPlato: true,
+            entradasSeleccionadas: {
+              orderBy: [{ orden: "asc" }, { id: "asc" }],
+              include: {
+                menuDetalle: { include: { plato: true, guarniciones: true } },
+              },
+            },
           },
         },
       },
@@ -131,7 +212,7 @@ export async function GET(req: NextRequest) {
         .filter((d) => d.plato.categoria === "POSTRE")
         .map(formatearDetalle),
 
-      menuDia: seleccion ? formatearSeleccion(seleccion) : null,
+      menuDia: seleccion ? formatearSeleccion(seleccion, convenio) : null,
     };
 
     return NextResponse.json(menuFormateado);
