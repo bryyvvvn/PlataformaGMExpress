@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+// src/components/VerificadorRut.tsx
+import React, { useState } from 'react';
 import { useUser } from '@clerk/clerk-react';
-import { API_BASE_URL } from '../constants/api';
+import { useVerificadorRut } from '../hooks/useVerificadorRut';
 
-// 🔥 NUEVO: Función matemática para validar que el RUT sea real
+// 🔥 Función matemática pura para validar que el RUT sea real
 const validarRutChileno = (rutCompleto: string) => {
   const limpio = rutCompleto.replace(/[^0-9kK]/g, '').toUpperCase();
   if (limpio.length < 8) return false;
@@ -27,28 +28,12 @@ const validarRutChileno = (rutCompleto: string) => {
 
 export const VerificadorRut: React.FC = () => {
   const { user } = useUser();
-  const [requiereRut, setRequiereRut] = useState(false);
   const [inputRut, setInputRut] = useState('');
-  const [guardandoRut, setGuardandoRut] = useState(false);
+  
+  // 🔥 Importamos la lógica desde nuestro nuevo hook
+  const { requiereRut, guardandoRut, guardarRutAPI } = useVerificadorRut(user?.id);
 
-  useEffect(() => {
-    const fetchPerfil = async () => {
-      if (!user?.id) return;
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/usuarios/perfil?clerkId=${user.id}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data && !data.rut) {
-            setRequiereRut(true);
-          }
-        }
-      } catch (error) {
-        console.error("Error obteniendo perfil:", error);
-      }
-    };
-    fetchPerfil();
-  }, [user?.id]);
-
+  // Formateador visual en tiempo real
   const manejarCambioRut = (e: React.ChangeEvent<HTMLInputElement>) => {
     let valor = e.target.value.replace(/[^0-9kK]/g, '').toUpperCase();
     if (valor.length > 1) {
@@ -59,31 +44,18 @@ export const VerificadorRut: React.FC = () => {
     setInputRut(valor);
   };
 
-  const guardarRut = async () => {
+  // Manejador del botón
+  const manejarGuardado = async () => {
     if (!validarRutChileno(inputRut)) return alert("Ingresa un RUT válido");
-    setGuardandoRut(true);
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/usuarios/rut`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clerkId: user?.id, rut: inputRut })
-      });
-      
-      const data = await res.json();
-
-      if (res.ok) {
-        setRequiereRut(false); 
-      } else {
-        alert(data.error || "Ocurrió un error al guardar el RUT.");
-      }
-    } catch (e) {
-      console.error(e);
-      alert("Error de conexión al guardar el RUT.");
-    } finally {
-      setGuardandoRut(false);
+    
+    // Llamamos al hook
+    const resultado = await guardarRutAPI(inputRut);
+    if (!resultado.success) {
+      alert(resultado.error);
     }
   };
 
+  // Si no requiere RUT, no dibujamos nada
   if (!requiereRut) return null;
 
   // Evaluamos en vivo si el RUT es matemáticamente válido
@@ -112,7 +84,7 @@ export const VerificadorRut: React.FC = () => {
         />
         
         <button 
-          onClick={guardarRut}
+          onClick={manejarGuardado}
           disabled={guardandoRut || !esValido}
           className={`w-full py-4 rounded-xl font-black text-white transition-all shadow-lg ${
             esValido 

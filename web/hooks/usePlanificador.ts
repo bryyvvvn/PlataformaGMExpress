@@ -9,7 +9,7 @@ export type Plato = {
   id: number;
   nombre: string;
   url_imagen: string | null;
-  categoria: "ENTRADA" | "FONDO" | "POSTRE" | "BEBESTIBLE";
+  categoria: "ENTRADA" | "FONDO" | "POSTRE" | "JUGO";
   tipo: "NORMAL" | "VEGANO" | "VEGETARIANO" | "HIPOCALORICO" | "SIN_GLUTEN";
 };
 

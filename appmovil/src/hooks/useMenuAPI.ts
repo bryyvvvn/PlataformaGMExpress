@@ -12,7 +12,7 @@ export interface Plato {
   id:          number;
   nombre:      string;
   url_imagen:  string | null;
-  categoria:   "ENTRADA" | "FONDO" | "POSTRE" | "BEBESTIBLE";
+  categoria:   "ENTRADA" | "FONDO" | "POSTRE" | "JUGO" | "BEBIDA";
   tipo:        "NORMAL" | "VEGANO" | "VEGETARIANO" | "HIPOCALORICO" | "PLATO_UNICO";
   calorias?:   number | null;
   proteinas?:  number | null;

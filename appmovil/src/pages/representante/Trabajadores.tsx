@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Info, CalendarOff, Loader2, UserPlus, Search, X, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, CalendarOff, Loader2, UserPlus, Search, X, CheckCircle2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { usePerfil } from '../../hooks/usePerfil';
 import { useTrabajadores } from '../../hooks/useTrabajadores';
-import { API_BASE_URL } from '../../constants/api';
 
+// NUEVOS HOOKS
+import { useVincularTrabajador } from '../../hooks/useVincularTrabajador';
+import { useBloqueoDias } from '../../hooks/useBloqueoDias';
 
 // --- Componente TarjetaTrabajadorListado ---
+// (Podrías mover esto a src/components/ en el futuro si quieres el archivo aún más limpio)
 const TarjetaTrabajadorListado = ({ t }: { t: any }) => {
   const [diasBloqueados, setDiasBloqueados] = useState<number[]>(t.diasBloqueados || []);
-  const [loadingDia, setLoadingDia] = useState<number | null>(null);
+  const { toggleDiaBloqueado, loadingDia } = useBloqueoDias();
 
   useEffect(() => {
     if (t.diasBloqueados) setDiasBloqueados(t.diasBloqueados);
@@ -19,25 +22,6 @@ const TarjetaTrabajadorListado = ({ t }: { t: any }) => {
     { num: 1, letra: 'L' }, { num: 2, letra: 'M' }, 
     { num: 3, letra: 'M' }, { num: 4, letra: 'J' }, { num: 5, letra: 'V' }
   ];
-
-  const toggleDia = async (diaNum: number) => {
-    setLoadingDia(diaNum);
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/representante/bloqueos`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ usuarioId: t.id, diaSemana: diaNum })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setDiasBloqueados(data.diasBloqueados);
-      }
-    } catch (e) {
-      console.error("Error al modificar bloqueo:", e);
-    } finally {
-      setLoadingDia(null);
-    }
-  };
 
   return (
     <div className="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm flex flex-col gap-4 transition-all mb-4">
@@ -66,7 +50,7 @@ const TarjetaTrabajadorListado = ({ t }: { t: any }) => {
             return (
               <button
                 key={dia.num}
-                onClick={() => toggleDia(dia.num)}
+                onClick={() => toggleDiaBloqueado(t.id, dia.num, setDiasBloqueados)}
                 disabled={isLoad}
                 className={`flex-1 aspect-square rounded-2xl flex items-center justify-center font-black text-sm transition-all border active:scale-95 disabled:opacity-70 ${
                   isBlocked 
@@ -90,15 +74,15 @@ const Trabajadores: React.FC = () => {
   const { empresaId, empresaNombre } = usePerfil();
   const { trabajadores, cargando } = useTrabajadores(empresaId);
 
-  // Estados para el Modal
+  // Hook personalizado de vinculación
+  const { 
+    buscando, vinculando, trabajadorEncontrado, errorBusqueda, 
+    buscarTrabajador, vincularTrabajador, limpiarBusqueda 
+  } = useVincularTrabajador();
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [rutBusqueda, setRutBusqueda] = useState('');
-  const [buscando, setBuscando] = useState(false);
-  const [vinculando, setVinculando] = useState(false);
-  const [trabajadorEncontrado, setTrabajadorEncontrado] = useState<any | null>(null);
-  const [errorBusqueda, setErrorBusqueda] = useState<string | null>(null);
 
-  // 🔥 Función para formatear el RUT automáticamente
   const manejarCambioRut = (e: React.ChangeEvent<HTMLInputElement>) => {
     let valor = e.target.value.replace(/[^0-9kK]/g, '').toUpperCase();
     if (valor.length > 1) {
@@ -109,61 +93,10 @@ const Trabajadores: React.FC = () => {
     setRutBusqueda(valor);
   };
 
-  const manejarBusqueda = async () => {
-    if (!rutBusqueda.trim()) return;
-    setBuscando(true);
-    setErrorBusqueda(null);
-    setTrabajadorEncontrado(null);
-
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/representante/buscar-trabajador?rut=${rutBusqueda}`);
-      const data = await res.json();
-
-      if (res.ok) {
-        setTrabajadorEncontrado(data);
-      } else {
-        setErrorBusqueda(data.error || 'Error al buscar el trabajador');
-      }
-    } catch (e) {
-      console.error("Error en la búsqueda:", e);
-      setErrorBusqueda('Error de red al intentar buscar.');
-    } finally {
-      setBuscando(false);
-    }
-  };
-
-  const manejarVinculacion = async () => {
-    if (!trabajadorEncontrado || !empresaId) return;
-    setVinculando(true);
-
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/representante/vincular-trabajador`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ usuarioId: trabajadorEncontrado.id, empresaId: empresaId })
-      });
-
-      if (res.ok) {
-        alert('Trabajador vinculado exitosamente.');
-        setIsModalOpen(false);
-        window.location.reload(); 
-      } else {
-        const data = await res.json();
-        alert(data.error || 'Ocurrió un error al vincular.');
-      }
-    } catch (e) {
-      console.error("Error al vincular:", e);
-      alert('Error de red al intentar vincular.');
-    } finally {
-      setVinculando(false);
-    }
-  };
-
   const cerrarModal = () => {
     setIsModalOpen(false);
     setRutBusqueda('');
-    setTrabajadorEncontrado(null);
-    setErrorBusqueda(null);
+    limpiarBusqueda();
   };
 
   return (
@@ -188,10 +121,6 @@ const Trabajadores: React.FC = () => {
       </header>
 
       <main className="flex-1 p-6 pb-20">
-        {/* 1. Mostramos el esqueleto de carga si:
-             - El hook dice que está cargando
-             - O si todavía no tenemos el empresaId (aún estamos obteniendo el perfil)
-        */}
         {(cargando || !empresaId) ? (
           <div className="space-y-4 max-w-md mx-auto">
             {[1, 2, 3].map((i) => (
@@ -211,11 +140,14 @@ const Trabajadores: React.FC = () => {
             ))}
           </div>
         ) : (
-          /* 🔥 AHORA CARGAMOS DIRECTAMENTE LA LISTA O NADA */
           <div className="space-y-4 max-w-md mx-auto">
-            {trabajadores.map((t) => (
-              <TarjetaTrabajadorListado key={t.id} t={t} />
-            ))}
+            {trabajadores.length > 0 ? (
+              trabajadores.map((t) => <TarjetaTrabajadorListado key={t.id} t={t} />)
+            ) : (
+              <div className="text-center text-gray-400 mt-10 text-sm font-medium">
+                No hay trabajadores registrados en esta empresa.
+              </div>
+            )}
           </div>
         )}
       </main>
@@ -244,7 +176,7 @@ const Trabajadores: React.FC = () => {
                 className="flex-1 bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3 font-bold text-[#1d2d50] focus:outline-none focus:border-[#70a344]"
               />
               <button 
-                onClick={manejarBusqueda}
+                onClick={() => buscarTrabajador(rutBusqueda)}
                 disabled={buscando || rutBusqueda.length < 8}
                 className="bg-[#1d2d50] text-white p-4 rounded-2xl active:scale-95 transition-transform disabled:opacity-50"
               >
@@ -271,7 +203,10 @@ const Trabajadores: React.FC = () => {
                 </div>
                 
                 <button 
-                  onClick={manejarVinculacion}
+                  onClick={() => vincularTrabajador(trabajadorEncontrado.id, empresaId!, () => {
+                    cerrarModal();
+                    window.location.reload();
+                  })}
                   disabled={vinculando}
                   className="w-full py-3 bg-[#70a344] text-white rounded-xl font-black text-sm active:scale-95 transition-transform flex items-center justify-center gap-2"
                 >

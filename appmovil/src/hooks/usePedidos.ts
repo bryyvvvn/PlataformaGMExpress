@@ -4,9 +4,10 @@ import { API_BASE_URL }        from '../constants/api';
 // ─── TIPOS ────────────────────────────────────────────────────────────────────
 
 export interface PedidoPayload {
-  entradasIds: number[];    // ✅ ASÍ DEBE QUEDAR
+  entradasIds: number[];
   fondoId: number | null;
   postreId: number | null;
+  jugoId: number | null; // ✅ AGREGADO PARA QUE LA API LO RECIBA
   guarnicionId: number | null;
 }
 
@@ -60,6 +61,7 @@ export const usePedidos = (usuarioId: string | undefined, fecha?: string) => {
         entradasIds: pedido.entradasIds,
         fondoId: pedido.fondoId,
         postreId: pedido.postreId,
+        jugoId: pedido.jugoId, // ✅ SE AÑADIÓ PARA ENVIARLO AL SERVIDOR
         // Convierte el sentinel -1 (Sin guarnición) a null para el servidor
         guarnicionId: pedido.guarnicionId === -1 ? null : pedido.guarnicionId ?? null,
         fecha: fecha ?? undefined,
