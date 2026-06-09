@@ -296,16 +296,19 @@ export async function PATCH(req: NextRequest) {
         throw new Error("La bebida seleccionada no corresponde a una categoría válida");
       }
 
+      const tipoFondo = fondo!.plato.tipo;
+      const fondoSinGuarnicion = tipoFondo === "PLATO_UNICO" || tipoFondo === "HIPOCALORICO";
+      const guarnicionIdNormalizada = fondoSinGuarnicion ? null : guarnicionId;
       const guarnicionesFondo = fondo?.guarniciones ?? [];
-      const guarnicion = guarnicionId
-        ? guarnicionesFondo.find((item) => item.id === guarnicionId)
+      const guarnicion = guarnicionIdNormalizada
+        ? guarnicionesFondo.find((item) => item.id === guarnicionIdNormalizada)
         : null;
 
-      if (guarnicionesFondo.length > 0 && !guarnicion) {
+      if (!fondoSinGuarnicion && guarnicionesFondo.length > 0 && !guarnicion) {
         throw new Error("Debes seleccionar una guarnición válida para el fondo");
       }
 
-      if (guarnicionesFondo.length === 0 && guarnicionId !== null) {
+      if (!fondoSinGuarnicion && guarnicionesFondo.length === 0 && guarnicionIdNormalizada !== null) {
         throw new Error("El fondo seleccionado no tiene guarniciones asociadas");
       }
 
@@ -325,7 +328,7 @@ export async function PATCH(req: NextRequest) {
           entradaDetalleId: entradaPrincipalId,
           fondoDetalleId: fondoId,
           postreDetalleId: postreId,
-          guarnicionId,
+          guarnicionId: guarnicionIdNormalizada,
           bebidaPlatoId,
         },
         create: {
@@ -334,7 +337,7 @@ export async function PATCH(req: NextRequest) {
           entradaDetalleId: entradaPrincipalId,
           fondoDetalleId: fondoId,
           postreDetalleId: postreId,
-          guarnicionId,
+          guarnicionId: guarnicionIdNormalizada,
           bebidaPlatoId,
         },
       });
