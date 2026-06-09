@@ -9,8 +9,15 @@ export type Plato = {
   id: number;
   nombre: string;
   url_imagen: string | null;
-  categoria: "ENTRADA" | "FONDO" | "POSTRE" | "JUGO";
-  tipo: "NORMAL" | "VEGANO" | "VEGETARIANO" | "HIPOCALORICO" | "SIN_GLUTEN";
+  categoria: "ENTRADA" | "FONDO" | "POSTRE" | "BEBIDA" | "JUGO" | "AGUA_SABORIZADA";
+  tipo: "NORMAL" | "VEGANO" | "VEGETARIANO" | "HIPOCALORICO" | "SIN_GLUTEN" | "PLATO_UNICO";
+};
+
+export type PlatoBebida = Plato & {
+  calorias?: number | null;
+  proteinas?: number | null;
+  carbohidratos?: number | null;
+  grasas?: number | null;
 };
 
 export type PlatoMenuDia = {
@@ -26,6 +33,9 @@ export type SeleccionMenuDia = {
   fondo: PlatoMenuDia;
   postre: PlatoMenuDia;
   guarnicion: Guarnicion | null;
+  entradasSeleccionadas?: PlatoMenuDia[];
+  entradaDisplay?: string | null;
+  bebida?: PlatoBebida | null;
 };
 
 export type DiaMenu = {
@@ -60,9 +70,11 @@ export type SemanaCargada = {
 
 export type DraftMenuDia = {
   entradaId: number | null;
+  entradasIds: number[];
   fondoId: number | null;
   postreId: number | null;
   guarnicionId: number | null;
+  bebidaPlatoId: number | null;
 };
 
 export const LETRAS_DIA: Record<DiaMenu["dia"], string> = {
@@ -94,19 +106,68 @@ export function getFechaActualChile() {
   }).format(new Date());
 }
 
+export function construirEntradaDisplay(entradas: PlatoMenuDia[]) {
+  if (entradas.length === 0) return null;
+  if (entradas.length === 3 && !entradas.some(esEntradaSopa)) return "Ensalada surtida";
+  return entradas.map((entrada) => entrada.plato.nombre).join(" + ");
+}
+
+export function normalizarTextoBusqueda(value: string | null | undefined) {
+  return (value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase();
+}
+
+export function esEntradaSopa(entrada: PlatoMenuDia) {
+  const entradaConEtiqueta = entrada as PlatoMenuDia & {
+    etiqueta?: string | null;
+    label?: string | null;
+    display?: string | null;
+    nombre?: string | null;
+  };
+  const textoEntrada = [
+    entrada.plato.nombre,
+    entradaConEtiqueta.etiqueta,
+    entradaConEtiqueta.label,
+    entradaConEtiqueta.display,
+    entradaConEtiqueta.nombre,
+  ].filter(Boolean).join(" ");
+
+  return /\bSOPA\b/.test(normalizarTextoBusqueda(textoEntrada));
+}
+
+export function obtenerEntradasEnsalada(entradas: PlatoMenuDia[]) {
+  return entradas.filter((entrada) => !esEntradaSopa(entrada));
+}
+
+export function tieneSopaCombinada(entradas: PlatoMenuDia[]) {
+  return entradas.some(esEntradaSopa) && entradas.length > 1;
+}
+
 export function crearDrafts(data: MenuDiaResponse): Record<string, DraftMenuDia> {
   return Object.fromEntries(
     data.dias
       .filter((dia) => dia.fecha)
-      .map((dia) => [
-        dia.fecha!,
-        {
-          entradaId: dia.seleccion?.entrada.detalleId ?? null,
-          fondoId: dia.seleccion?.fondo.detalleId ?? null,
-          postreId: dia.seleccion?.postre.detalleId ?? null,
-          guarnicionId: dia.seleccion?.guarnicion?.id ?? null,
-        },
-      ])
+      .map((dia) => {
+        const entradasIds = dia.seleccion?.entradasSeleccionadas?.length
+          ? dia.seleccion.entradasSeleccionadas.map((entrada) => entrada.detalleId)
+          : dia.seleccion?.entrada.detalleId
+            ? [dia.seleccion.entrada.detalleId]
+            : [];
+
+        return [
+          dia.fecha!,
+          {
+            entradaId: entradasIds[0] ?? null,
+            entradasIds,
+            fondoId: dia.seleccion?.fondo.detalleId ?? null,
+            postreId: dia.seleccion?.postre.detalleId ?? null,
+            guarnicionId: dia.seleccion?.guarnicion?.id ?? null,
+            bebidaPlatoId: dia.seleccion?.bebida?.id ?? null,
+          },
+        ];
+      })
   );
 }
 
@@ -117,6 +178,8 @@ export function usePlanificador() {
   
   const [menuDia, setMenuDia] = useState<MenuDiaResponse | null>(null);
   const [loadingMenuDia, setLoadingMenuDia] = useState(true);
+  const [bebidas, setBebidas] = useState<PlatoBebida[]>([]);
+  const [loadingBebidas, setLoadingBebidas] = useState(true);
   const [drafts, setDrafts] = useState<Record<string, DraftMenuDia>>({});
   const [guardandoFecha, setGuardandoFecha] = useState<string | null>(null);
   const [diaAbierto, setDiaAbierto] = useState<string | null>(null);
@@ -168,14 +231,32 @@ export function usePlanificador() {
     }
   };
 
+  const cargarBebidas = async () => {
+    setLoadingBebidas(true);
+    try {
+      const response = await fetch("/api/trabajador/otros", { cache: "no-store" });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "No se pudieron cargar las bebidas");
+      }
+
+      const categoriasBebida = new Set(["BEBIDA", "AGUA_SABORIZADA"]);
+      setBebidas((data.platos ?? []).filter((plato: PlatoBebida) => categoriasBebida.has(plato.categoria)));
+    } catch (error) {
+      setMensaje({ tipo: "error", texto: getErrorMessage(error) });
+    } finally {
+      setLoadingBebidas(false);
+    }
+  };
+
   useEffect(() => {
     const timer = window.setTimeout(() => {
       void cargarMenuDia();
+      void cargarBebidas();
       void cargarSemanas();
     }, 0);
-
     return () => window.clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -222,9 +303,11 @@ export function usePlanificador() {
       ...prev,
       [fecha]: {
         entradaId: prev[fecha]?.entradaId ?? null,
+        entradasIds: prev[fecha]?.entradasIds ?? [],
         fondoId: prev[fecha]?.fondoId ?? null,
         postreId: prev[fecha]?.postreId ?? null,
         guarnicionId: prev[fecha]?.guarnicionId ?? null,
+        bebidaPlatoId: prev[fecha]?.bebidaPlatoId ?? null,
         ...cambios,
       },
     }));
@@ -234,8 +317,36 @@ export function usePlanificador() {
     if (!menuDia?.menu || !dia.fecha) return;
 
     const draft = drafts[dia.fecha];
-    if (!draft?.entradaId || !draft.fondoId || !draft.postreId) {
+    const entradasIds = draft?.entradasIds?.length
+      ? draft.entradasIds
+      : draft?.entradaId
+        ? [draft.entradaId]
+        : [];
+
+    if (entradasIds.length === 0 || !draft?.fondoId || !draft.postreId) {
       setMensaje({ tipo: "error", texto: `Debes seleccionar entrada, fondo y postre para ${dia.dia}` });
+      return;
+    }
+
+    if (entradasIds.length > 3) {
+      setMensaje({ tipo: "error", texto: `Puedes seleccionar hasta 3 entradas para ${dia.dia}` });
+      return;
+    }
+
+    const entradasSeleccionadas = entradasIds
+      .map((id) => dia.opciones.entradas.find((entrada) => entrada.detalleId === id))
+      .filter((entrada): entrada is PlatoMenuDia => Boolean(entrada));
+
+    if (tieneSopaCombinada(entradasSeleccionadas)) {
+      setMensaje({ tipo: "error", texto: "La sopa cuenta como entrada completa y no puede combinarse con ensaladas." });
+      return;
+    }
+
+    if (!draft.bebidaPlatoId) {
+      setMensaje({
+        tipo: "error",
+        texto: "Debes seleccionar una bebida especial del día. Solo será visible para empresas cuyo convenio permita bebida o agua saborizada; las demás seguirán viendo Jugo del día.",
+      });
       return;
     }
 
@@ -255,10 +366,12 @@ export function usePlanificador() {
         body: JSON.stringify({
           menuSemanalId: menuDia.menu.id,
           fecha: dia.fecha,
-          entradaId: draft.entradaId,
+          entradaId: entradasIds[0],
+          entradasIds,
           fondoId: draft.fondoId,
           postreId: draft.postreId,
           guarnicionId: draft.guarnicionId,
+          bebidaPlatoId: draft.bebidaPlatoId,
         }),
       });
 
@@ -313,6 +426,8 @@ export function usePlanificador() {
     mensaje,
     menuDia,
     loadingMenuDia,
+    bebidas,
+    loadingBebidas,
     drafts,
     guardandoFecha,
     diaAbierto,

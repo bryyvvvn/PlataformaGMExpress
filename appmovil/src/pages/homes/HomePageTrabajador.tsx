@@ -23,6 +23,7 @@ import { useOtrosPlatos } from '../../hooks/useOtrosPlatos';
 import { MenuSkeleton } from '../../components/MenuSkeleton';
 import { CalendarioSemanal } from '../../components/CalendarioSemanal';
 import { ResumenPedido } from '../../components/ResumenPedido';
+import type { Plato } from '../../hooks/useMenuAPI';
 
 type Categoria = 'ENTRADA' | 'FONDO' | 'POSTRE' | 'JUGO' | null;
 type TipoMenu = 'MENU_DIA' | 'PERSONALIZADO' | 'OTRO';
@@ -30,6 +31,49 @@ type TipoMenu = 'MENU_DIA' | 'PERSONALIZADO' | 'OTRO';
 const capitalizar = (texto: string | null | undefined) => {
   if (!texto) return '';
   return texto.charAt(0).toUpperCase() + texto.slice(1).toLowerCase();
+};
+
+const getEntradasMenuDia = (menuDia: any): Plato[] => {
+  if (!menuDia) return [];
+  if (Array.isArray(menuDia.entradasSeleccionadas) && menuDia.entradasSeleccionadas.length > 0) {
+    const entradasUnicas = new Map<number, Plato>();
+    menuDia.entradasSeleccionadas.forEach((entrada: Plato) => {
+      if (entrada?.id) entradasUnicas.set(entrada.id, entrada);
+    });
+    return Array.from(entradasUnicas.values());
+  }
+  return menuDia.entrada ? [menuDia.entrada] : [];
+};
+
+const getEntradaMenuDiaDisplay = (menuDia: any) => {
+  if (!menuDia) return '';
+  if (menuDia.entradaDisplay) return menuDia.entradaDisplay;
+  const entradas = getEntradasMenuDia(menuDia);
+  if (entradas.length > 0) return entradas.map((entrada) => entrada.nombre).join(' + ');
+  return menuDia.entrada?.nombre ?? '';
+};
+
+const getPlatoEntradaMenuDia = (menuDia: any): Plato | null => {
+  const entradas = getEntradasMenuDia(menuDia);
+  const base = entradas[0] ?? menuDia?.entrada ?? null;
+  if (!base) return null;
+  return { ...base, nombre: getEntradaMenuDiaDisplay(menuDia) || base.nombre };
+};
+
+const obtenerIncluidosPorConvenio = (menuDia: any, convenio: any) => {
+  const incluidos: string[] = [];
+
+  if (convenio?.permitePan) {
+    incluidos.push('Pan');
+  }
+
+  if (menuDia?.bebida?.nombre) {
+    incluidos.push(menuDia.bebida.nombre);
+  } else if (convenio?.permiteJugo) {
+    incluidos.push('Jugo del día');
+  }
+
+  return incluidos;
 };
 
 const HomePageTrabajador: React.FC = () => {
@@ -77,7 +121,7 @@ const HomePageTrabajador: React.FC = () => {
   const { diasBloqueadosAdmin, convenio } = usePerfilTrabajador(user?.id);
   const { otrosPlatos, loadingOtros } = useOtrosPlatos(activeTab === 'OTRO' || activeTab === 'PERSONALIZADO');
   const { timeRemaining } = useCountdown(DEADLINE_HOUR);
-  const { menuHoy, cargando: cargandoMenu } = useMenuAPI(fechaSeleccionadaISO);
+  const { menuHoy, cargando: cargandoMenu } = useMenuAPI(fechaSeleccionadaISO, user?.id);
   const { pedidoExistente, cargandoVerificacion, enviarPedido, enviarItems, enviando, refrescarVerificacion, eliminarPedido, eliminando } = usePedidos(user?.id, fechaSeleccionadaISO);
   const { historial, cargando: cargandoHistorial, cargarHistorial } = useHistorial(user?.id);
 
@@ -130,15 +174,16 @@ const HomePageTrabajador: React.FC = () => {
   const isHipocalorico = fondoObj?.tipo === 'HIPOCALORICO';
   const isPlatoUnicoOrHipocalorico = fondoObj?.tipo === 'PLATO_UNICO' || isHipocalorico;
   const fondoNeedsGuarnicion = Boolean(fondoObj && (fondoObj.guarniciones || []).length > 0 && !isPlatoUnicoOrHipocalorico);
-  
-  // ✅ PENALIZACIÓN DINÁMICA POR CONVENIO
+ 
   const jugoObj = (otrosPlatos || []).find((p: any) => p?.id === pedido.jugoId);
-  const penalizaEntradaPostre = 
-    (jugoObj?.categoria === 'BEBIDA' && !convenio?.permiteBebida) || 
+  const penalizaEntradaPostre =
+    (jugoObj?.categoria === 'BEBIDA' && !convenio?.permiteBebida) ||
     (jugoObj?.categoria === 'AGUA_SABORIZADA' && !convenio?.permiteAguaSaborizada);
 
   const menuDiaSeleccionado = Boolean(menuHoy?.menuDia);
-
+  const entradaMenuDiaPlato = menuHoy?.menuDia ? getPlatoEntradaMenuDia(menuHoy.menuDia) : null;
+  const incluidosPorConvenioMenuDia = obtenerIncluidosPorConvenio(menuHoy?.menuDia, convenio);
+  
   const estaCompletoPersonalizado = activeTab === 'PERSONALIZADO' && Boolean(
     (pedido.entradasIds.length > 0 || penalizaEntradaPostre || pedido.isDoblePostre) &&
     pedido.fondoId &&
@@ -189,9 +234,17 @@ const HomePageTrabajador: React.FC = () => {
     if (menuDiaSeleccionado) {
       setPedido({ entradasIds: [], fondoId: null, postreId: null, guarnicionId: null, canjeId: null, sandwichId: null, bebidaId: null, jugoId: null, isDoblePostre: false });
     } else {
+      const entradasIds = getEntradasMenuDia(menuHoy.menuDia).map((entrada) => entrada.id);
       setPedido({
-        entradasIds: [menuHoy.menuDia.entrada.id], fondoId: menuHoy.menuDia.fondo.id, postreId: menuHoy.menuDia.postre.id,
-        guarnicionId: menuHoy.menuDia.guarnicion?.id ?? null, canjeId: null, sandwichId: null, bebidaId: null, jugoId: null, isDoblePostre: false
+        entradasIds,
+        fondoId: menuHoy.menuDia.fondo?.id ?? null,
+        postreId: menuHoy.menuDia.postre?.id ?? null,
+        guarnicionId: menuHoy.menuDia.guarnicion?.id ?? null,
+        canjeId: null,
+        sandwichId: null,
+        bebidaId: null,
+        jugoId: menuHoy.menuDia.bebida?.id ?? null,
+        isDoblePostre: false,
       });
     }
   };
@@ -315,11 +368,12 @@ const HomePageTrabajador: React.FC = () => {
       const pedidoAEnviar = activeTab === 'MENU_DIA' && menuHoy?.menuDia
         ? {
             ...pedido,
-            entradasIds: [menuHoy.menuDia.entrada.id],
-            fondoId: menuHoy.menuDia.fondo.id,
-            postreId: menuHoy.menuDia.postre.id,
+            entradasIds: getEntradasMenuDia(menuHoy.menuDia).map((entrada) => entrada.id),
+            fondoId: menuHoy.menuDia.fondo?.id ?? null,
+            postreId: menuHoy.menuDia.postre?.id ?? null,
             guarnicionId: menuHoy.menuDia.guarnicion?.id ?? null,
-            isDoblePostre: false
+            jugoId: menuHoy.menuDia.bebida?.id ?? null,
+            isDoblePostre: false,
           }
         : pedido;
       const exito = await enviarPedido(pedidoAEnviar as any);
@@ -451,15 +505,23 @@ const HomePageTrabajador: React.FC = () => {
                   <>
                     <div className="space-y-4 text-left grow">
                       {[
-                        { label: 'Entrada', plato: menuHoy.menuDia.entrada, categoriaKey: 'entradaId' as const },
+                        { label: 'Entrada', plato: entradaMenuDiaPlato, categoriaKey: 'entradaId' as const },
                         { label: 'Fondo', plato: menuHoy.menuDia.fondo, categoriaKey: 'fondoId' as const },
                         { label: 'Postre', plato: menuHoy.menuDia.postre, categoriaKey: 'postreId' as const },
-                      ].map(({ label, plato, categoriaKey }) => (
+                      ].filter(({ plato }) => Boolean(plato)).map(({ label, plato, categoriaKey }) => (
                         <div key={label} className="space-y-3">
                           <div className="border-b border-gray-200 pb-3 mb-4"><span className="text-xl font-black text-[#1d2d50] uppercase tracking-widest">{label}</span></div>
                           <TarjetaPlato plato={plato} categoriaKey={categoriaKey as any} isSelected={false} hideSelectionIcon={true} readOnly={true} extraInfo={label === 'Fondo' && menuHoy.menuDia?.guarnicion ? `+ ${menuHoy.menuDia.guarnicion.nombre}` : undefined} isDeadlinePassed={true} grayTag={true} onSelect={() => {}} />
                         </div>
                       ))}
+                      {incluidosPorConvenioMenuDia.length > 0 && (
+                        <div className="mt-2 pt-4 border-t border-dashed border-gray-200">
+                          <span className="text-xs font-black text-[#70a344] uppercase tracking-widest mb-0.5">INCLUIDO POR CONVENIO</span>
+                          <p className="font-bold text-[#1d2d50] leading-tight mt-1 text-lg">
+                            {incluidosPorConvenioMenuDia.join(' | ')}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </>
                 ) : (

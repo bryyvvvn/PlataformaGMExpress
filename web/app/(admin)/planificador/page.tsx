@@ -24,9 +24,14 @@ import {
 import { 
   usePlanificador, 
   PlatoMenuDia, 
+  PlatoBebida,
   LETRAS_DIA, 
   formatFechaCorta, 
-  PLANTILLA_MINUTA_URL 
+  PLANTILLA_MINUTA_URL,
+  construirEntradaDisplay,
+  esEntradaSopa,
+  obtenerEntradasEnsalada,
+  tieneSopaCombinada,
 } from "@/hooks/usePlanificador";
 
 function MenuOptionCard({
@@ -93,6 +98,8 @@ export default function PlanificadorPage() {
     mensaje,
     menuDia,
     loadingMenuDia,
+    bebidas,
+    loadingBebidas,
     drafts,
     guardandoFecha,
     diaAbierto,
@@ -110,6 +117,41 @@ export default function PlanificadorPage() {
     guardarMenuDia,
     eliminarSemana,
   } = usePlanificador();
+
+  const actualizarEntradaDraft = (
+    fecha: string,
+    draftEntradaIds: number[],
+    item: PlatoMenuDia,
+    entradas: PlatoMenuDia[]
+  ) => {
+    const seleccionada = draftEntradaIds.includes(item.detalleId);
+    const itemEsSopa = esEntradaSopa(item);
+    const entradasSinSopa = draftEntradaIds.filter((id) => {
+      const entrada = entradas.find((opcion) => opcion.detalleId === id);
+      return entrada && !esEntradaSopa(entrada);
+    });
+    const siguiente = seleccionada
+      ? draftEntradaIds.filter((id) => id !== item.detalleId)
+      : itemEsSopa
+        ? [item.detalleId]
+        : entradasSinSopa.length >= 3
+          ? entradasSinSopa
+          : [...entradasSinSopa, item.detalleId];
+
+    actualizarDraft(fecha, {
+      entradaId: siguiente[0] ?? null,
+      entradasIds: siguiente,
+    });
+  };
+
+  const seleccionarEnsaladaSurtida = (fecha: string, entradas: PlatoMenuDia[]) => {
+    const entradasIds = obtenerEntradasEnsalada(entradas).slice(0, 3).map((entrada) => entrada.detalleId);
+
+    actualizarDraft(fecha, {
+      entradaId: entradasIds[0] ?? null,
+      entradasIds,
+    });
+  };
 
   return (
     <div className="mx-auto max-w-[1600px] space-y-4 p-6 bg-slate-50 min-h-screen">
@@ -319,7 +361,7 @@ export default function PlanificadorPage() {
               <h2 className="text-lg font-bold text-[#1B2C56]">Programación Diaria</h2>
             </div>
             <p className="text-sm text-slate-500">
-              Estructura el menú final (Entrada, Fondo, Guarnición, Postre) que verán los clientes.
+              Estructura el menú final (Entrada, Fondo, Guarnición, Postre, Bebida) que verán los clientes.
             </p>
           </div>
           <Button variant="outline" size="sm" onClick={cargarMenuDia} disabled={loadingMenuDia} className="h-8 font-semibold bg-white shadow-sm text-slate-700">
@@ -345,6 +387,26 @@ export default function PlanificadorPage() {
               const draft = dia.fecha ? drafts[dia.fecha] : undefined;
               const totalOpciones = dia.opciones.entradas.length + dia.opciones.fondos.length + dia.opciones.postres.length;
               const abierto = diaAbierto === dia.fecha;
+              const entradasIds = draft?.entradasIds?.length
+                ? draft.entradasIds
+                : draft?.entradaId
+                  ? [draft.entradaId]
+                  : [];
+              const entradasSeleccionadas = entradasIds
+                .map((id) => dia.opciones.entradas.find((entrada) => entrada.detalleId === id))
+                .filter((entrada): entrada is PlatoMenuDia => Boolean(entrada));
+              const entradasEnsalada = obtenerEntradasEnsalada(dia.opciones.entradas);
+              const ensaladaSurtidaIds = entradasEnsalada.slice(0, 3).map((entrada) => entrada.detalleId);
+              const ensaladaSurtidaSeleccionada =
+                entradasIds.length === 3 && ensaladaSurtidaIds.every((id) => entradasIds.includes(id));
+              const entradaResumen =
+                construirEntradaDisplay(entradasSeleccionadas) ?? dia.seleccion?.entradaDisplay ?? null;
+              const bebidaSeleccionada = bebidas.find((bebida) => bebida.id === draft?.bebidaPlatoId);
+              const sopaCombinada = tieneSopaCombinada(entradasSeleccionadas);
+              const bebidaPendiente = totalOpciones > 0 && !draft?.bebidaPlatoId;
+              const puedeGuardarDia =
+                Boolean(dia.fecha && menuDia?.menu && draft?.bebidaPlatoId && !sopaCombinada) &&
+                guardandoFecha === null;
 
               return (
                 <div key={`${dia.dia}-${dia.fecha ?? "sin-fecha"}`} className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
@@ -387,9 +449,10 @@ export default function PlanificadorPage() {
                           <div>
                             <p className="font-bold text-[#1B2C56] uppercase tracking-wide mb-1">Menú Establecido</p>
                             <p className="text-slate-600 font-medium">
-                               {dia.seleccion.entrada.plato.nombre} <span className="text-slate-300 mx-1">|</span> 
+                               {dia.seleccion.entradaDisplay ?? dia.seleccion.entrada.plato.nombre} <span className="text-slate-300 mx-1">|</span> 
                                {dia.seleccion.fondo.plato.nombre} {dia.seleccion.guarnicion ? ` + ${dia.seleccion.guarnicion.nombre}` : ""} <span className="text-slate-300 mx-1">|</span> 
                                {dia.seleccion.postre.plato.nombre}
+                               {dia.seleccion.bebida ? <><span className="text-slate-300 mx-1">|</span> {dia.seleccion.bebida.nombre}</> : null}
                             </p>
                           </div>
                         </div>
@@ -402,7 +465,7 @@ export default function PlanificadorPage() {
                        <p className="text-xs text-slate-400 mt-1">Sube un Excel para cargar los platos de este día.</p>
                     </div>
                   ) : (
-                    <div className="mt-2 grid grid-cols-1 gap-5 lg:grid-cols-3">
+                    <div className="mt-2 grid grid-cols-1 gap-5 lg:grid-cols-2 xl:grid-cols-4">
                       {/* Entradas */}
                       <div className="space-y-3">
                         <div className="border-b border-slate-200 pb-2">
@@ -411,14 +474,44 @@ export default function PlanificadorPage() {
                         {dia.opciones.entradas.length === 0 ? (
                           <p className="rounded border border-dashed border-slate-200 bg-white p-3 text-xs text-slate-400 text-center">No disponible</p>
                         ) : (
-                          dia.opciones.entradas.map((item) => (
-                            <MenuOptionCard
-                              key={item.detalleId}
-                              item={item}
-                              selected={draft?.entradaId === item.detalleId}
-                              onSelect={() => dia.fecha && actualizarDraft(dia.fecha, { entradaId: item.detalleId })}
-                            />
-                          ))
+                          <>
+                            {entradasEnsalada.length >= 3 && (
+                              <button
+                                type="button"
+                                onClick={() => dia.fecha && seleccionarEnsaladaSurtida(dia.fecha, dia.opciones.entradas)}
+                                className={`group flex w-full items-center justify-between rounded-md border px-3 py-3 text-left transition-all duration-200 ${
+                                  ensaladaSurtidaSeleccionada
+                                    ? "border-[#75AA46] bg-[#75AA46]/10 ring-1 ring-[#75AA46]/30 shadow-sm"
+                                    : "border-[#1B2C56]/20 bg-white shadow-sm hover:border-[#75AA46]/50 hover:bg-[#75AA46]/5"
+                                }`}
+                              >
+                                <div className="min-w-0">
+                                  <p className="text-sm font-bold text-[#1B2C56]">Ensalada surtida</p>
+                                  <p className="mt-0.5 text-[11px] font-medium text-slate-500">
+                                    Selecciona las 3 ensaladas.
+                                  </p>
+                                </div>
+                                {ensaladaSurtidaSeleccionada ? (
+                                  <CheckCircle2 className="h-5 w-5 shrink-0 text-[#75AA46]" />
+                                ) : (
+                                  <span className="h-4 w-4 shrink-0 rounded-full border-2 border-slate-300 bg-white transition-colors group-hover:border-[#75AA46]/50" />
+                                )}
+                              </button>
+                            )}
+                            {dia.opciones.entradas.map((item) => (
+                              <MenuOptionCard
+                                key={item.detalleId}
+                                item={item}
+                                selected={entradasIds.includes(item.detalleId)}
+                                onSelect={() => dia.fecha && actualizarEntradaDraft(dia.fecha, entradasIds, item, dia.opciones.entradas)}
+                              />
+                            ))}
+                          </>
+                        )}
+                        {sopaCombinada && (
+                          <p className="rounded border border-red-200 bg-red-50 p-2 text-[11px] font-semibold text-red-700">
+                            La sopa cuenta como entrada completa y no puede combinarse con ensaladas.
+                          </p>
                         )}
                       </div>
 
@@ -439,7 +532,7 @@ export default function PlanificadorPage() {
                               />
                               {draft?.fondoId === item.detalleId && item.guarniciones.length > 0 && (
                                 <div className="rounded-md border border-slate-200 bg-white p-3 shadow-sm ml-4 relative before:absolute before:left-[-16px] before:top-4 before:h-px before:w-4 before:bg-slate-300">
-                                  <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">Seleccionar Guarnición</p>
+                                  <p className="mb-3 text-[10px] font-bold uppercase tracking-wider text-slate-500">Seleccionar Guarnición</p>
                                   <div className="flex flex-wrap gap-2">
                                     {item.guarniciones.map((guarnicion) => (
                                       <button
@@ -481,6 +574,41 @@ export default function PlanificadorPage() {
                           ))
                         )}
                       </div>
+
+                      {/* Bebida */}
+                      <div className="space-y-3">
+                        <div className="border-b border-slate-200 pb-2">
+                          <p className="text-xs font-bold text-[#1B2C56] uppercase tracking-widest">4. Bebida especial del día</p>
+                          <p className="mt-1 text-[11px] font-medium text-slate-500">
+                            Esta bebida reemplazará el &quot;Jugo del día&quot; solo para empresas cuyo convenio permita la categoría seleccionada. Las empresas sin convenio especial seguirán recibiendo &quot;Jugo del día&quot;.
+                          </p>
+                        </div>
+                        {bebidaSeleccionada && (
+                          <div className="rounded-md border border-[#75AA46]/20 bg-[#75AA46]/5 p-3 text-xs">
+                            <p className="font-bold uppercase tracking-wide text-[#5d8a38]">Bebida especial seleccionada</p>
+                            <p className="mt-1 font-semibold text-slate-700">{bebidaSeleccionada.nombre}</p>
+                          </div>
+                        )}
+                        {bebidaPendiente && (
+                          <p className="rounded border border-amber-200 bg-amber-50 p-2 text-[11px] font-semibold text-amber-700">
+                            Debes seleccionar una bebida especial del día. Solo será visible para empresas cuyo convenio permita bebida o agua saborizada; las demás seguirán viendo Jugo del día.
+                          </p>
+                        )}
+                        {loadingBebidas ? (
+                          <div className="h-16 animate-pulse rounded-md border border-slate-100 bg-white" />
+                        ) : bebidas.length === 0 ? (
+                          <p className="rounded border border-dashed border-slate-200 bg-white p-3 text-xs text-slate-400 text-center">No hay bebidas especiales disponibles</p>
+                        ) : (
+                          bebidas.map((bebida) => (
+                            <BebidaOptionCard
+                              key={bebida.id}
+                              item={bebida}
+                              selected={draft?.bebidaPlatoId === bebida.id}
+                              onSelect={() => dia.fecha && actualizarDraft(dia.fecha, { bebidaPlatoId: bebida.id })}
+                            />
+                          ))
+                        )}
+                      </div>
                     </div>
                   )}
 
@@ -488,7 +616,7 @@ export default function PlanificadorPage() {
                         <div className="mt-6 flex justify-end border-t border-slate-200 pt-4">
                           <Button
                             onClick={() => guardarMenuDia(dia)}
-                            disabled={!dia.fecha || !menuDia?.menu || guardandoFecha !== null}
+                            disabled={!puedeGuardarDia}
                             className="bg-[#1B2C56] text-white shadow-sm hover:bg-[#122042] font-semibold px-6"
                           >
                             {guardandoFecha === dia.fecha ? (
@@ -518,5 +646,61 @@ export default function PlanificadorPage() {
         </div>
       </section>
     </div>
+  );
+}
+
+function BebidaOptionCard({
+  item,
+  selected,
+  onSelect,
+}: {
+  item: PlatoBebida;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`group flex w-full overflow-hidden rounded-md border text-left transition-all duration-200 ${
+        selected
+          ? "border-[#75AA46] bg-[#75AA46]/5 ring-1 ring-[#75AA46]/30 shadow-sm"
+          : "border-slate-200 bg-white shadow-sm hover:border-slate-300 hover:bg-slate-50"
+      }`}
+    >
+      {item.url_imagen ? (
+        <div className="relative h-16 w-16 shrink-0 bg-slate-100 border-r border-slate-100">
+          <Image
+            src={item.url_imagen}
+            alt={item.nombre}
+            fill
+            unoptimized
+            className="object-cover"
+          />
+        </div>
+      ) : (
+        <div className="flex h-16 w-16 shrink-0 flex-col items-center justify-center gap-1 bg-slate-50 border-r border-slate-100 text-[#1B2C56]">
+          <UtensilsCrossed className="h-4 w-4 opacity-40" />
+          <span className="text-[8px] font-medium text-slate-400 uppercase tracking-wider">Sin foto</span>
+        </div>
+      )}
+      <div className="min-w-0 flex-1 p-2.5 flex flex-col justify-center">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <span className={`inline-block rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest mb-1 ${
+               selected ? "bg-[#75AA46]/10 text-[#5d8a38]" : "bg-slate-100 text-slate-500"
+            }`}>
+              {item.categoria}
+            </span>
+            <p className="line-clamp-2 text-sm font-semibold leading-tight text-slate-800">{item.nombre}</p>
+          </div>
+          {selected ? (
+            <CheckCircle2 className="h-5 w-5 shrink-0 text-[#75AA46] mt-1" />
+          ) : (
+            <span className="mt-1 h-4 w-4 shrink-0 rounded-full border-2 border-slate-300 bg-white transition-colors group-hover:border-[#75AA46]/50" />
+          )}
+        </div>
+      </div>
+    </button>
   );
 }

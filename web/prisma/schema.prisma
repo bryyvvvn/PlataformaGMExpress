@@ -4,8 +4,8 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
 
@@ -38,17 +38,17 @@ model Empresa {
 }
 
 model Usuario {
-  id             String    @id
-  nombreUsuario         String?    @db.VarChar(100)
-  rol            Rol       @default(TRABAJADOR)
-  rut            String?   @unique @db.VarChar(20) // 🔥 NUEVO: Opcional para que no choque con Clerk
+  id             String   @id
+  nombreUsuario  String?  @db.VarChar(100)
+  rol            Rol      @default(TRABAJADOR)
+  rut            String?  @unique @db.VarChar(20) // 🔥 NUEVO: Opcional para que no choque con Clerk
   empresaId      Int?
-  correo         String?   @db.VarChar(100)
+  correo         String?  @db.VarChar(100)
   pedidos        Pedido[]
-  empresa        Empresa?  @relation(fields: [empresaId], references: [id])
-  diasBloqueados Int[]     @default([])
-  nombre    String?
-  apellido  String?
+  empresa        Empresa? @relation(fields: [empresaId], references: [id])
+  diasBloqueados Int[]    @default([])
+  nombre         String?
+  apellido       String?
 
   @@index([empresaId, rol])
 }
@@ -62,18 +62,19 @@ model Guarnicion {
 }
 
 model Plato {
-  id             Int             @id @default(autoincrement())
-  nombre         String          @unique @db.VarChar(100)
+  id             Int                @id @default(autoincrement())
+  nombre         String             @unique @db.VarChar(100)
   url_imagen     String?
-  categoria      CategoriaPlato  @default(FONDO)
-  tipo           VarianteMenu    @default(NORMAL)
+  categoria      CategoriaPlato     @default(FONDO)
+  tipo           VarianteMenu       @default(NORMAL)
   detallesPedido DetallePedido[]
   menuDetalles   MenuDetalle[]
+  menuDiaBebidas MenuDiaSeleccion[] @relation("MenuDiaBebida")
 
-  calorias       Int?            
-  proteinas      Int?            
-  carbohidratos  Int?            
-  grasas         Int?
+  calorias      Int?
+  proteinas     Int?
+  carbohidratos Int?
+  grasas        Int?
 }
 
 model MenuSemanal {
@@ -86,36 +87,40 @@ model MenuSemanal {
 }
 
 model MenuDetalle {
-  id                 Int                @id @default(autoincrement())
-  dia_semana         String
-  menuSemanalId      Int
-  platoId            Int
-  fecha_dia          DateTime?
-  menuSemanal        MenuSemanal        @relation(fields: [menuSemanalId], references: [id], onDelete: Cascade)
-  plato              Plato              @relation(fields: [platoId], references: [id])
-  seleccionesEntrada MenuDiaSeleccion[] @relation("MenuDiaEntrada")
-  seleccionesFondo   MenuDiaSeleccion[] @relation("MenuDiaFondo")
-  seleccionesPostre  MenuDiaSeleccion[] @relation("MenuDiaPostre")
-  guarniciones       Guarnicion[]       @relation("GuarnicionToMenuDetalle")
+  id                        Int                       @id @default(autoincrement())
+  dia_semana                String
+  menuSemanalId             Int
+  platoId                   Int
+  fecha_dia                 DateTime?
+  menuSemanal               MenuSemanal               @relation(fields: [menuSemanalId], references: [id], onDelete: Cascade)
+  plato                     Plato                     @relation(fields: [platoId], references: [id])
+  menuDiaEntradaSelecciones MenuDiaEntradaSeleccion[]
+  seleccionesEntrada        MenuDiaSeleccion[]        @relation("MenuDiaEntrada")
+  seleccionesFondo          MenuDiaSeleccion[]        @relation("MenuDiaFondo")
+  seleccionesPostre         MenuDiaSeleccion[]        @relation("MenuDiaPostre")
+  guarniciones              Guarnicion[]              @relation("GuarnicionToMenuDetalle")
 
   @@index([menuSemanalId, fecha_dia])
 }
 
 model MenuDiaSeleccion {
-  id               Int         @id @default(autoincrement())
-  fecha_dia        DateTime
-  creado_en        DateTime    @default(now())
-  actualizado_en   DateTime    @updatedAt
-  menuSemanalId    Int
-  entradaDetalleId Int
-  fondoDetalleId   Int
-  postreDetalleId  Int
-  guarnicionId     Int?
-  entradaDetalle   MenuDetalle @relation("MenuDiaEntrada", fields: [entradaDetalleId], references: [id])
-  fondoDetalle     MenuDetalle @relation("MenuDiaFondo", fields: [fondoDetalleId], references: [id])
-  guarnicion       Guarnicion? @relation(fields: [guarnicionId], references: [id])
-  menuSemanal      MenuSemanal @relation(fields: [menuSemanalId], references: [id], onDelete: Cascade)
-  postreDetalle    MenuDetalle @relation("MenuDiaPostre", fields: [postreDetalleId], references: [id])
+  id                    Int                       @id @default(autoincrement())
+  fecha_dia             DateTime
+  creado_en             DateTime                  @default(now())
+  actualizado_en        DateTime                  @updatedAt
+  menuSemanalId         Int
+  entradaDetalleId      Int
+  fondoDetalleId        Int
+  postreDetalleId       Int
+  guarnicionId          Int?
+  bebidaPlatoId         Int?
+  entradasSeleccionadas MenuDiaEntradaSeleccion[]
+  bebidaPlato           Plato?                    @relation("MenuDiaBebida", fields: [bebidaPlatoId], references: [id])
+  entradaDetalle        MenuDetalle               @relation("MenuDiaEntrada", fields: [entradaDetalleId], references: [id])
+  fondoDetalle          MenuDetalle               @relation("MenuDiaFondo", fields: [fondoDetalleId], references: [id])
+  guarnicion            Guarnicion?               @relation(fields: [guarnicionId], references: [id])
+  menuSemanal           MenuSemanal               @relation(fields: [menuSemanalId], references: [id], onDelete: Cascade)
+  postreDetalle         MenuDetalle               @relation("MenuDiaPostre", fields: [postreDetalleId], references: [id])
 
   @@unique([menuSemanalId, fecha_dia])
   @@index([entradaDetalleId])
@@ -187,6 +192,19 @@ model ConvenioEmpresa {
   creado_en             DateTime @default(now())
   actualizado_en        DateTime @default(now())
   Empresa               Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+}
+
+model MenuDiaEntradaSeleccion {
+  id                 Int              @id @default(autoincrement())
+  menuDiaSeleccionId Int
+  menuDetalleId      Int
+  orden              Int
+  menuDetalle        MenuDetalle      @relation(fields: [menuDetalleId], references: [id])
+  menuDiaSeleccion   MenuDiaSeleccion @relation(fields: [menuDiaSeleccionId], references: [id], onDelete: Cascade)
+
+  @@unique([menuDiaSeleccionId, menuDetalleId])
+  @@index([menuDetalleId])
+  @@index([menuDiaSeleccionId])
 }
 
 enum Rol {

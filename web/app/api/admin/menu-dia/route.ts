@@ -5,6 +5,7 @@ import { CategoriaPlato } from "@prisma/client";
 export const dynamic = "force-dynamic";
 
 const DIAS_HABILES = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"] as const;
+const CATEGORIAS_BEBIDA: CategoriaPlato[] = ["BEBIDA", "JUGO", "AGUA_SABORIZADA"];
 
 type DiaHabil = (typeof DIAS_HABILES)[number];
 
@@ -47,6 +48,23 @@ type MenuDetalleConPlato = Awaited<ReturnType<typeof db.menuDetalle.findMany>>[n
   guarniciones: { id: number; nombre: string }[];
 };
 
+type PlatoBebida = {
+  id: number;
+  nombre: string;
+  url_imagen: string | null;
+  categoria: CategoriaPlato;
+  tipo: string;
+  calorias: number | null;
+  proteinas: number | null;
+  carbohidratos: number | null;
+  grasas: number | null;
+};
+
+type EntradaSeleccionada = {
+  orden: number;
+  menuDetalle: MenuDetalleConPlato;
+};
+
 function formatearDetalle(detalle: MenuDetalleConPlato) {
   return {
     detalleId: detalle.id,
@@ -56,19 +74,36 @@ function formatearDetalle(detalle: MenuDetalleConPlato) {
   };
 }
 
+function construirEntradaDisplay(entradas: ReturnType<typeof formatearDetalle>[]) {
+  if (entradas.length === 0) return null;
+  if (entradas.length === 3) return "Ensalada surtida";
+  return entradas.map((entrada) => entrada.plato.nombre).join(" + ");
+}
+
 function formatearSeleccion(seleccion: {
   id: number;
   entradaDetalle: MenuDetalleConPlato;
   fondoDetalle: MenuDetalleConPlato;
   postreDetalle: MenuDetalleConPlato;
   guarnicion: { id: number; nombre: string } | null;
+  bebidaPlato: PlatoBebida | null;
+  entradasSeleccionadas: EntradaSeleccionada[];
 }) {
+  const entradas = seleccion.entradasSeleccionadas.length > 0
+    ? seleccion.entradasSeleccionadas
+        .sort((a, b) => a.orden - b.orden)
+        .map((item) => formatearDetalle(item.menuDetalle))
+    : [formatearDetalle(seleccion.entradaDetalle)];
+
   return {
     id: seleccion.id,
-    entrada: formatearDetalle(seleccion.entradaDetalle),
+    entrada: entradas[0] ?? formatearDetalle(seleccion.entradaDetalle),
     fondo: formatearDetalle(seleccion.fondoDetalle),
     postre: formatearDetalle(seleccion.postreDetalle),
     guarnicion: seleccion.guarnicion,
+    bebida: seleccion.bebidaPlato,
+    entradasSeleccionadas: entradas,
+    entradaDisplay: construirEntradaDisplay(entradas),
   };
 }
 
@@ -92,6 +127,43 @@ function validarDetalle(
   }
 }
 
+function normalizarEntradasIds(entradasIdsRaw: unknown, entradaId: number): number[] {
+  if (entradasIdsRaw === undefined) {
+    if (!isPositiveInteger(entradaId)) {
+      throw new Error("Debes seleccionar entrada, fondo y postre");
+    }
+    return [entradaId];
+  }
+
+  if (!Array.isArray(entradasIdsRaw)) {
+    throw new Error("entradasIds debe ser un arreglo");
+  }
+
+  if (entradasIdsRaw.length < 1 || entradasIdsRaw.length > 3) {
+    throw new Error("Debes seleccionar entre 1 y 3 entradas");
+  }
+
+  const entradasIds = entradasIdsRaw.map((value) => Number(value));
+  if (entradasIds.some((value) => !isPositiveInteger(value))) {
+    throw new Error("Todas las entradas deben ser IDs numéricos válidos");
+  }
+
+  if (new Set(entradasIds).size !== entradasIds.length) {
+    throw new Error("No puedes repetir entradas en el menú del día");
+  }
+
+  return entradasIds;
+}
+
+function normalizarBebidaPlatoId(value: unknown): number | null {
+  if (value === undefined || value === null || value === "") return null;
+  const bebidaPlatoId = Number(value);
+  if (!isPositiveInteger(bebidaPlatoId)) {
+    throw new Error("bebidaPlatoId inválido");
+  }
+  return bebidaPlatoId;
+}
+
 export async function GET() {
   try {
     const menuActivo = await db.menuSemanal.findFirst({
@@ -107,6 +179,13 @@ export async function GET() {
             fondoDetalle: { include: { plato: true, guarniciones: true } },
             postreDetalle: { include: { plato: true, guarniciones: true } },
             guarnicion: true,
+            bebidaPlato: true,
+            entradasSeleccionadas: {
+              orderBy: [{ orden: "asc" }, { id: "asc" }],
+              include: {
+                menuDetalle: { include: { plato: true, guarniciones: true } },
+              },
+            },
           },
         },
       },
@@ -164,6 +243,9 @@ export async function PATCH(req: NextRequest) {
     const entradaId = Number(body.entradaId);
     const fondoId = Number(body.fondoId);
     const postreId = Number(body.postreId);
+    const entradasIds = normalizarEntradasIds(body.entradasIds, entradaId);
+    const entradaPrincipalId = entradasIds[0];
+    const bebidaPlatoId = normalizarBebidaPlatoId(body.bebidaPlatoId);
     const guarnicionId = body.guarnicionId === null || body.guarnicionId === undefined
       ? null
       : Number(body.guarnicionId);
@@ -177,7 +259,7 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: "fecha inválida" }, { status: 400 });
     }
 
-    if (!isPositiveInteger(entradaId) || !isPositiveInteger(fondoId) || !isPositiveInteger(postreId)) {
+    if (!isPositiveInteger(fondoId) || !isPositiveInteger(postreId)) {
       return NextResponse.json({ error: "Debes seleccionar entrada, fondo y postre" }, { status: 400 });
     }
 
@@ -186,18 +268,33 @@ export async function PATCH(req: NextRequest) {
     }
 
     const seleccion = await db.$transaction(async (tx) => {
+      const detalleIds = Array.from(new Set([...entradasIds, fondoId, postreId]));
       const detalles = await tx.menuDetalle.findMany({
-        where: { id: { in: [entradaId, fondoId, postreId] } },
+        where: { id: { in: detalleIds } },
         include: { plato: true, guarniciones: true },
       });
 
-      const entrada = detalles.find((detalle) => detalle.id === entradaId);
+      const entradas = entradasIds.map((id) => detalles.find((detalle) => detalle.id === id));
       const fondo = detalles.find((detalle) => detalle.id === fondoId);
       const postre = detalles.find((detalle) => detalle.id === postreId);
 
-      validarDetalle(entrada, "ENTRADA", menuSemanalId, fecha, "La entrada");
+      entradas.forEach((entrada, index) => {
+        validarDetalle(entrada, "ENTRADA", menuSemanalId, fecha, `La entrada ${index + 1}`);
+      });
       validarDetalle(fondo, "FONDO", menuSemanalId, fecha, "El fondo");
       validarDetalle(postre, "POSTRE", menuSemanalId, fecha, "El postre");
+
+      const bebida = bebidaPlatoId
+        ? await tx.plato.findUnique({ where: { id: bebidaPlatoId } })
+        : null;
+
+      if (bebidaPlatoId && !bebida) {
+        throw new Error("No se encontró la bebida seleccionada");
+      }
+
+      if (bebida && !CATEGORIAS_BEBIDA.includes(bebida.categoria)) {
+        throw new Error("La bebida seleccionada no corresponde a una categoría válida");
+      }
 
       const guarnicionesFondo = fondo?.guarniciones ?? [];
       const guarnicion = guarnicionId
@@ -217,7 +314,7 @@ export async function PATCH(req: NextRequest) {
         throw new Error("El fondo seleccionado no tiene fecha asociada");
       }
 
-      return tx.menuDiaSeleccion.upsert({
+      const seleccionGuardada = await tx.menuDiaSeleccion.upsert({
         where: {
           menuSemanalId_fecha_dia: {
             menuSemanalId,
@@ -225,24 +322,49 @@ export async function PATCH(req: NextRequest) {
           },
         },
         update: {
-          entradaDetalleId: entradaId,
+          entradaDetalleId: entradaPrincipalId,
           fondoDetalleId: fondoId,
           postreDetalleId: postreId,
           guarnicionId,
+          bebidaPlatoId,
         },
         create: {
           menuSemanalId,
           fecha_dia: fechaDia,
-          entradaDetalleId: entradaId,
+          entradaDetalleId: entradaPrincipalId,
           fondoDetalleId: fondoId,
           postreDetalleId: postreId,
           guarnicionId,
+          bebidaPlatoId,
         },
+      });
+
+      await tx.menuDiaEntradaSeleccion.deleteMany({
+        where: { menuDiaSeleccionId: seleccionGuardada.id },
+      });
+
+      await tx.menuDiaEntradaSeleccion.createMany({
+        data: entradasIds.map((menuDetalleId, index) => ({
+          menuDiaSeleccionId: seleccionGuardada.id,
+          menuDetalleId,
+          orden: index + 1,
+        })),
+      });
+
+      return tx.menuDiaSeleccion.findUniqueOrThrow({
+        where: { id: seleccionGuardada.id },
         include: {
           entradaDetalle: { include: { plato: true, guarniciones: true } },
           fondoDetalle: { include: { plato: true, guarniciones: true } },
           postreDetalle: { include: { plato: true, guarniciones: true } },
           guarnicion: true,
+          bebidaPlato: true,
+          entradasSeleccionadas: {
+            orderBy: [{ orden: "asc" }, { id: "asc" }],
+            include: {
+              menuDetalle: { include: { plato: true, guarniciones: true } },
+            },
+          },
         },
       });
     });
