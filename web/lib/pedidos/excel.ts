@@ -60,6 +60,12 @@ type GrupoProduccion = {
   cantidad: number
 }
 
+const CATEGORIAS_BEBESTIBLE: CategoriaPlato[] = [
+  CategoriaPlato.JUGO,
+  CategoriaPlato.BEBIDA,
+  CategoriaPlato.AGUA_SABORIZADA,
+]
+
 function unirPlatos(
   detalles: DetallePedidoExcel[],
   categoria: CategoriaPlato
@@ -68,6 +74,16 @@ function unirPlatos(
     .filter((detalle) => detalle.plato.categoria === categoria)
     .map((detalle) => detalle.plato.nombre)
     .join(", ")
+}
+
+function unirPlatosPorCategorias(
+  detalles: DetallePedidoExcel[],
+  categorias: CategoriaPlato[]
+): string {
+  return detalles
+    .filter((detalle) => categorias.includes(detalle.plato.categoria))
+    .map((detalle) => detalle.plato.nombre)
+    .join(" | ")
 }
 
 function crearFilaHistorica(pedido: PedidoHistoricoExcel): CeldaExcel[] {
@@ -99,7 +115,7 @@ function crearFilaHistorica(pedido: PedidoHistoricoExcel): CeldaExcel[] {
     fondo?.plato.nombre ?? "",
     fondo?.guarnicion?.nombre ?? "",
     unirPlatos(detalles, CategoriaPlato.POSTRE),
-    unirPlatos(detalles, CategoriaPlato.JUGO),
+    unirPlatosPorCategorias(detalles, CATEGORIAS_BEBESTIBLE),
     fondo?.cantidad ?? 0,
   ]
 }

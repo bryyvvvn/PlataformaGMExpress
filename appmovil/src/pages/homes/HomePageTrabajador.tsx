@@ -174,16 +174,14 @@ const HomePageTrabajador: React.FC = () => {
   const isHipocalorico = fondoObj?.tipo === 'HIPOCALORICO';
   const isPlatoUnicoOrHipocalorico = fondoObj?.tipo === 'PLATO_UNICO' || isHipocalorico;
   const fondoNeedsGuarnicion = Boolean(fondoObj && (fondoObj.guarniciones || []).length > 0 && !isPlatoUnicoOrHipocalorico);
- 
+  
   const jugoObj = (otrosPlatos || []).find((p: any) => p?.id === pedido.jugoId);
-  const penalizaEntradaPostre =
-    (jugoObj?.categoria === 'BEBIDA' && !convenio?.permiteBebida) ||
-    (jugoObj?.categoria === 'AGUA_SABORIZADA' && !convenio?.permiteAguaSaborizada);
+  const isBebidaPremiumSeleccionada = jugoObj?.categoria === 'BEBIDA' || jugoObj?.categoria === 'AGUA_SABORIZADA';
+  const penalizaEntradaPostre = (jugoObj?.categoria === 'BEBIDA' && !convenio?.permiteBebida) || (jugoObj?.categoria === 'AGUA_SABORIZADA' && !convenio?.permiteAguaSaborizada);
 
   const menuDiaSeleccionado = Boolean(menuHoy?.menuDia);
   const entradaMenuDiaPlato = menuHoy?.menuDia ? getPlatoEntradaMenuDia(menuHoy.menuDia) : null;
   const incluidosPorConvenioMenuDia = obtenerIncluidosPorConvenio(menuHoy?.menuDia, convenio);
-  
   const estaCompletoPersonalizado = activeTab === 'PERSONALIZADO' && Boolean(
     (pedido.entradasIds.length > 0 || penalizaEntradaPostre || pedido.isDoblePostre) &&
     pedido.fondoId &&
@@ -244,7 +242,7 @@ const HomePageTrabajador: React.FC = () => {
         sandwichId: null,
         bebidaId: null,
         jugoId: menuHoy.menuDia.bebida?.id ?? null,
-        isDoblePostre: false,
+        isDoblePostre: false
       });
     }
   };
@@ -373,7 +371,7 @@ const HomePageTrabajador: React.FC = () => {
             postreId: menuHoy.menuDia.postre?.id ?? null,
             guarnicionId: menuHoy.menuDia.guarnicion?.id ?? null,
             jugoId: menuHoy.menuDia.bebida?.id ?? null,
-            isDoblePostre: false,
+            isDoblePostre: false
           }
         : pedido;
       const exito = await enviarPedido(pedidoAEnviar as any);
