@@ -207,10 +207,11 @@ enum CategoriaPlato {
   ENTRADA
   FONDO
   POSTRE
-  BEBESTIBLE
-  CANJE       
-  SANDWICH    
-  BEBIDA      
+  BEBIDA
+  JUGO
+  AGUA_SABORIZADA
+  CANJE
+  SANDWICH
   SNACK
 }
 

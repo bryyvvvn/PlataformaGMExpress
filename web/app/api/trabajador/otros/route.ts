@@ -5,12 +5,12 @@ export const dynamic = 'force-dynamic';
 
 /**
  * GET /api/trabajador/otros
- * Devuelve los platos que pertenecen a categorías "otros" (CANJE, SANDWICH, BEBIDA, SNACK)
+ * Devuelve los platos que pertenecen a categorías "otros" (CANJE, SANDWICH, BEBIDA, SNACK, JUGO, AGUA_SABORIZADA)
  */
 export async function GET() {
   try {
     const platos = await db.plato.findMany({
-      where: { categoria: { in: ['CANJE', 'SANDWICH', 'BEBIDA', 'SNACK', 'BEBESTIBLE'] } },
+      where: { categoria: { in: ['CANJE', 'SANDWICH', 'BEBIDA', 'SNACK', 'JUGO', 'AGUA_SABORIZADA'] } },
       orderBy: { nombre: 'asc' },
     });
 

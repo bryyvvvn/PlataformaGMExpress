@@ -81,19 +81,16 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     
-    // 🔥 CAMBIO: Ahora recibimos 'entradasIds' (arreglo) en vez de 'entradaId'
-    const { usuarioId, entradasIds, fondoId, postreId, guarnicionId, fecha } = body as {
+    // 🔥 CAMBIO: Ahora recibimos 'jugoId' también
+    const { usuarioId, entradasIds, fondoId, postreId, jugoId, guarnicionId, fecha } = body as {
       usuarioId?: string;
       entradasIds?: number[];
       fondoId?: number;
       postreId?: number;
+      jugoId?: number;
       guarnicionId?: number | null;
       fecha?: string | null;
     };
-
-    // Soportamos dos formatos de pedido:
-    // 1) flujo clásico: entradasIds + fondoId + postreId
-    // 2) flujo 'otros': items: [{ platoId, guarnicionId?, cantidad? }]
 
     const items = (body as any).items as Array<{ platoId: number; guarnicionId?: number | null; cantidad?: number }> | undefined;
 
@@ -101,7 +98,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Falta usuarioId' }, { status: 400 });
     }
 
-    const usingClassicFlow = Boolean(entradasIds && entradasIds.length > 0 && fondoId && postreId);
+    // El flujo clásico solo requiere fondoId. El jugo es opcional (no aplica en menú del día).
+    const usingClassicFlow = Boolean(fondoId);
     const usingItemsFlow = Boolean(items && Array.isArray(items) && items.length > 0);
 
     if (!usingClassicFlow && !usingItemsFlow) {
@@ -135,18 +133,32 @@ export async function POST(request: Request) {
     let detallesData: Array<{ platoId: number; guarnicionId?: number | null; cantidad?: number }> = [];
 
     if (usingClassicFlow) {
-      detallesData = [
-        ...entradasIds.map((id: number) => ({ platoId: id })),
-        { platoId: fondoId, guarnicionId: guarnicionId ?? null },
-        { platoId: postreId }
-      ];
+      // 1. Agregamos las entradas SOLO si existen y no están vacías
+      if (entradasIds && entradasIds.length > 0) {
+        detallesData.push(...entradasIds.map((id: number) => ({ platoId: id })));
+      }
+      
+      // 2. Siempre agregamos el fondo (ya validamos que existe)
+      if (fondoId) {
+        detallesData.push({ platoId: fondoId, guarnicionId: guarnicionId ?? null });
+      }
+
+      // 3. Agregamos el postre SOLO si existe
+      if (postreId) {
+        detallesData.push({ platoId: postreId });
+      }
+
+      // 4. Siempre agregamos el Jugo/Bebida
+      if (jugoId) {
+        detallesData.push({ platoId: jugoId });
+      }
     } else if (usingItemsFlow && items) {
       detallesData = items.map(it => ({ platoId: it.platoId, guarnicionId: it.guarnicionId ?? null, cantidad: it.cantidad ?? 1 }));
     }
 
     if (pedidoExistente) {
       await db.$transaction(async (tx) => {
-        // Borramos los detalles antiguos[cite: 6]
+        // Borramos los detalles antiguos
         await tx.detallePedido.deleteMany({ where: { pedidoId: pedidoExistente.id } });
         
         // Creamos los nuevos detalles mapeando el id del pedido

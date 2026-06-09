@@ -20,7 +20,10 @@ export async function GET(request: Request) {
         rut: true,
         empresaId: true,
         empresa: {
-          select: { nombre: true }
+          select: { 
+            nombre: true,
+            ConvenioEmpresa: true // 🔥 ESTA ES LA LÍNEA MÁGICA QUE FALTABA
+          }
         }
       }
     });

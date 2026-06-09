@@ -99,7 +99,7 @@ function crearFilaHistorica(pedido: PedidoHistoricoExcel): CeldaExcel[] {
     fondo?.plato.nombre ?? "",
     fondo?.guarnicion?.nombre ?? "",
     unirPlatos(detalles, CategoriaPlato.POSTRE),
-    unirPlatos(detalles, CategoriaPlato.BEBESTIBLE),
+    unirPlatos(detalles, CategoriaPlato.JUGO),
     fondo?.cantidad ?? 0,
   ]
 }

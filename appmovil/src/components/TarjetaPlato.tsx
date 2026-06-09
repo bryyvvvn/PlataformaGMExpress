@@ -9,6 +9,7 @@ interface TarjetaPlatoProps {
   isDeadlinePassed: boolean;
   disabled?: boolean;
   hideSelectionIcon?: boolean;
+  readOnly?: boolean;
   extraInfo?: string | string[];
   grayTag?: boolean;
   onSelect: (categoria: string, id: number) => void;
@@ -21,6 +22,7 @@ export const TarjetaPlato: React.FC<TarjetaPlatoProps> = ({
   isDeadlinePassed, 
   disabled = false,
   hideSelectionIcon = false,
+  readOnly = false,
   extraInfo,
   grayTag = false,
   onSelect 
@@ -32,7 +34,7 @@ export const TarjetaPlato: React.FC<TarjetaPlatoProps> = ({
       disabled={isDeadlinePassed || disabled}
       className={`w-full p-3.5 rounded-2xl border-2 text-left transition-all flex flex-col gap-3 bg-white ${
         isSelected ? 'shadow-md scale-[1.01] border-[#70a344]' : 'border-gray-100 shadow-sm hover:border-gray-200'
-      } ${ (isDeadlinePassed || disabled) ? 'opacity-60 cursor-not-allowed' : ''}`}
+      } ${ !readOnly && (isDeadlinePassed || disabled) ? 'opacity-60 cursor-not-allowed' : ''}`}
     >
       
       {/* 🔴 FILA 1: FOTO, NOMBRE Y CHECKBOX */}
