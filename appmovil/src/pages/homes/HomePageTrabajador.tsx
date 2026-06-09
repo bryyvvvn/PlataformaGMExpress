@@ -174,7 +174,7 @@ const HomePageTrabajador: React.FC = () => {
   const isHipocalorico = fondoObj?.tipo === 'HIPOCALORICO';
   const isPlatoUnicoOrHipocalorico = fondoObj?.tipo === 'PLATO_UNICO' || isHipocalorico;
   const fondoNeedsGuarnicion = Boolean(fondoObj && (fondoObj.guarniciones || []).length > 0 && !isPlatoUnicoOrHipocalorico);
-  // Información sobre bebida/jugo y penalizaciones por convenio
+  
   const jugoObj = (otrosPlatos || []).find((p: any) => p?.id === pedido.jugoId);
   const isBebidaPremiumSeleccionada = jugoObj?.categoria === 'BEBIDA' || jugoObj?.categoria === 'AGUA_SABORIZADA';
   const penalizaEntradaPostre = (jugoObj?.categoria === 'BEBIDA' && !convenio?.permiteBebida) || (jugoObj?.categoria === 'AGUA_SABORIZADA' && !convenio?.permiteAguaSaborizada);
@@ -182,7 +182,6 @@ const HomePageTrabajador: React.FC = () => {
   const menuDiaSeleccionado = Boolean(menuHoy?.menuDia);
   const entradaMenuDiaPlato = menuHoy?.menuDia ? getPlatoEntradaMenuDia(menuHoy.menuDia) : null;
   const incluidosPorConvenioMenuDia = obtenerIncluidosPorConvenio(menuHoy?.menuDia, convenio);
-
   const estaCompletoPersonalizado = activeTab === 'PERSONALIZADO' && Boolean(
     (pedido.entradasIds.length > 0 || penalizaEntradaPostre || pedido.isDoblePostre) &&
     pedido.fondoId &&
