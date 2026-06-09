@@ -1,8 +1,9 @@
 // HomePageTrabajador.tsx
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Clock, Menu, ChevronDown, ChevronUp, X, CalendarOff, Lock, Check } from 'lucide-react';
 import { THEME, DEADLINE_HOUR } from '../../constants/theme';
 import { useUser } from '@clerk/clerk-react';
+import { useLocation } from 'react-router-dom';
 import { TarjetaPlato } from '../../components/TarjetaPlato';
 import { BottomSheet } from '../../components/BottomSheet';
 import LoadingView from '../../components/LoadingView';
@@ -77,31 +78,39 @@ const obtenerIncluidosPorConvenio = (menuDia: any, convenio: any) => {
 
 const HomePageTrabajador: React.FC = () => {
   const { user } = useUser();
-
-  const autoSelectDoneRef = useRef<string>('');
+  const location = useLocation();
 
   const {
     setSemanaOffset: _setSemanaOffset, fechaTexto, diasSemanaArray, getSemanaTexto,
     diaSeleccionadoIdx, setDiaSeleccionadoIdx, fechaSeleccionadaISO,
   } = useCalendario();
 
+  const [autoSelected, setAutoSelected] = useState(false);
+
+  useEffect(() => {
+    setAutoSelected(false);
+  }, [location.pathname]);
+
   const setSemanaOffset = (delta: number) => {
-    autoSelectDoneRef.current = ''; // permitir auto-select en la nueva semana
+    setAutoSelected(false);
     _setSemanaOffset(delta);
   };
 
   const [pedido, setPedido] = useState({
     entradasIds:  [] as number[], fondoId: null as number | null, postreId: null as number | null,
     guarnicionId: null as number | null, canjeId: null as number | null, sandwichId: null as number | null, 
-    bebidaId: null as number | null, jugoId: null as number | null,
+    bebidaId: null as number | null, jugoId: null as number | null, isDoblePostre: false
   });
 
   const [activeTab, setActiveTab] = useState<TipoMenu>('MENU_DIA');
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetFondo, setSheetFondo] = useState<any | null>(null);
   const [sheetSelectedGuarnicion, setSheetSelectedGuarnicion] = useState<number | null>(null);
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
   
+  const [sheetHipoOpen, setSheetHipoOpen] = useState(false);
+  const [opcionHipoSeleccionada, setOpcionHipoSeleccionada] = useState<'SOPA' | 'DOBLE_POSTRE' | null>(null);
+
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [seccionAbierta, setSeccionAbierta] = useState<Categoria>(null);
   const [tipoOtroSeleccionado, setTipoOtroSeleccionado] = useState<'CANJE' | 'PREMIUM' | null>(null);
   const [modoEdicion, setModoEdicion] = useState(false);
@@ -118,63 +127,66 @@ const HomePageTrabajador: React.FC = () => {
 
   useEffect(() => { if (user?.id) cargarHistorial(); }, [user?.id, cargarHistorial]);
 
-  const fechasBloqueadas = useMemo(() => new Set(historial.map((p: any) => p.fecha.split('T')[0])), [historial]);
-  const isSelectedDateToday = diasSemanaArray[diaSeleccionadoIdx]?.esHoy ?? false;
+  // ✅ BLINDAJE ANTICRASH: Si historial o fecha viene null, no se rompe
+  const fechasBloqueadas = useMemo(() => new Set((historial || []).map((p: any) => String(p?.fecha || '').split('T')[0])), [historial]);
+  
+  const isSelectedDateToday = diasSemanaArray?.[diaSeleccionadoIdx]?.esHoy ?? false;
   const isDeadlinePassed = false; 
-  const numDiaSeleccionado = new Date(fechaSeleccionadaISO + 'T12:00:00').getDay();
-  const esBloqueadoPermanente = diasBloqueadosAdmin.includes(numDiaSeleccionado);
-  const fechaBloqueada = (diasSemanaArray[diaSeleccionadoIdx]?.bloqueado ?? false) || esBloqueadoPermanente;
-  const fechaSeleccionadaTienePedido = fechasBloqueadas.has(fechaSeleccionadaISO);
+  const numDiaSeleccionado = new Date((fechaSeleccionadaISO || '') + 'T12:00:00').getDay();
+  const esBloqueadoPermanente = (diasBloqueadosAdmin || []).includes(numDiaSeleccionado);
+  const fechaBloqueada = (diasSemanaArray?.[diaSeleccionadoIdx]?.bloqueado ?? false) || esBloqueadoPermanente;
+  const fechaSeleccionadaTienePedido = fechasBloqueadas.has(fechaSeleccionadaISO || '');
   const bloquearUI = (isSelectedDateToday && isDeadlinePassed) || (fechaBloqueada && !fechaSeleccionadaTienePedido);
 
+  // ✅ BLINDAJE ANTICRASH: Iteración segura
   const todosBloqueados = useMemo(() => {
-    return diasSemanaArray.every(dia => {
+    return (diasSemanaArray || []).every(dia => {
+      if (!dia?.iso) return false;
       const numDia = new Date(dia.iso + 'T12:00:00').getDay();
-      const bloqueado = dia.bloqueado || diasBloqueadosAdmin.includes(numDia);
+      const bloqueado = dia.bloqueado || (diasBloqueadosAdmin || []).includes(numDia);
       return bloqueado && !fechasBloqueadas.has(dia.iso);
     });
   }, [diasSemanaArray, diasBloqueadosAdmin, fechasBloqueadas]);
 
-  // Corre el auto-select solo una vez por semana, cuando el historial termina de cargar
-
   useEffect(() => {
-    if (diasSemanaArray.length === 0) return;
-    if (cargandoHistorial) return; // esperar que termine de cargar
+    if (autoSelected) return;
+    if (!diasSemanaArray || diasSemanaArray.length === 0 || cargandoHistorial || cargandoVerificacion) return;
     
-    const semanaKey = diasSemanaArray[0].iso;
-    if (autoSelectDoneRef.current === semanaKey) return; // ya se corrió para esta semana
-    autoSelectDoneRef.current = semanaKey;
-
     const primerDiaSinPedido = diasSemanaArray.findIndex(dia => {
+      if (!dia?.iso) return false;
       const numDia = new Date(dia.iso + 'T12:00:00').getDay();
-      const bloqueado = dia.bloqueado || diasBloqueadosAdmin.includes(numDia);
+      const bloqueado = dia.bloqueado || (diasBloqueadosAdmin || []).includes(numDia);
       return !bloqueado && !fechasBloqueadas.has(dia.iso);
     });
 
     if (primerDiaSinPedido !== -1) {
       setDiaSeleccionadoIdx(primerDiaSinPedido);
     } else {
-      const primerDiaConPedido = diasSemanaArray.findIndex(dia => fechasBloqueadas.has(dia.iso));
+      const primerDiaConPedido = diasSemanaArray.findIndex(dia => dia?.iso && fechasBloqueadas.has(dia.iso));
       if (primerDiaConPedido !== -1) setDiaSeleccionadoIdx(primerDiaConPedido);
     }
-  }, [diasSemanaArray, cargandoHistorial, diasBloqueadosAdmin, fechasBloqueadas, setDiaSeleccionadoIdx]);
+    
+    setAutoSelected(true); 
+  }, [autoSelected, diasSemanaArray, cargandoHistorial, cargandoVerificacion, diasBloqueadosAdmin, fechasBloqueadas, setDiaSeleccionadoIdx]);
 
   // --- VARIABLES DE REGLAS ---
-  const fondoObj = (menuHoy.fondos || []).find((p: any) => p.id === pedido.fondoId);
+  const fondoObj = (menuHoy?.fondos || []).find((p: any) => p?.id === pedido.fondoId);
   const isHipocalorico = fondoObj?.tipo === 'HIPOCALORICO';
   const isPlatoUnicoOrHipocalorico = fondoObj?.tipo === 'PLATO_UNICO' || isHipocalorico;
   const fondoNeedsGuarnicion = Boolean(fondoObj && (fondoObj.guarniciones || []).length > 0 && !isPlatoUnicoOrHipocalorico);
-  
-  const jugoObj = otrosPlatos.find((p: any) => p.id === pedido.jugoId);
-  const isBebidaPremiumSeleccionada = jugoObj?.categoria === 'BEBIDA' || jugoObj?.categoria === 'AGUA_SABORIZADA';  
-  const menuDiaSeleccionado = Boolean(menuHoy.menuDia);
-  const entradaMenuDiaPlato = menuHoy.menuDia ? getPlatoEntradaMenuDia(menuHoy.menuDia) : null;
-  const incluidosPorConvenioMenuDia = obtenerIncluidosPorConvenio(menuHoy.menuDia, convenio);
+  // Información sobre bebida/jugo y penalizaciones por convenio
+  const jugoObj = (otrosPlatos || []).find((p: any) => p?.id === pedido.jugoId);
+  const isBebidaPremiumSeleccionada = jugoObj?.categoria === 'BEBIDA' || jugoObj?.categoria === 'AGUA_SABORIZADA';
+  const penalizaEntradaPostre = (jugoObj?.categoria === 'BEBIDA' && !convenio?.permiteBebida) || (jugoObj?.categoria === 'AGUA_SABORIZADA' && !convenio?.permiteAguaSaborizada);
+
+  const menuDiaSeleccionado = Boolean(menuHoy?.menuDia);
+  const entradaMenuDiaPlato = menuHoy?.menuDia ? getPlatoEntradaMenuDia(menuHoy.menuDia) : null;
+  const incluidosPorConvenioMenuDia = obtenerIncluidosPorConvenio(menuHoy?.menuDia, convenio);
 
   const estaCompletoPersonalizado = activeTab === 'PERSONALIZADO' && Boolean(
-    (pedido.entradasIds.length > 0 || isBebidaPremiumSeleccionada) &&
+    (pedido.entradasIds.length > 0 || penalizaEntradaPostre || pedido.isDoblePostre) &&
     pedido.fondoId &&
-    (pedido.postreId || isBebidaPremiumSeleccionada) &&
+    (pedido.postreId || penalizaEntradaPostre) &&
     (!fondoNeedsGuarnicion || pedido.guarnicionId !== null) &&
     pedido.jugoId !== null
   );
@@ -186,11 +198,15 @@ const HomePageTrabajador: React.FC = () => {
   const isPremiumSelected = tipoOtroSeleccionado === 'PREMIUM';
 
   useEffect(() => {
-    setPedido({ entradasIds: [], fondoId: null, postreId: null, guarnicionId: null, canjeId: null, sandwichId: null, bebidaId: null, jugoId: null });
+    setPedido({ entradasIds: [], fondoId: null, postreId: null, guarnicionId: null, canjeId: null, sandwichId: null, bebidaId: null, jugoId: null, isDoblePostre: false });
     setSeccionAbierta(null);
     setModoEdicion(false); 
     setTipoOtroSeleccionado(null);
   }, [fechaSeleccionadaISO]);
+
+  // ✅ BLINDAJE ANTICRASH: Verificación de String seguro
+  const isPedidoDelDiaSeleccionado = String(pedidoExistente?.fecha || '').startsWith(fechaSeleccionadaISO || '');
+  const pedidoSeguro = (isPedidoDelDiaSeleccionado && !cargandoVerificacion) ? pedidoExistente : null;
 
   useEffect(() => {
     if (activeTab === 'PERSONALIZADO' && !cargandoMenu && !bloquearUI && (!pedidoExistente || modoEdicion)) {
@@ -213,9 +229,9 @@ const HomePageTrabajador: React.FC = () => {
   };
 
   const seleccionarMenuDelDia = () => {
-    if (!menuHoy.menuDia || bloquearUI) return;
+    if (!menuHoy?.menuDia || bloquearUI) return;
     if (menuDiaSeleccionado) {
-      setPedido({ entradasIds: [], fondoId: null, postreId: null, guarnicionId: null, canjeId: null, sandwichId: null, bebidaId: null, jugoId: null });
+      setPedido({ entradasIds: [], fondoId: null, postreId: null, guarnicionId: null, canjeId: null, sandwichId: null, bebidaId: null, jugoId: null, isDoblePostre: false });
     } else {
       const entradasIds = getEntradasMenuDia(menuHoy.menuDia).map((entrada) => entrada.id);
       setPedido({
@@ -226,7 +242,8 @@ const HomePageTrabajador: React.FC = () => {
         canjeId: null,
         sandwichId: null,
         bebidaId: null,
-        jugoId: menuHoy.menuDia.bebida?.id ?? null
+        jugoId: menuHoy.menuDia.bebida?.id ?? null,
+        isDoblePostre: false
       });
     }
   };
@@ -252,54 +269,79 @@ const HomePageTrabajador: React.FC = () => {
   const seleccionarPlato = (categoria: 'fondoId' | 'postreId' | 'jugoId', id: number) => {
     if (bloquearUI) return;
     
-    // ✅ CASO JUGO/BEBIDA: Limpia entrada y postre si elige BEBIDA o AGUA SABORIZADA
+    // CASO JUGO/BEBIDA
     if (categoria === 'jugoId') {
-      const selectedPlato = otrosPlatos.find((p: any) => p.id === id);
+      const selectedPlato = (otrosPlatos || []).find((p: any) => p?.id === id);
       setPedido(prev => {
         const isDeselecting = prev.jugoId === id;
         const newState = { ...prev, jugoId: isDeselecting ? null : id };
-        if (!isDeselecting && (selectedPlato?.categoria === 'BEBIDA' || selectedPlato?.categoria === 'AGUA_SABORIZADA')) {
-          newState.entradasIds = [];
-          newState.postreId = null;
+        
+        if (!isDeselecting) {
+           const isBebida = selectedPlato?.categoria === 'BEBIDA';
+           const isAgua = selectedPlato?.categoria === 'AGUA_SABORIZADA';
+           const penaliza = (isBebida && !convenio?.permiteBebida) || (isAgua && !convenio?.permiteAguaSaborizada);
+
+           if (penaliza) {
+             newState.entradasIds = [];
+             newState.postreId = null;
+             newState.isDoblePostre = false;
+           }
         }
         return newState;
       });
       return;
     }
 
-    // CASO FONDO: Si toca un HIPOCALÓRICO, limpia las ensaladas de la entrada
     if (categoria === 'fondoId') {
-      const sel = (menuHoy.fondos || []).find((p: any) => p.id === id);
+      const sel = (menuHoy?.fondos || []).find((p: any) => p?.id === id);
+      const isDeselecting = pedido.fondoId === id;
+
       setPedido(prev => {
-        const isDeselecting = prev.fondoId === id;
         const newState = { ...prev, fondoId: isDeselecting ? null : id };
+        if (isDeselecting) {
+           newState.isDoblePostre = false;
+           newState.guarnicionId = null;
+        }
         
+        // Limpiamos ensaladas si el nuevo fondo es hipocalórico
         if (!isDeselecting && sel?.tipo === 'HIPOCALORICO') {
-          const sopasIds = (menuHoy.entradas || []).filter((e:any) => e.nombre.toLowerCase().includes('sopa')).map((e:any) => e.id);
+          const sopasIds = (menuHoy?.entradas || []).filter((e:any) => {
+             const n = String(e?.nombre || '').toLowerCase();
+             return n.includes('sopa') || n.includes('crema'); 
+          }).map((e:any) => e.id);
           newState.entradasIds = newState.entradasIds.filter(eId => sopasIds.includes(eId));
         }
         return newState;
       });
 
-      if (sel?.tipo === 'PLATO_UNICO' || sel?.tipo === 'HIPOCALORICO') {
-        setPedido(prev => ({ ...prev, guarnicionId: null }));
-        setTimeout(() => setSeccionAbierta('POSTRE'), 400); return; 
-      }
-      if ((sel?.guarniciones ?? []).length > 0) {
-        setSheetFondo(sel); setSheetSelectedGuarnicion(null); setSheetOpen(true); return;
+      if (!isDeselecting) {
+        if (sel?.tipo === 'HIPOCALORICO') {
+          setPedido(prev => ({ ...prev, guarnicionId: null, isDoblePostre: false }));
+          setOpcionHipoSeleccionada(null);
+          setSheetHipoOpen(true);
+          return;
+        }
+        if (sel?.tipo === 'PLATO_UNICO') {
+          setPedido(prev => ({ ...prev, guarnicionId: null, isDoblePostre: false }));
+          setTimeout(() => setSeccionAbierta('POSTRE'), 400); return; 
+        }
+        if ((sel?.guarniciones ?? []).length > 0) {
+          setPedido(prev => ({ ...prev, isDoblePostre: false }));
+          setSheetFondo(sel); setSheetSelectedGuarnicion(null); setSheetOpen(true); return;
+        }
       }
     }
     
     setPedido(prev => ({ ...prev, [categoria]: prev[categoria] === id ? null : id }));
-    if (categoria === 'fondoId') setTimeout(() => setSeccionAbierta('POSTRE'), 400);
+    if (categoria === 'fondoId' && pedido.fondoId !== id) setTimeout(() => setSeccionAbierta('POSTRE'), 400);
     if (categoria === 'postreId') setTimeout(() => setSeccionAbierta('JUGO'), 200);  
   };
 
   const seleccionarEntrada = (plato: any) => {
-    if (bloquearUI || isBebidaPremiumSeleccionada) return;
+    if (bloquearUI || penalizaEntradaPostre || pedido.isDoblePostre) return;
     
-    const nombre = plato.nombre.toLowerCase();
-    const isSopa = nombre.includes('sopa');
+    const nombre = String(plato?.nombre || '').toLowerCase(); // ✅ SEGURO
+    const isSopa = nombre.includes('sopa') || nombre.includes('crema'); 
     const isSurtida = nombre.includes('surtida');
     const isCurrentlySelected = pedido.entradasIds.includes(plato.id);
     
@@ -309,7 +351,10 @@ const HomePageTrabajador: React.FC = () => {
       const actuales = prev.entradasIds;
       if (isCurrentlySelected) return { ...prev, entradasIds: actuales.filter(id => id !== plato.id) };
       if (isSopa || isSurtida) return { ...prev, entradasIds: [plato.id] };
-      const idsExclusivos = (menuHoy.entradas || []).filter((p: any) => p.nombre.toLowerCase().includes('sopa') || p.nombre.toLowerCase().includes('surtida')).map((p: any) => p.id);
+      const idsExclusivos = (menuHoy?.entradas || []).filter((p: any) => {
+         const n = String(p?.nombre || '').toLowerCase(); // ✅ SEGURO
+         return n.includes('sopa') || n.includes('crema') || n.includes('surtida'); 
+      }).map((p: any) => p.id);
       const nuevas = actuales.filter(id => !idsExclusivos.includes(id));
       return { ...prev, entradasIds: [...nuevas, plato.id] };
     });
@@ -319,7 +364,7 @@ const HomePageTrabajador: React.FC = () => {
   const manejarEnvio = async () => {
     if (activeTab === 'MENU_DIA' && !menuDiaSeleccionado) { alert('No hay menú disponible para este día.'); return; }
     if (activeTab === 'PERSONALIZADO' || activeTab === 'MENU_DIA') {
-      const pedidoAEnviar = activeTab === 'MENU_DIA' && menuHoy.menuDia
+      const pedidoAEnviar = activeTab === 'MENU_DIA' && menuHoy?.menuDia
         ? {
             ...pedido,
             entradasIds: getEntradasMenuDia(menuHoy.menuDia).map((entrada) => entrada.id),
@@ -327,9 +372,10 @@ const HomePageTrabajador: React.FC = () => {
             postreId: menuHoy.menuDia.postre?.id ?? null,
             guarnicionId: menuHoy.menuDia.guarnicion?.id ?? null,
             jugoId: menuHoy.menuDia.bebida?.id ?? null,
+            isDoblePostre: false
           }
         : pedido;
-      const exito = await enviarPedido(pedidoAEnviar);
+      const exito = await enviarPedido(pedidoAEnviar as any);
       if (exito) { setSeccionAbierta(null); setModoEdicion(false); cargarHistorial(); }
       return;
     }
@@ -350,25 +396,27 @@ const HomePageTrabajador: React.FC = () => {
     const exito = await eliminarPedido(fechaSeleccionadaISO);
     if (exito) {
       setModoEdicion(false);
-      setPedido({ entradasIds: [], fondoId: null, postreId: null, guarnicionId: null, canjeId: null, sandwichId: null, bebidaId: null, jugoId: null });
+      setPedido({ entradasIds: [], fondoId: null, postreId: null, guarnicionId: null, canjeId: null, sandwichId: null, bebidaId: null, jugoId: null, isDoblePostre: false });
       setTipoOtroSeleccionado(null);
       try { await cargarHistorial(); refrescarVerificacion(); } catch (e) { }
     }
   };
 
   const manejarModificarPedido = () => {
-    const entradas = pedidoExistente.resumen.filter((r:any)=>r.categoria==='ENTRADA').map((e:any) => e.platoId);
-    const f = pedidoExistente.resumen.find((r:any)=>r.categoria==='FONDO');
-    const p = pedidoExistente.resumen.find((r:any)=>r.categoria==='POSTRE');
-    const c = pedidoExistente.resumen.find((r:any)=>r.categoria==='CANJE');
-    const s = pedidoExistente.resumen.find((r:any)=>r.categoria==='SANDWICH');
-    const b = pedidoExistente.resumen.find((r:any)=>r.categoria==='BEBIDA');
-    const jugo = pedidoExistente.resumen.find((r:any)=>r.categoria==='JUGO' || (r.categoria==='BEBIDA' && activeTab === 'PERSONALIZADO') || (r.categoria==='AGUA_SABORIZADA' && activeTab === 'PERSONALIZADO'));
+    // ✅ BLINDAJE ANTICRASH
+    const resumen = pedidoExistente?.resumen || [];
+    const entradas = resumen.filter((r:any)=>r?.categoria==='ENTRADA').map((e:any) => e.platoId);
+    const f = resumen.find((r:any)=>r?.categoria==='FONDO');
+    const p = resumen.find((r:any)=>r?.categoria==='POSTRE');
+    const c = resumen.find((r:any)=>r?.categoria==='CANJE');
+    const s = resumen.find((r:any)=>r?.categoria==='SANDWICH');
+    const b = resumen.find((r:any)=>r?.categoria==='BEBIDA');
+    const jugo = resumen.find((r:any)=>r?.categoria==='JUGO' || (r?.categoria==='BEBIDA' && activeTab === 'PERSONALIZADO') || (r?.categoria==='AGUA_SABORIZADA' && activeTab === 'PERSONALIZADO'));
     
     setPedido({
       entradasIds: entradas, fondoId: f?.platoId ?? null, postreId: p?.platoId ?? null, 
       guarnicionId: f?.guarnicionId ?? null, canjeId: c?.platoId ?? null, sandwichId: s?.platoId ?? null, 
-      bebidaId: b?.platoId ?? null, jugoId: jugo?.platoId ?? null
+      bebidaId: b?.platoId ?? null, jugoId: jugo?.platoId ?? null, isDoblePostre: p?.cantidad === 2
     });
     
     setModoEdicion(true); 
@@ -413,9 +461,9 @@ const HomePageTrabajador: React.FC = () => {
       <CalendarioSemanal 
         getSemanaTexto={getSemanaTexto}
         setSemanaOffset={setSemanaOffset}
-        diasSemanaArray={diasSemanaArray}
+        diasSemanaArray={diasSemanaArray || []}
         fechasBloqueadas={fechasBloqueadas}
-        diasBloqueadosAdmin={diasBloqueadosAdmin}
+        diasBloqueadosAdmin={diasBloqueadosAdmin || []}
         todosBloqueados={todosBloqueados}
         setDiaSeleccionadoIdx={setDiaSeleccionadoIdx}
       />
@@ -429,9 +477,9 @@ const HomePageTrabajador: React.FC = () => {
           </div>
         ) : (cargandoVerificacion || cargandoMenu) ? (
           <MenuSkeleton />
-        ) : pedidoExistente && !modoEdicion ? (
+        ) : pedidoSeguro && !modoEdicion ? (
           <ResumenPedido 
-            pedidoExistente={pedidoExistente} menuHoy={menuHoy} manejarEliminar={manejarEliminar}
+            pedidoExistente={pedidoSeguro} menuHoy={menuHoy} manejarEliminar={manejarEliminar}
             onModificar={manejarModificarPedido} isDeadlinePassed={isDeadlinePassed} fechaBloqueada={fechaBloqueada}
             convenio={convenio} 
           />
@@ -439,8 +487,8 @@ const HomePageTrabajador: React.FC = () => {
           <>
             <div id="seccion-tabs" className="flex bg-white border border-gray-100 p-1.5 rounded-[20px] mb-6 shadow-sm shrink-0">
               <button onClick={() => { setActiveTab('MENU_DIA'); if (!modoEdicion) { setTipoOtroSeleccionado(null); } }} className={`flex-1 py-3 px-2 text-[10px] sm:text-[11px] font-black uppercase tracking-widest rounded-2xl transition-all ${activeTab === 'MENU_DIA' ? 'bg-[#70a344] shadow-md text-white' : 'text-gray-400 bg-transparent'}`}>Menú Día</button>
-              <button onClick={() => { setActiveTab('PERSONALIZADO'); if (!modoEdicion) { setPedido({ entradasIds: [], fondoId: null, postreId: null, guarnicionId: null, canjeId: null, sandwichId: null, bebidaId: null, jugoId: null }); setTipoOtroSeleccionado(null); } }} className={`flex-1 py-3 px-2 text-[10px] sm:text-[11px] font-black uppercase tracking-widest rounded-2xl transition-all ${activeTab === 'PERSONALIZADO' ? 'bg-[#70a344] shadow-md text-white' : 'text-gray-400 bg-transparent'}`}>Personalizado</button>
-              <button onClick={() => { setActiveTab('OTRO'); if (!modoEdicion) { setPedido({ entradasIds: [], fondoId: null, postreId: null, guarnicionId: null, canjeId: null, sandwichId: null, bebidaId: null, jugoId: null }); setTipoOtroSeleccionado(null); } }} className={`flex-1 py-3 px-2 text-[10px] sm:text-[11px] font-black uppercase tracking-widest rounded-2xl transition-all ${activeTab === 'OTRO' ? 'bg-[#70a344] shadow-md text-white' : 'text-gray-400 bg-transparent'}`}>Otros</button>
+              <button onClick={() => { setActiveTab('PERSONALIZADO'); if (!modoEdicion) { setPedido({ entradasIds: [], fondoId: null, postreId: null, guarnicionId: null, canjeId: null, sandwichId: null, bebidaId: null, jugoId: null, isDoblePostre: false }); setTipoOtroSeleccionado(null); } }} className={`flex-1 py-3 px-2 text-[10px] sm:text-[11px] font-black uppercase tracking-widest rounded-2xl transition-all ${activeTab === 'PERSONALIZADO' ? 'bg-[#70a344] shadow-md text-white' : 'text-gray-400 bg-transparent'}`}>Personalizado</button>
+              <button onClick={() => { setActiveTab('OTRO'); if (!modoEdicion) { setPedido({ entradasIds: [], fondoId: null, postreId: null, guarnicionId: null, canjeId: null, sandwichId: null, bebidaId: null, jugoId: null, isDoblePostre: false }); setTipoOtroSeleccionado(null); } }} className={`flex-1 py-3 px-2 text-[10px] sm:text-[11px] font-black uppercase tracking-widest rounded-2xl transition-all ${activeTab === 'OTRO' ? 'bg-[#70a344] shadow-md text-white' : 'text-gray-400 bg-transparent'}`}>Otros</button>
             </div>
 
             {modoEdicion && (
@@ -452,7 +500,7 @@ const HomePageTrabajador: React.FC = () => {
             
             {activeTab === 'MENU_DIA' && (
               <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm flex flex-col grow mb-4">
-                {menuHoy.menuDia ? (
+                {menuHoy?.menuDia ? (
                   <>
                     <div className="space-y-4 text-left grow">
                       {[
@@ -489,20 +537,20 @@ const HomePageTrabajador: React.FC = () => {
                   const isHeaderSelected = cat === 'ENTRADA' ? pedido.entradasIds.length > 0 : pedido[(cat.toLowerCase() + 'Id') as 'fondoId' | 'postreId' | 'jugoId'] !== null;
                   
                   const platos = cat === 'JUGO'
-                    ? otrosPlatos.filter((p: any) =>
-                        p.categoria === 'JUGO' ||
-                        (convenio?.permiteBebida && p.categoria === 'BEBIDA') ||
-                        (convenio?.permiteAguaSaborizada && p.categoria === 'AGUA_SABORIZADA')
+                    ? (otrosPlatos || []).filter((p: any) =>
+                        p?.categoria === 'JUGO' || p?.categoria === 'BEBIDA' || p?.categoria === 'AGUA_SABORIZADA'
                       )
-                    : (menuHoy as any)[cat === 'ENTRADA' ? 'entradas' : cat === 'FONDO' ? 'fondos' : 'postres'] ?? [];
+                    : (menuHoy as any)?.[cat === 'ENTRADA' ? 'entradas' : cat === 'FONDO' ? 'fondos' : 'postres'] ?? [];
 
                   let isSeccionBloqueada = false;
                   let textoBloqueo = "";
                   
-                  if (cat === 'ENTRADA' && isBebidaPremiumSeleccionada) {
+                  if (cat === 'ENTRADA' && penalizaEntradaPostre) {
                      isSeccionBloqueada = true; textoBloqueo = "Reemplazado por Bebida/Agua";
-                  } else if (cat === 'POSTRE' && isBebidaPremiumSeleccionada) {
+                  } else if (cat === 'POSTRE' && penalizaEntradaPostre) {
                      isSeccionBloqueada = true; textoBloqueo = "Reemplazado por Bebida/Agua";
+                  } else if (cat === 'ENTRADA' && pedido.isDoblePostre) {
+                     isSeccionBloqueada = true; textoBloqueo = "Reemplazado por Doble Postre";
                   }
 
                   return (
@@ -513,8 +561,11 @@ const HomePageTrabajador: React.FC = () => {
                             {isHeaderSelected && <Check size={18} strokeWidth={4} className="text-white" />}
                           </div>
                           <div className="flex flex-col text-left">
-                            <h3 className={`text-xl font-black uppercase tracking-widest ${isSeccionBloqueada ? 'text-gray-300' : 'text-[#1d2d50]'}`}>
+                            <h3 className={`text-xl font-black uppercase tracking-widest flex items-center gap-2 ${isSeccionBloqueada ? 'text-gray-300' : 'text-[#1d2d50]'}`}>
                               {cat === 'JUGO' ? 'BEBESTIBLE' : cat}
+                              {cat === 'POSTRE' && pedido.isDoblePostre && !isSeccionBloqueada && (
+                                <span className="bg-yellow-100 text-yellow-600 text-[9px] px-2 py-1 rounded-md font-black">X2 PORCIONES</span>
+                              )}
                             </h3>
                             {isSeccionBloqueada && <p className="text-[10px] font-black text-red-400 uppercase">{textoBloqueo}</p>}
                           </div>
@@ -529,7 +580,9 @@ const HomePageTrabajador: React.FC = () => {
                           {platos.map((plato: any) => {
                             const isPlatoSelected = cat === 'ENTRADA' ? pedido.entradasIds.includes(plato.id) : pedido[(cat.toLowerCase() + 'Id') as 'fondoId' | 'postreId' | 'jugoId'] === plato.id;
                             
-                            const isDisabled = isSeccionBloqueada || (cat === 'ENTRADA' && isHipocalorico && !plato.nombre.toLowerCase().includes('sopa'));
+                            // ✅ SEGURO: Previene crash si no tiene nombre
+                            const nombre = String(plato?.nombre || '').toLowerCase();
+                            const isDisabled = isSeccionBloqueada || (cat === 'ENTRADA' && isHipocalorico && !nombre.includes('sopa') && !nombre.includes('crema'));
 
                             return (
                               <TarjetaPlato 
@@ -556,7 +609,6 @@ const HomePageTrabajador: React.FC = () => {
 
             {activeTab === 'OTRO' && (
               <div className="flex flex-col gap-2 relative grow mb-2">
-                {/* TARJETA 1: CANJE */}
                 <section className={`flex flex-col grow overflow-hidden rounded-3xl border transition-all duration-300 ${isPremiumSelected ? 'border-gray-100 bg-gray-50 opacity-60 grayscale pointer-events-none' : 'border-gray-100 bg-white shadow-sm'}`}>
                   <button onClick={(e) => { e.stopPropagation(); handleSeleccionarTipoOtro('CANJE'); }} disabled={isPremiumSelected} className="w-full grow flex items-center justify-between px-7 py-4 sm:px-8">
                     <div className="flex items-center gap-4 sm:gap-5">
@@ -577,10 +629,10 @@ const HomePageTrabajador: React.FC = () => {
                       {loadingOtros ? (<div className="text-center text-sm text-gray-400 py-2">Cargando opciones...</div>) : (
                         <>
                           <h4 className="text-base font-black text-[#1d2d50] uppercase tracking-wider mb-2 ml-1 flex items-center gap-2"><span className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center text-[10px]">1</span> Elige tu Combo</h4>
-                          {(otrosPlatos.filter(p => p.categoria === 'CANJE').length === 0) ? (
+                          {((otrosPlatos || []).filter(p => p?.categoria === 'CANJE').length === 0) ? (
                             <div className="text-center text-[10px] font-black uppercase text-gray-400 bg-gray-50 p-3 rounded-2xl">No hay opciones disponibles</div>
                           ) : (
-                            otrosPlatos.filter(p => p.categoria === 'CANJE').map((plato: any) => (
+                            (otrosPlatos || []).filter(p => p?.categoria === 'CANJE').map((plato: any) => (
                               <TarjetaPlato key={plato.id} plato={plato} categoriaKey="canjeId" isSelected={pedido.canjeId === plato.id} isDeadlinePassed={bloquearUI} disabled={false} onSelect={(_, id) => seleccionarOtro('canjeId', id)} />
                             ))
                           )}
@@ -590,7 +642,6 @@ const HomePageTrabajador: React.FC = () => {
                   </div>
                 </section>
 
-                {/* TARJETA 2: COLACIÓN PREMIUM */}
                 <section className={`flex flex-col grow overflow-hidden rounded-3xl border transition-all duration-300 ${isCanjeSelected ? 'border-gray-100 bg-gray-50 opacity-60 grayscale pointer-events-none' : 'border-gray-100 bg-white shadow-sm'}`}>
                   <button onClick={(e) => { e.stopPropagation(); handleSeleccionarTipoOtro('PREMIUM'); }} disabled={isCanjeSelected} className="w-full grow flex items-center justify-between px-7 py-4 sm:px-8">
                     <div className="flex items-center gap-4 sm:gap-5">
@@ -613,10 +664,10 @@ const HomePageTrabajador: React.FC = () => {
                         <div>
                           <h4 className="text-base font-black text-[#1d2d50] uppercase tracking-wider mb-4 ml-1 flex items-center gap-2"><span className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center text-[10px]">1</span> Elige tu Sándwich</h4>
                           <div className="flex flex-col gap-3">
-                            {(otrosPlatos.filter(p => p.categoria === 'SANDWICH').length === 0) ? (
+                            {((otrosPlatos || []).filter(p => p?.categoria === 'SANDWICH').length === 0) ? (
                               <div className="text-center text-[10px] font-black uppercase text-gray-400 bg-gray-50 p-3 rounded-2xl">No hay opciones disponibles</div>
                             ) : (
-                              otrosPlatos.filter(p => p.categoria === 'SANDWICH').map((plato: any) => (
+                              (otrosPlatos || []).filter(p => p?.categoria === 'SANDWICH').map((plato: any) => (
                                 <TarjetaPlato key={plato.id} plato={plato} categoriaKey="sandwichId" isSelected={pedido.sandwichId === plato.id} isDeadlinePassed={bloquearUI} disabled={false} onSelect={(_, id) => seleccionarOtro('sandwichId', id)} />
                               ))
                             )}
@@ -626,10 +677,10 @@ const HomePageTrabajador: React.FC = () => {
                         <div>
                           <h4 className="text-base font-black text-[#1d2d50] uppercase tracking-wider mb-4 ml-1 flex items-center gap-2"><span className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center text-[10px]">2</span> Elige tu Bebida</h4>
                           <div className="flex flex-col gap-3">
-                            {(otrosPlatos.filter(p => p.categoria === 'BEBIDA' || p.categoria === 'JUGO' || p.categoria === 'AGUA_SABORIZADA').length === 0) ? (
+                            {((otrosPlatos || []).filter(p => p?.categoria === 'BEBIDA' || p?.categoria === 'JUGO' || p?.categoria === 'AGUA_SABORIZADA').length === 0) ? (
                               <div className="text-center text-[10px] font-black uppercase text-gray-400 bg-gray-50 p-3 rounded-2xl">No hay opciones disponibles</div>
                             ) : (
-                              otrosPlatos.filter(p => p.categoria === 'BEBIDA' || p.categoria === 'JUGO' || p.categoria === 'AGUA_SABORIZADA').map((plato: any) => (
+                              (otrosPlatos || []).filter(p => p?.categoria === 'BEBIDA' || p?.categoria === 'JUGO' || p?.categoria === 'AGUA_SABORIZADA').map((plato: any) => (
                                 <TarjetaPlato key={plato.id} plato={plato} categoriaKey="bebidaId" isSelected={pedido.bebidaId === plato.id} isDeadlinePassed={bloquearUI} disabled={false} onSelect={(_, id) => seleccionarOtro('bebidaId', id)} />
                               ))
                             )}
@@ -646,28 +697,75 @@ const HomePageTrabajador: React.FC = () => {
         )}
       </div>
 
-      {sheetFondo && (
-        <BottomSheet open={sheetOpen} title="Elige una guarnición" onClose={() => setSheetOpen(false)}>
-          <div className="px-2 pb-2 mt-2 px-6 pb-6">
-            <div className="flex flex-col gap-3">
-              {(sheetFondo.guarniciones || []).map((g: any) => (
-                <button key={g.id} onClick={() => setSheetSelectedGuarnicion(g.id)} className={`flex items-center justify-between w-full px-5 py-4 rounded-2xl border ${sheetSelectedGuarnicion===g.id ? 'border-green-500 bg-green-50' : 'border-gray-200 bg-white'}`}>
-                  <span className="font-bold text-sm text-[#1d2d50] uppercase">{g.nombre}</span>
-                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${sheetSelectedGuarnicion===g.id ? 'border-green-500' : 'border-gray-300'}`}>{sheetSelectedGuarnicion===g.id && <div className="w-2.5 h-2.5 bg-green-500 rounded-full" />}</div>
-                </button>
-              ))}
-              <button onClick={() => setSheetSelectedGuarnicion(-1)} className={`flex items-center justify-between w-full px-5 py-4 rounded-2xl border ${sheetSelectedGuarnicion===-1 ? 'border-green-500 bg-green-50' : 'border-gray-200 bg-white'}`}>
-                <span className="font-bold text-sm text-[#1d2d50] uppercase text-left">Sin guarnición</span>
-                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${sheetSelectedGuarnicion===-1 ? 'border-green-500' : 'border-gray-300'}`}>{sheetSelectedGuarnicion===-1 && <div className="w-2.5 h-2.5 bg-green-500 rounded-full" />}</div>
-              </button>
-            </div>
-            <div className="flex flex-col gap-2 mt-8">
-              <button onClick={() => { setPedido(prev => ({ ...prev, fondoId: sheetFondo.id, guarnicionId: sheetSelectedGuarnicion })); setSheetOpen(false); setTimeout(() => setSeccionAbierta('POSTRE'), 300); }} disabled={sheetSelectedGuarnicion===null} className={`w-full py-4 rounded-xl font-black ${sheetSelectedGuarnicion===null ? 'bg-gray-100 text-gray-400' : 'bg-[#70a344] text-white shadow-md'}`}>Seleccionar</button>
-              <button onClick={() => setSheetOpen(false)} className="w-full py-3 font-bold text-gray-400">Cancelar</button>
-            </div>
+      <BottomSheet open={sheetHipoOpen} title="Menú Hipocalórico" onClose={() => setSheetHipoOpen(false)}>
+        <div className="px-6 pb-6 mt-2">
+          <p className="text-sm font-medium text-gray-500 mb-4">Selecciona el acompañamiento de tu plato:</p>
+          <div className="flex flex-col gap-3">
+            <button 
+              onClick={() => setOpcionHipoSeleccionada('SOPA')} 
+              className={`flex items-center justify-between w-full px-5 py-4 rounded-2xl border ${opcionHipoSeleccionada==='SOPA' ? 'border-green-500 bg-green-50' : 'border-gray-200 bg-white'}`}
+            >
+              <div className="flex flex-col text-left">
+                <span className="font-bold text-sm text-[#1d2d50] uppercase">Sopa o Crema</span>
+                <span className="text-xs text-gray-400 mt-1">Podrás elegir la sopa o crema de tu preferencia.</span>
+              </div>
+              <div className={`w-5 h-5 shrink-0 rounded-full border-2 flex items-center justify-center ${opcionHipoSeleccionada==='SOPA' ? 'border-green-500' : 'border-gray-300'}`}>{opcionHipoSeleccionada==='SOPA' && <div className="w-2.5 h-2.5 bg-green-500 rounded-full" />}</div>
+            </button>
+
+            <button 
+              onClick={() => setOpcionHipoSeleccionada('DOBLE_POSTRE')} 
+              className={`flex items-center justify-between w-full px-5 py-4 rounded-2xl border ${opcionHipoSeleccionada==='DOBLE_POSTRE' ? 'border-green-500 bg-green-50' : 'border-gray-200 bg-white'}`}
+            >
+              <div className="flex flex-col text-left">
+                <span className="font-bold text-sm text-[#1d2d50] uppercase">Doble Postre</span>
+                <span className="text-xs text-gray-400 mt-1">Sin entrada. Llevarás 2 porciones del postre que elijas.</span>
+              </div>
+              <div className={`w-5 h-5 shrink-0 rounded-full border-2 flex items-center justify-center ${opcionHipoSeleccionada==='DOBLE_POSTRE' ? 'border-green-500' : 'border-gray-300'}`}>{opcionHipoSeleccionada==='DOBLE_POSTRE' && <div className="w-2.5 h-2.5 bg-green-500 rounded-full" />}</div>
+            </button>
           </div>
-        </BottomSheet>
-      )}
+          
+          <div className="flex flex-col gap-2 mt-8">
+            <button 
+              onClick={() => { 
+                setSheetHipoOpen(false); 
+                if (opcionHipoSeleccionada === 'SOPA') {
+                  setPedido(prev => ({ ...prev, isDoblePostre: false }));
+                  setTimeout(() => setSeccionAbierta('ENTRADA'), 400); 
+                } else if (opcionHipoSeleccionada === 'DOBLE_POSTRE') {
+                  setPedido(prev => ({ ...prev, isDoblePostre: true, entradasIds: [] }));
+                  setTimeout(() => setSeccionAbierta('POSTRE'), 400); 
+                }
+              }} 
+              disabled={!opcionHipoSeleccionada} 
+              className={`w-full py-4 rounded-xl font-black ${!opcionHipoSeleccionada ? 'bg-gray-100 text-gray-400' : 'bg-[#70a344] text-white shadow-md'}`}
+            >
+              Confirmar
+            </button>
+            <button onClick={() => { setSheetHipoOpen(false); setPedido(prev => ({...prev, fondoId: null})); }} className="w-full py-3 font-bold text-gray-400">Cancelar</button>
+          </div>
+        </div>
+      </BottomSheet>
+
+      <BottomSheet open={sheetOpen} title="Elige una guarnición" onClose={() => setSheetOpen(false)}>
+        <div className="px-2 pb-2 mt-2 px-6 pb-6">
+          <div className="flex flex-col gap-3">
+            {(sheetFondo?.guarniciones || []).map((g: any) => (
+              <button key={g.id} onClick={() => setSheetSelectedGuarnicion(g.id)} className={`flex items-center justify-between w-full px-5 py-4 rounded-2xl border ${sheetSelectedGuarnicion===g.id ? 'border-green-500 bg-green-50' : 'border-gray-200 bg-white'}`}>
+                <span className="font-bold text-sm text-[#1d2d50] uppercase">{g.nombre}</span>
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${sheetSelectedGuarnicion===g.id ? 'border-green-500' : 'border-gray-300'}`}>{sheetSelectedGuarnicion===g.id && <div className="w-2.5 h-2.5 bg-green-500 rounded-full" />}</div>
+              </button>
+            ))}
+            <button onClick={() => setSheetSelectedGuarnicion(-1)} className={`flex items-center justify-between w-full px-5 py-4 rounded-2xl border ${sheetSelectedGuarnicion===-1 ? 'border-green-500 bg-green-50' : 'border-gray-200 bg-white'}`}>
+              <span className="font-bold text-sm text-[#1d2d50] uppercase text-left">Sin guarnición</span>
+              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${sheetSelectedGuarnicion===-1 ? 'border-green-500' : 'border-gray-300'}`}>{sheetSelectedGuarnicion===-1 && <div className="w-2.5 h-2.5 bg-green-500 rounded-full" />}</div>
+            </button>
+          </div>
+          <div className="flex flex-col gap-2 mt-8">
+            <button onClick={() => { setPedido(prev => ({ ...prev, fondoId: sheetFondo?.id, guarnicionId: sheetSelectedGuarnicion })); setSheetOpen(false); setTimeout(() => setSeccionAbierta('POSTRE'), 300); }} disabled={sheetSelectedGuarnicion===null} className={`w-full py-4 rounded-xl font-black ${sheetSelectedGuarnicion===null ? 'bg-gray-100 text-gray-400' : 'bg-[#70a344] text-white shadow-md'}`}>Seleccionar</button>
+            <button onClick={() => setSheetOpen(false)} className="w-full py-3 font-bold text-gray-400">Cancelar</button>
+          </div>
+        </div>
+      </BottomSheet>
 
       {!(cargandoVerificacion || cargandoMenu) && !bloquearUI && (!pedidoExistente || modoEdicion) && (
         <div className="fixed bottom-0 left-0 w-full p-6 bg-white/90 backdrop-blur-xl shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-40">

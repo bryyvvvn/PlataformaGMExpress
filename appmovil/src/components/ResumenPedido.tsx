@@ -43,7 +43,9 @@ export const ResumenPedido: React.FC<ResumenPedidoProps> = ({
           }
           return (
             <div key={idx} className="flex flex-col">
-              <span className="text-xs font-black text-[#70a344] uppercase tracking-widest mb-0.5">{r.categoria}</span>
+              <span className="text-xs font-black text-[#70a344] uppercase tracking-widest mb-0.5">
+                {r.categoria === 'JUGO' ? 'BEBESTIBLE' : r.categoria}
+              </span>
               <span className="font-bold text-[#1d2d50] leading-tight text-lg">
                 {r.nombre}
                 {nombreGuarnicion && <span> + {nombreGuarnicion}</span>}
