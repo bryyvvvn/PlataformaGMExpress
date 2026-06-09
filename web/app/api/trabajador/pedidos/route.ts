@@ -4,6 +4,67 @@ import { chileStartOfDay, chileEndOfDay } from '../../../../lib/chile-time';
 
 export const dynamic = 'force-dynamic';
 
+type DetallePedidoInput = { platoId: number; guarnicionId?: number | null; cantidad?: number };
+
+type PedidoRequestBody = {
+  usuarioId?: string;
+  entradaId?: number | string;
+  entradasIds?: Array<number | string>;
+  fondoId?: number | string;
+  postreId?: number | string;
+  jugoId?: number | string;
+  guarnicionId?: number | null;
+  fecha?: string | null;
+  items?: DetallePedidoInput[];
+};
+
+function toPositiveInteger(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isInteger(value) && value > 0) {
+    return value;
+  }
+
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value);
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+  }
+
+  return null;
+}
+
+function normalizeEntradasIds(entradasIds: unknown, entradaId: unknown) {
+  const normalized: number[] = [];
+  const seen = new Set<number>();
+  let hasInvalidValue = false;
+
+  const addEntrada = (value: unknown) => {
+    const id = toPositiveInteger(value);
+
+    if (!id) {
+      hasInvalidValue = true;
+      return;
+    }
+
+    if (!seen.has(id)) {
+      seen.add(id);
+      normalized.push(id);
+    }
+  };
+
+  if (entradasIds !== undefined && entradasIds !== null) {
+    if (!Array.isArray(entradasIds)) {
+      hasInvalidValue = true;
+    } else {
+      entradasIds.forEach(addEntrada);
+    }
+  }
+
+  if (entradaId !== undefined && entradaId !== null) {
+    addEntrada(entradaId);
+  }
+
+  return { ids: normalized, hasInvalidValue };
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const usuarioId = searchParams.get('usuarioId');
@@ -79,27 +140,22 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    const body = await request.json() as PedidoRequestBody;
     
     // 🔥 CAMBIO: Ahora recibimos 'jugoId' también
-    const { usuarioId, entradasIds, fondoId, postreId, jugoId, guarnicionId, fecha } = body as {
-      usuarioId?: string;
-      entradasIds?: number[];
-      fondoId?: number;
-      postreId?: number;
-      jugoId?: number;
-      guarnicionId?: number | null;
-      fecha?: string | null;
-    };
-
-    const items = (body as any).items as Array<{ platoId: number; guarnicionId?: number | null; cantidad?: number }> | undefined;
+    const { usuarioId, entradaId, entradasIds, fondoId, postreId, jugoId, guarnicionId, fecha, items } = body;
 
     if (!usuarioId) {
       return NextResponse.json({ error: 'Falta usuarioId' }, { status: 400 });
     }
 
     // El flujo clásico solo requiere fondoId. El jugo es opcional (no aplica en menú del día).
-    const usingClassicFlow = Boolean(fondoId);
+    const fondoIdNormalizado = toPositiveInteger(fondoId);
+    const postreIdNormalizado = toPositiveInteger(postreId);
+    const jugoIdNormalizado = toPositiveInteger(jugoId);
+    const entradasNormalizadas = normalizeEntradasIds(entradasIds, entradaId);
+
+    const usingClassicFlow = Boolean(fondoIdNormalizado);
     const usingItemsFlow = Boolean(items && Array.isArray(items) && items.length > 0);
 
     if (!usingClassicFlow && !usingItemsFlow) {
@@ -113,6 +169,55 @@ export async function POST(request: Request) {
 
     if (!usuario || !usuario.empresaId) {
       return NextResponse.json({ error: 'Usuario no válido o sin empresa' }, { status: 400 });
+    }
+
+    if (usingClassicFlow) {
+      if (entradasNormalizadas.hasInvalidValue) {
+        return NextResponse.json({ error: 'Una o mas entradas seleccionadas no son validas' }, { status: 400 });
+      }
+
+      if (postreId !== undefined && postreId !== null && !postreIdNormalizado) {
+        return NextResponse.json({ error: 'El postre seleccionado no es valido' }, { status: 400 });
+      }
+
+      if (jugoId !== undefined && jugoId !== null && !jugoIdNormalizado) {
+        return NextResponse.json({ error: 'El bebestible seleccionado no es valido' }, { status: 400 });
+      }
+
+      const idsAValidar = [
+        ...entradasNormalizadas.ids,
+        fondoIdNormalizado,
+        postreIdNormalizado,
+        jugoIdNormalizado,
+      ].filter((id): id is number => Boolean(id));
+
+      const platos = await db.plato.findMany({
+        where: { id: { in: idsAValidar } },
+        select: { id: true, categoria: true },
+      });
+      const categoriasPorId = new Map(platos.map((plato) => [plato.id, plato.categoria]));
+
+      const entradaInvalida = entradasNormalizadas.ids.some((id) => categoriasPorId.get(id) !== 'ENTRADA');
+      if (entradaInvalida) {
+        return NextResponse.json({ error: 'Una o mas entradas seleccionadas no corresponden a la categoria ENTRADA' }, { status: 400 });
+      }
+
+      if (categoriasPorId.get(fondoIdNormalizado!) !== 'FONDO') {
+        return NextResponse.json({ error: 'El fondo seleccionado no corresponde a la categoria FONDO' }, { status: 400 });
+      }
+
+      if (postreIdNormalizado && categoriasPorId.get(postreIdNormalizado) !== 'POSTRE') {
+        return NextResponse.json({ error: 'El postre seleccionado no corresponde a la categoria POSTRE' }, { status: 400 });
+      }
+
+      if (jugoIdNormalizado) {
+        const categoriaBebestible = categoriasPorId.get(jugoIdNormalizado);
+        const categoriasBebestibleValidas = ['JUGO', 'BEBIDA', 'AGUA_SABORIZADA'];
+
+        if (!categoriaBebestible || !categoriasBebestibleValidas.includes(categoriaBebestible)) {
+          return NextResponse.json({ error: 'El bebestible seleccionado no corresponde a una categoria valida' }, { status: 400 });
+        }
+      }
     }
 
     const targetIso = fecha && typeof fecha === 'string' ? fecha : undefined;
@@ -130,27 +235,27 @@ export async function POST(request: Request) {
     });
 
     // 🔥 ARMAMOS EL ARREGLO DE DETALLES DINÁMICAMENTE según el flujo usado
-    let detallesData: Array<{ platoId: number; guarnicionId?: number | null; cantidad?: number }> = [];
+    let detallesData: DetallePedidoInput[] = [];
 
     if (usingClassicFlow) {
       // 1. Agregamos las entradas SOLO si existen y no están vacías
-      if (entradasIds && entradasIds.length > 0) {
-        detallesData.push(...entradasIds.map((id: number) => ({ platoId: id })));
+      if (entradasNormalizadas.ids.length > 0) {
+        detallesData.push(...entradasNormalizadas.ids.map((id) => ({ platoId: id })));
       }
       
       // 2. Siempre agregamos el fondo (ya validamos que existe)
-      if (fondoId) {
-        detallesData.push({ platoId: fondoId, guarnicionId: guarnicionId ?? null });
+      if (fondoIdNormalizado) {
+        detallesData.push({ platoId: fondoIdNormalizado, guarnicionId: guarnicionId ?? null });
       }
 
       // 3. Agregamos el postre SOLO si existe
-      if (postreId) {
-        detallesData.push({ platoId: postreId });
+      if (postreIdNormalizado) {
+        detallesData.push({ platoId: postreIdNormalizado });
       }
 
       // 4. Siempre agregamos el Jugo/Bebida
-      if (jugoId) {
-        detallesData.push({ platoId: jugoId });
+      if (jugoIdNormalizado) {
+        detallesData.push({ platoId: jugoIdNormalizado });
       }
     } else if (usingItemsFlow && items) {
       detallesData = items.map(it => ({ platoId: it.platoId, guarnicionId: it.guarnicionId ?? null, cantidad: it.cantidad ?? 1 }));
