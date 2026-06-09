@@ -23,13 +23,16 @@ import {
 
 import { 
   usePlanificador, 
-  PlatoMenuDia, 
-  PlatoBebida,
+  type PlatoMenuDia,
+  type PlatoBebida,
   LETRAS_DIA, 
   formatFechaCorta, 
   PLANTILLA_MINUTA_URL,
-  construirEntradaDisplay,
   esEntradaSopa,
+  esFondoHipocalorico,
+  esFondoPlatoUnico,
+  fondoOmiteGuarnicion,
+  type ModalidadHipocalorica,
   obtenerEntradasEnsalada,
   tieneSopaCombinada,
 } from "@/hooks/usePlanificador";
@@ -38,17 +41,28 @@ function MenuOptionCard({
   item,
   selected,
   onSelect,
+  disabled = false,
+  helperText,
+  badge,
 }: {
   item: PlatoMenuDia;
   selected: boolean;
   onSelect: () => void;
+  disabled?: boolean;
+  helperText?: string;
+  badge?: string;
 }) {
   return (
     <button
       type="button"
-      onClick={onSelect}
+      onClick={() => {
+        if (!disabled) onSelect();
+      }}
+      disabled={disabled}
       className={`group flex w-full overflow-hidden rounded-md border text-left transition-all duration-200 ${
-        selected
+        disabled
+          ? "cursor-not-allowed border-slate-200 bg-slate-50 opacity-55 grayscale"
+          : selected
           ? "border-[#75AA46] bg-[#75AA46]/5 ring-1 ring-[#75AA46]/30 shadow-sm"
           : "border-slate-200 bg-white shadow-sm hover:border-slate-300 hover:bg-slate-50"
       }`}
@@ -77,8 +91,14 @@ function MenuOptionCard({
             }`}>
               {item.plato.tipo}
             </span>
+            {badge && (
+              <span className="ml-1 inline-block rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest text-amber-700">
+                {badge}
+              </span>
+            )}
             <p className="line-clamp-2 text-sm font-semibold leading-tight text-slate-800">{item.plato.nombre}</p>
             <p className="mt-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-400">{item.plato.categoria}</p>
+            {helperText && <p className="mt-1 text-[10px] font-semibold text-slate-500">{helperText}</p>}
           </div>
           {selected ? (
             <CheckCircle2 className="h-5 w-5 shrink-0 text-[#75AA46] mt-1" />
@@ -150,6 +170,43 @@ export default function PlanificadorPage() {
     actualizarDraft(fecha, {
       entradaId: entradasIds[0] ?? null,
       entradasIds,
+    });
+  };
+
+  const seleccionarFondoDraft = (fecha: string, item: PlatoMenuDia) => {
+    actualizarDraft(fecha, {
+      fondoId: item.detalleId,
+      guarnicionId: null,
+      modalidadHipocalorica: null,
+    });
+  };
+
+  const seleccionarModalidadHipocalorica = (
+    fecha: string,
+    modalidad: ModalidadHipocalorica,
+    draftEntradaIds: number[],
+    entradas: PlatoMenuDia[]
+  ) => {
+    if (modalidad === "SOPA_CREMA") {
+      const primeraSopa = draftEntradaIds
+        .map((id) => entradas.find((entrada) => entrada.detalleId === id))
+        .find((entrada): entrada is PlatoMenuDia => Boolean(entrada) && esEntradaSopa(entrada));
+      const entradasIds = primeraSopa ? [primeraSopa.detalleId] : [];
+
+      actualizarDraft(fecha, {
+        modalidadHipocalorica: modalidad,
+        entradaId: entradasIds[0] ?? null,
+        entradasIds,
+        guarnicionId: null,
+      });
+      return;
+    }
+
+    actualizarDraft(fecha, {
+      modalidadHipocalorica: modalidad,
+      entradaId: null,
+      entradasIds: [],
+      guarnicionId: null,
     });
   };
 
@@ -399,13 +456,25 @@ export default function PlanificadorPage() {
               const ensaladaSurtidaIds = entradasEnsalada.slice(0, 3).map((entrada) => entrada.detalleId);
               const ensaladaSurtidaSeleccionada =
                 entradasIds.length === 3 && ensaladaSurtidaIds.every((id) => entradasIds.includes(id));
-              const entradaResumen =
-                construirEntradaDisplay(entradasSeleccionadas) ?? dia.seleccion?.entradaDisplay ?? null;
               const bebidaSeleccionada = bebidas.find((bebida) => bebida.id === draft?.bebidaPlatoId);
+              const fondoSeleccionado = dia.opciones.fondos.find((fondo) => fondo.detalleId === draft?.fondoId);
+              const fondoEsHipocalorico = esFondoHipocalorico(fondoSeleccionado);
+              const modalidadHipocalorica = draft?.modalidadHipocalorica ?? null;
+              const hipocaloricoSopa = fondoEsHipocalorico && modalidadHipocalorica === "SOPA_CREMA";
+              const hipocaloricoDoblePostre = fondoEsHipocalorico && modalidadHipocalorica === "DOBLE_POSTRE";
+              const entradaBloqueadaPorHipocalorico = fondoEsHipocalorico && !modalidadHipocalorica;
               const sopaCombinada = tieneSopaCombinada(entradasSeleccionadas);
               const bebidaPendiente = totalOpciones > 0 && !draft?.bebidaPlatoId;
               const puedeGuardarDia =
-                Boolean(dia.fecha && menuDia?.menu && draft?.bebidaPlatoId && !sopaCombinada) &&
+                Boolean(
+                  dia.fecha &&
+                  menuDia?.menu &&
+                  draft?.fondoId &&
+                  draft?.postreId &&
+                  draft?.bebidaPlatoId &&
+                  !sopaCombinada &&
+                  (!fondoEsHipocalorico || modalidadHipocalorica)
+                ) &&
                 guardandoFecha === null;
 
               return (
@@ -475,7 +544,17 @@ export default function PlanificadorPage() {
                           <p className="rounded border border-dashed border-slate-200 bg-white p-3 text-xs text-slate-400 text-center">No disponible</p>
                         ) : (
                           <>
-                            {entradasEnsalada.length >= 3 && (
+                            {hipocaloricoDoblePostre && (
+                              <p className="rounded border border-amber-200 bg-amber-50 p-3 text-xs font-semibold text-amber-700">
+                                Entrada reemplazada por doble postre.
+                              </p>
+                            )}
+                            {entradaBloqueadaPorHipocalorico && (
+                              <p className="rounded border border-amber-200 bg-amber-50 p-3 text-xs font-semibold text-amber-700">
+                                Selecciona primero la modalidad hipocalorica.
+                              </p>
+                            )}
+                            {entradasEnsalada.length >= 3 && !fondoEsHipocalorico && (
                               <button
                                 type="button"
                                 onClick={() => dia.fecha && seleccionarEnsaladaSurtida(dia.fecha, dia.opciones.entradas)}
@@ -498,14 +577,24 @@ export default function PlanificadorPage() {
                                 )}
                               </button>
                             )}
-                            {dia.opciones.entradas.map((item) => (
-                              <MenuOptionCard
-                                key={item.detalleId}
-                                item={item}
-                                selected={entradasIds.includes(item.detalleId)}
-                                onSelect={() => dia.fecha && actualizarEntradaDraft(dia.fecha, entradasIds, item, dia.opciones.entradas)}
-                              />
-                            ))}
+                            {dia.opciones.entradas.map((item) => {
+                              const esSopaOCrema = esEntradaSopa(item);
+                              const entradaDeshabilitada =
+                                hipocaloricoDoblePostre ||
+                                entradaBloqueadaPorHipocalorico ||
+                                (hipocaloricoSopa && !esSopaOCrema);
+
+                              return (
+                                <MenuOptionCard
+                                  key={item.detalleId}
+                                  item={item}
+                                  selected={entradasIds.includes(item.detalleId)}
+                                  disabled={entradaDeshabilitada}
+                                  helperText={hipocaloricoSopa && !esSopaOCrema ? "No disponible para sopa/crema" : undefined}
+                                  onSelect={() => dia.fecha && actualizarEntradaDraft(dia.fecha, entradasIds, item, dia.opciones.entradas)}
+                                />
+                              );
+                            })}
                           </>
                         )}
                         {sopaCombinada && (
@@ -528,9 +617,48 @@ export default function PlanificadorPage() {
                               <MenuOptionCard
                                 item={item}
                                 selected={draft?.fondoId === item.detalleId}
-                                onSelect={() => dia.fecha && actualizarDraft(dia.fecha, { fondoId: item.detalleId, guarnicionId: null })}
+                                onSelect={() => dia.fecha && seleccionarFondoDraft(dia.fecha, item)}
                               />
-                              {draft?.fondoId === item.detalleId && item.guarniciones.length > 0 && (
+                              {draft?.fondoId === item.detalleId && esFondoPlatoUnico(item) && (
+                                <p className="ml-4 rounded border border-blue-200 bg-blue-50 p-3 text-[11px] font-semibold text-blue-800">
+                                  Este fondo corresponde a plato unico y no requiere guarnicion.
+                                </p>
+                              )}
+                              {draft?.fondoId === item.detalleId && esFondoHipocalorico(item) && (
+                                <div className="ml-4 space-y-2 rounded-md border border-amber-200 bg-amber-50 p-3 shadow-sm">
+                                  <div>
+                                    <p className="text-[10px] font-bold uppercase tracking-wider text-amber-800">Modalidad hipocalorica</p>
+                                    <p className="mt-1 text-[11px] font-medium text-amber-700">No requiere guarnicion. Selecciona como se reemplaza la entrada.</p>
+                                  </div>
+                                  <div className="grid gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => dia.fecha && seleccionarModalidadHipocalorica(dia.fecha, "SOPA_CREMA", entradasIds, dia.opciones.entradas)}
+                                      className={`rounded border px-3 py-2 text-left text-xs font-bold transition-colors ${
+                                        modalidadHipocalorica === "SOPA_CREMA"
+                                          ? "border-[#75AA46] bg-[#75AA46] text-white shadow-sm"
+                                          : "border-amber-200 bg-white text-amber-800 hover:border-[#75AA46]/50"
+                                      }`}
+                                    >
+                                      Sopa/Crema del dia
+                                      <span className="mt-0.5 block text-[10px] font-semibold opacity-80">Permite seleccionar solo una sopa o crema.</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => dia.fecha && seleccionarModalidadHipocalorica(dia.fecha, "DOBLE_POSTRE", entradasIds, dia.opciones.entradas)}
+                                      className={`rounded border px-3 py-2 text-left text-xs font-bold transition-colors ${
+                                        modalidadHipocalorica === "DOBLE_POSTRE"
+                                          ? "border-[#75AA46] bg-[#75AA46] text-white shadow-sm"
+                                          : "border-amber-200 bg-white text-amber-800 hover:border-[#75AA46]/50"
+                                      }`}
+                                    >
+                                      Doble postre
+                                      <span className="mt-0.5 block text-[10px] font-semibold opacity-80">Entrada bloqueada. Requiere soporte futuro para persistir x2.</span>
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                              {draft?.fondoId === item.detalleId && item.guarniciones.length > 0 && !fondoOmiteGuarnicion(item) && (
                                 <div className="rounded-md border border-slate-200 bg-white p-3 shadow-sm ml-4 relative before:absolute before:left-[-16px] before:top-4 before:h-px before:w-4 before:bg-slate-300">
                                   <p className="mb-3 text-[10px] font-bold uppercase tracking-wider text-slate-500">Seleccionar Guarnición</p>
                                   <div className="flex flex-wrap gap-2">
@@ -559,7 +687,15 @@ export default function PlanificadorPage() {
                       {/* Postres */}
                       <div className="space-y-3">
                         <div className="border-b border-slate-200 pb-2">
-                          <p className="text-xs font-bold text-[#1B2C56] uppercase tracking-widest">3. Postre</p>
+                          <p className="text-xs font-bold text-[#1B2C56] uppercase tracking-widest">
+                            3. Postre
+                            {hipocaloricoDoblePostre && (
+                              <span className="ml-2 rounded bg-amber-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest text-amber-700">x2</span>
+                            )}
+                          </p>
+                          {hipocaloricoDoblePostre && (
+                            <p className="mt-1 text-[11px] font-semibold text-amber-700">Modalidad visual: doble postre. No se persiste x2 con el contrato actual.</p>
+                          )}
                         </div>
                         {dia.opciones.postres.length === 0 ? (
                           <p className="rounded border border-dashed border-slate-200 bg-white p-3 text-xs text-slate-400 text-center">No disponible</p>
@@ -569,6 +705,7 @@ export default function PlanificadorPage() {
                               key={item.detalleId}
                               item={item}
                               selected={draft?.postreId === item.detalleId}
+                              badge={hipocaloricoDoblePostre ? "x2" : undefined}
                               onSelect={() => dia.fecha && actualizarDraft(dia.fecha, { postreId: item.detalleId })}
                             />
                           ))

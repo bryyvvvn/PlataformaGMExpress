@@ -68,6 +68,8 @@ export type SemanaCargada = {
   pedidos: number;
 };
 
+export type ModalidadHipocalorica = "SOPA_CREMA" | "DOBLE_POSTRE";
+
 export type DraftMenuDia = {
   entradaId: number | null;
   entradasIds: number[];
@@ -75,6 +77,7 @@ export type DraftMenuDia = {
   postreId: number | null;
   guarnicionId: number | null;
   bebidaPlatoId: number | null;
+  modalidadHipocalorica: ModalidadHipocalorica | null;
 };
 
 export const LETRAS_DIA: Record<DiaMenu["dia"], string> = {
@@ -134,7 +137,19 @@ export function esEntradaSopa(entrada: PlatoMenuDia) {
     entradaConEtiqueta.nombre,
   ].filter(Boolean).join(" ");
 
-  return /\bSOPA\b/.test(normalizarTextoBusqueda(textoEntrada));
+  return /\b(SOPA|CREMA)\b/.test(normalizarTextoBusqueda(textoEntrada));
+}
+
+export function esFondoPlatoUnico(fondo: PlatoMenuDia | null | undefined) {
+  return fondo?.plato.tipo === "PLATO_UNICO";
+}
+
+export function esFondoHipocalorico(fondo: PlatoMenuDia | null | undefined) {
+  return fondo?.plato.tipo === "HIPOCALORICO";
+}
+
+export function fondoOmiteGuarnicion(fondo: PlatoMenuDia | null | undefined) {
+  return esFondoPlatoUnico(fondo) || esFondoHipocalorico(fondo);
 }
 
 export function obtenerEntradasEnsalada(entradas: PlatoMenuDia[]) {
@@ -150,11 +165,22 @@ export function crearDrafts(data: MenuDiaResponse): Record<string, DraftMenuDia>
     data.dias
       .filter((dia) => dia.fecha)
       .map((dia) => {
+        const entradasSeleccionadas = dia.seleccion?.entradasSeleccionadas?.length
+          ? dia.seleccion.entradasSeleccionadas
+          : dia.seleccion?.entrada
+            ? [dia.seleccion.entrada]
+            : [];
         const entradasIds = dia.seleccion?.entradasSeleccionadas?.length
           ? dia.seleccion.entradasSeleccionadas.map((entrada) => entrada.detalleId)
           : dia.seleccion?.entrada.detalleId
             ? [dia.seleccion.entrada.detalleId]
             : [];
+        const modalidadHipocalorica =
+          esFondoHipocalorico(dia.seleccion?.fondo) &&
+          entradasSeleccionadas.length === 1 &&
+          esEntradaSopa(entradasSeleccionadas[0])
+            ? "SOPA_CREMA"
+            : null;
 
         return [
           dia.fecha!,
@@ -165,6 +191,7 @@ export function crearDrafts(data: MenuDiaResponse): Record<string, DraftMenuDia>
             postreId: dia.seleccion?.postre.detalleId ?? null,
             guarnicionId: dia.seleccion?.guarnicion?.id ?? null,
             bebidaPlatoId: dia.seleccion?.bebida?.id ?? null,
+            modalidadHipocalorica,
           },
         ];
       })
@@ -308,6 +335,7 @@ export function usePlanificador() {
         postreId: prev[fecha]?.postreId ?? null,
         guarnicionId: prev[fecha]?.guarnicionId ?? null,
         bebidaPlatoId: prev[fecha]?.bebidaPlatoId ?? null,
+        modalidadHipocalorica: prev[fecha]?.modalidadHipocalorica ?? null,
         ...cambios,
       },
     }));
@@ -323,7 +351,35 @@ export function usePlanificador() {
         ? [draft.entradaId]
         : [];
 
-    if (entradasIds.length === 0 || !draft?.fondoId || !draft.postreId) {
+    const fondo = dia.opciones.fondos.find((item) => item.detalleId === draft?.fondoId);
+    const fondoEsHipocalorico = esFondoHipocalorico(fondo);
+    const fondoSinGuarnicion = fondoOmiteGuarnicion(fondo);
+    const modalidadHipocalorica = draft?.modalidadHipocalorica ?? null;
+
+    if (!draft?.fondoId || !draft.postreId) {
+      setMensaje({ tipo: "error", texto: `Debes seleccionar entrada, fondo y postre para ${dia.dia}` });
+      return;
+    }
+
+    if (fondoEsHipocalorico && !modalidadHipocalorica) {
+      setMensaje({ tipo: "error", texto: `Debes seleccionar la modalidad hipocalorica para ${dia.dia}` });
+      return;
+    }
+
+    if (modalidadHipocalorica === "DOBLE_POSTRE") {
+      if (entradasIds.length > 0) {
+        setMensaje({ tipo: "error", texto: "Para menu hipocalorico con doble postre, no se debe seleccionar entrada." });
+        return;
+      }
+
+      setMensaje({
+        tipo: "error",
+        texto: "El contrato actual de Menu del Dia no permite persistir doble postre. Se requiere soporte futuro para cantidad de postre o modalidad hipocalorica.",
+      });
+      return;
+    }
+
+    if (entradasIds.length === 0) {
       setMensaje({ tipo: "error", texto: `Debes seleccionar entrada, fondo y postre para ${dia.dia}` });
       return;
     }
@@ -342,6 +398,16 @@ export function usePlanificador() {
       return;
     }
 
+    if (fondoEsHipocalorico && modalidadHipocalorica === "SOPA_CREMA") {
+      if (entradasSeleccionadas.length !== 1 || !esEntradaSopa(entradasSeleccionadas[0])) {
+        setMensaje({
+          tipo: "error",
+          texto: "Para menu hipocalorico con sopa/crema, selecciona unicamente la sopa o crema del dia.",
+        });
+        return;
+      }
+    }
+
     if (!draft.bebidaPlatoId) {
       setMensaje({
         tipo: "error",
@@ -350,8 +416,7 @@ export function usePlanificador() {
       return;
     }
 
-    const fondo = dia.opciones.fondos.find((item) => item.detalleId === draft.fondoId);
-    if (fondo && fondo.guarniciones.length > 0 && !draft.guarnicionId) {
+    if (!fondoSinGuarnicion && fondo && fondo.guarniciones.length > 0 && !draft.guarnicionId) {
       setMensaje({ tipo: "error", texto: `Debes seleccionar una guarnición para ${dia.dia}` });
       return;
     }
@@ -370,7 +435,7 @@ export function usePlanificador() {
           entradasIds,
           fondoId: draft.fondoId,
           postreId: draft.postreId,
-          guarnicionId: draft.guarnicionId,
+          guarnicionId: fondoSinGuarnicion ? null : draft.guarnicionId,
           bebidaPlatoId: draft.bebidaPlatoId,
         }),
       });
