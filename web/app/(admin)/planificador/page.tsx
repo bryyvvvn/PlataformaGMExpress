@@ -361,7 +361,7 @@ export default function PlanificadorPage() {
               <h2 className="text-lg font-bold text-[#1B2C56]">Programación Diaria</h2>
             </div>
             <p className="text-sm text-slate-500">
-              Estructura el menú final (Entrada, Fondo, Guarnición, Postre) que verán los clientes.
+              Estructura el menú final (Entrada, Fondo, Guarnición, Postre, Bebida) que verán los clientes.
             </p>
           </div>
           <Button variant="outline" size="sm" onClick={cargarMenuDia} disabled={loadingMenuDia} className="h-8 font-semibold bg-white shadow-sm text-slate-700">
@@ -532,7 +532,7 @@ export default function PlanificadorPage() {
                               />
                               {draft?.fondoId === item.detalleId && item.guarniciones.length > 0 && (
                                 <div className="rounded-md border border-slate-200 bg-white p-3 shadow-sm ml-4 relative before:absolute before:left-[-16px] before:top-4 before:h-px before:w-4 before:bg-slate-300">
-                                  <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">Seleccionar Guarnición</p>
+                                  <p className="mb-3 text-[10px] font-bold uppercase tracking-wider text-slate-500">Seleccionar Guarnición</p>
                                   <div className="flex flex-wrap gap-2">
                                     {item.guarniciones.map((guarnicion) => (
                                       <button

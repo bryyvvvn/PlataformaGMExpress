@@ -179,7 +179,6 @@ export default function NuevaEmpresaPage() {
 
     const titularCompleto =
       contactoTitularForm.nombresApellidos.trim().length > 0 &&
-      contactoTitularForm.rut.trim().length > 0 &&
       contactoTitularForm.rolCargo.trim().length > 0 &&
       contactoTitularForm.telefono.trim().length > 0 &&
       contactoTitularForm.email.trim().length > 0

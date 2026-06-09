@@ -12,7 +12,7 @@ export interface Plato {
   id:          number;
   nombre:      string;
   url_imagen:  string | null;
-  categoria:   "ENTRADA" | "FONDO" | "POSTRE" | "JUGO" | "BEBIDA";
+  categoria:   "ENTRADA" | "FONDO" | "POSTRE" | "JUGO" | "BEBIDA" | "AGUA_SABORIZADA";
   tipo:        "NORMAL" | "VEGANO" | "VEGETARIANO" | "HIPOCALORICO" | "PLATO_UNICO";
   calorias?:   number | null;
   proteinas?:  number | null;
@@ -27,10 +27,13 @@ export interface MenuDia {
   fondos:   Plato[];
   postres:  Plato[];
   menuDia:  {
-    entrada: Plato;
-    fondo: Plato;
-    postre: Plato;
-    guarnicion: Guarnicion | null;
+    entrada?: Plato | null;
+    fondo?: Plato | null;
+    postre?: Plato | null;
+    guarnicion?: Guarnicion | null;
+    entradasSeleccionadas?: Plato[];
+    entradaDisplay?: string | null;
+    bebida?: Plato | null;
   } | null;
 }
 
@@ -44,7 +47,7 @@ const MENU_VACIO: MenuDia = { entradas: [], fondos: [], postres: [], menuDia: nu
  *
  * Se vuelve a ejecutar automáticamente cuando cambia `fecha`.
  */
-export const useMenuAPI = (fecha?: string) => {
+export const useMenuAPI = (fecha?: string, usuarioId?: string) => {
   const [menuHoy, setMenuHoy] = useState<MenuDia>(MENU_VACIO);
   const [cargando, setCargando] = useState(true);
 
@@ -54,9 +57,11 @@ export const useMenuAPI = (fecha?: string) => {
     const cargarMenu = async () => {
       setCargando(true);
       try {
-        const url = fecha
-          ? `${API_BASE_URL}/api/trabajador/menu-semanal?fecha=${fecha}`
-          : `${API_BASE_URL}/api/trabajador/menu-semanal`;
+        const params = new URLSearchParams();
+        if (fecha) params.set("fecha", fecha);
+        if (usuarioId) params.set("usuarioId", usuarioId);
+        const query = params.toString();
+        const url = `${API_BASE_URL}/api/trabajador/menu-semanal${query ? `?${query}` : ""}`;
 
         const respuesta = await fetch(url);
 
@@ -81,7 +86,7 @@ export const useMenuAPI = (fecha?: string) => {
     return () => {
       cancelado = true; // cleanup al desmontar o cuando cambia fecha
     };
-  }, [fecha]); // ← se re-ejecuta cuando el usuario navega a otra fecha
+  }, [fecha, usuarioId]); // se re-ejecuta cuando cambia fecha o usuario
 
   return { menuHoy, cargando };
 };
