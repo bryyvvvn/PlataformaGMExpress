@@ -24,7 +24,12 @@ import {
 } from "@/components/ui/table"
 
 // Importamos el hook que acabamos de crear
-import { useEmpresas, OPCIONES_CONVENIO } from "@/hooks/useEmpresas"
+import {
+  useEmpresas,
+  OPCIONES_CONVENIO,
+  OPCIONES_TIPO_EMPAQUETADO,
+  type TipoEmpaquetado,
+} from "@/hooks/useEmpresas"
 
 export default function EmpresasView() {
   const router = useRouter()
@@ -42,6 +47,7 @@ export default function EmpresasView() {
     abrirModalConvenio,
     cerrarModalConvenio,
     actualizarCampoConvenio,
+    actualizarTipoEmpaquetado,
     guardarConvenio,
     empresaCambiandoEstadoId,
     errorEstadoEmpresa,
@@ -256,6 +262,32 @@ export default function EmpresasView() {
             </div>
 
             <div className="mt-6 space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="tipoEmpaquetado" className="text-sm font-medium">
+                  Tipo de empaquetado
+                </Label>
+                <select
+                  id="tipoEmpaquetado"
+                  value={convenioForm.tipoEmpaquetado ?? ""}
+                  disabled={guardandoConvenio}
+                  onChange={(event) =>
+                    actualizarTipoEmpaquetado(
+                      event.target.value
+                        ? (event.target.value as TipoEmpaquetado)
+                        : null
+                    )
+                  }
+                  className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <option value="">No definido</option>
+                  {OPCIONES_TIPO_EMPAQUETADO.map((opcion) => (
+                    <option key={opcion.value} value={opcion.value}>
+                      {opcion.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               {OPCIONES_CONVENIO.map((opcion) => (
                 <div key={opcion.campo} className="flex items-center gap-3">
                   <input

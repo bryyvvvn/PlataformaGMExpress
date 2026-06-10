@@ -31,7 +31,15 @@ type ConvenioForm = {
   permiteJugo: boolean
   permiteBebida: boolean
   permiteAguaSaborizada: boolean
+  tipoEmpaquetado: TipoEmpaquetado | null
 }
+
+type TipoEmpaquetado =
+  | "BOWL_CRAFT"
+  | "C10_ALUMINIO"
+  | "SERVICIO_TRADICIONAL_PLATO"
+
+type CampoBooleanoConvenio = Exclude<keyof ConvenioForm, "tipoEmpaquetado">
 
 type CrearEmpresaForm = {
   nombre: string
@@ -70,6 +78,7 @@ const CONVENIO_DEFAULTS: ConvenioForm = {
   permiteJugo: true,
   permiteBebida: false,
   permiteAguaSaborizada: false,
+  tipoEmpaquetado: null,
 }
 
 const CREAR_EMPRESA_DEFAULTS: CrearEmpresaForm = {
@@ -99,7 +108,7 @@ const CONTACTO_DEFAULTS: ContactoEmpresaForm = {
   fechaNacimiento: "",
 }
 
-const OPCIONES_CONVENIO: Array<{ campo: keyof ConvenioForm; label: string }> = [
+const OPCIONES_CONVENIO: Array<{ campo: CampoBooleanoConvenio; label: string }> = [
   { campo: "permitePlato", label: "Plato" },
   { campo: "permiteEntrada", label: "Entrada" },
   { campo: "permitePostre", label: "Postre" },
@@ -107,6 +116,18 @@ const OPCIONES_CONVENIO: Array<{ campo: keyof ConvenioForm; label: string }> = [
   { campo: "permiteJugo", label: "Jugo" },
   { campo: "permiteBebida", label: "Bebida" },
   { campo: "permiteAguaSaborizada", label: "Agua saborizada" },
+]
+
+const OPCIONES_TIPO_EMPAQUETADO: Array<{
+  value: TipoEmpaquetado
+  label: string
+}> = [
+  { value: "BOWL_CRAFT", label: "Bowl craft" },
+  { value: "C10_ALUMINIO", label: "C10 aluminio" },
+  {
+    value: "SERVICIO_TRADICIONAL_PLATO",
+    label: "Servicio tradicional en plato",
+  },
 ]
 
 const PASOS_CREAR_EMPRESA: Array<{
@@ -148,12 +169,21 @@ export default function NuevaEmpresaPage() {
   }
 
   const actualizarConvenioCrearEmpresa = (
-    campo: keyof ConvenioForm,
+    campo: CampoBooleanoConvenio,
     checked: boolean
   ) => {
     setCrearEmpresaConvenio((prev) => ({
       ...prev,
       [campo]: checked,
+    }))
+  }
+
+  const actualizarTipoEmpaquetadoCrearEmpresa = (
+    tipoEmpaquetado: TipoEmpaquetado | null
+  ) => {
+    setCrearEmpresaConvenio((prev) => ({
+      ...prev,
+      tipoEmpaquetado,
     }))
   }
 
@@ -714,6 +744,29 @@ export default function NuevaEmpresaPage() {
               <p className="text-sm text-muted-foreground">
                 Seleccione los elementos incluidos en el convenio:
               </p>
+              <div className="space-y-2">
+                <Label htmlFor="tipoEmpaquetado">Tipo de empaquetado</Label>
+                <select
+                  id="tipoEmpaquetado"
+                  value={crearEmpresaConvenio.tipoEmpaquetado ?? ""}
+                  disabled={guardandoEmpresa}
+                  onChange={(event) =>
+                    actualizarTipoEmpaquetadoCrearEmpresa(
+                      event.target.value
+                        ? (event.target.value as TipoEmpaquetado)
+                        : null
+                    )
+                  }
+                  className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <option value="">No definido</option>
+                  {OPCIONES_TIPO_EMPAQUETADO.map((opcion) => (
+                    <option key={opcion.value} value={opcion.value}>
+                      {opcion.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <div className="grid gap-4 md:grid-cols-2">
                 {OPCIONES_CONVENIO.map((opcion) => (
                   <div

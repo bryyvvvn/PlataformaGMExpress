@@ -35,9 +35,15 @@ type ConvenioEmpresa = {
   permiteJugo: boolean
   permiteBebida: boolean
   permiteAguaSaborizada: boolean
+  tipoEmpaquetado: TipoEmpaquetado | null
 }
 
-type CampoConvenio = Exclude<keyof ConvenioEmpresa, "id">
+type TipoEmpaquetado =
+  | "BOWL_CRAFT"
+  | "C10_ALUMINIO"
+  | "SERVICIO_TRADICIONAL_PLATO"
+
+type CampoConvenio = Exclude<keyof ConvenioEmpresa, "id" | "tipoEmpaquetado">
 
 type ContactoEmpresa = {
   id: number
@@ -96,6 +102,12 @@ const PRODUCTOS_CONVENIO: Array<{
   { campo: "permiteAguaSaborizada", label: "Agua saborizada" },
 ]
 
+const LABELS_TIPO_EMPAQUETADO: Record<TipoEmpaquetado, string> = {
+  BOWL_CRAFT: "Bowl craft",
+  C10_ALUMINIO: "C10 aluminio",
+  SERVICIO_TRADICIONAL_PLATO: "Servicio tradicional en plato",
+}
+
 function mostrarTexto(value: string | null | undefined) {
   const texto = value?.trim()
 
@@ -112,6 +124,10 @@ function formatearFecha(value: string | null | undefined) {
   }
 
   return new Intl.DateTimeFormat("es-CL").format(fecha)
+}
+
+function mostrarTipoEmpaquetado(value: TipoEmpaquetado | null | undefined) {
+  return value ? LABELS_TIPO_EMPAQUETADO[value] : "No definido"
 }
 
 function Dato({ label, value }: { label: string; value: ReactNode }) {
@@ -385,32 +401,39 @@ export default function EmpresaDetallePage() {
           </CardHeader>
           <CardContent>
             {empresa.convenio ? (
-              <div className="grid gap-3 sm:grid-cols-2">
-                {PRODUCTOS_CONVENIO.map((producto) => {
-                  const permitido = empresa.convenio?.[producto.campo] ?? false
+              <div className="space-y-4">
+                <Dato
+                  label="Tipo de empaquetado"
+                  value={mostrarTipoEmpaquetado(empresa.convenio.tipoEmpaquetado)}
+                />
 
-                  return (
-                    <div
-                      key={producto.campo}
-                      className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-2"
-                    >
-                      <span className="text-sm font-medium">
-                        {producto.label}
-                      </span>
-                      <Badge
-                        variant={permitido ? "default" : "secondary"}
-                        className={permitido ? "bg-[#75aa46] text-white" : ""}
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {PRODUCTOS_CONVENIO.map((producto) => {
+                    const permitido = empresa.convenio?.[producto.campo] ?? false
+
+                    return (
+                      <div
+                        key={producto.campo}
+                        className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-2"
                       >
-                        {permitido ? (
-                          <Check className="mr-1 h-3 w-3" />
-                        ) : (
-                          <Minus className="mr-1 h-3 w-3" />
-                        )}
-                        {permitido ? "Permitido" : "No incluido"}
-                      </Badge>
-                    </div>
-                  )
-                })}
+                        <span className="text-sm font-medium">
+                          {producto.label}
+                        </span>
+                        <Badge
+                          variant={permitido ? "default" : "secondary"}
+                          className={permitido ? "bg-[#75aa46] text-white" : ""}
+                        >
+                          {permitido ? (
+                            <Check className="mr-1 h-3 w-3" />
+                          ) : (
+                            <Minus className="mr-1 h-3 w-3" />
+                          )}
+                          {permitido ? "Permitido" : "No incluido"}
+                        </Badge>
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">
