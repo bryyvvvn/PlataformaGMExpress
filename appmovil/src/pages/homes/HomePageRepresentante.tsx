@@ -57,6 +57,7 @@ const HomePageRepresentante: React.FC<HomePageRepresentanteProps> = ({ empresaId
   
   // Solo está completado si hay pedidos y todos coinciden
   const estaCompletado = totalPedidos > 0 && pedidosConfirmados === totalPedidos;
+  const tieneEmpresa = Boolean(empresaId);
 
   return (
     <div className="min-h-screen pb-36" style={{ backgroundColor: THEME.colors.background }}>
@@ -87,7 +88,21 @@ const HomePageRepresentante: React.FC<HomePageRepresentanteProps> = ({ empresaId
         className="mx-6 -mt-8 p-5 rounded-3xl shadow-2xl bg-white border-b-4 transition-all" 
         style={{ borderBottomColor: estaCompletado ? THEME.colors.primary : '#1d2d50' }}
       >
-        {cargando ? (
+        {!tieneEmpresa ? (
+          <div className="flex items-center gap-4">
+            <div className="p-3 rounded-2xl bg-slate-50">
+              <ClipboardList size={24} className="text-[#1d2d50]" />
+            </div>
+            <div>
+              <p className="text-[10px] text-gray-400 font-black uppercase mb-0.5">
+                Empresa no asignada
+              </p>
+              <p className="text-sm font-bold text-[#1B2C56]">
+                Solicita asignacion para ver la planilla.
+              </p>
+            </div>
+          </div>
+        ) : cargando ? (
           <div className="flex items-center gap-4 animate-pulse">
             <div className="w-12 h-12 bg-gray-200 rounded-2xl"></div>
             <div className="flex-1 space-y-2">
@@ -132,7 +147,11 @@ const HomePageRepresentante: React.FC<HomePageRepresentanteProps> = ({ empresaId
           </button>
         </div>
 
-        {cargando ? (
+        {!tieneEmpresa ? (
+          <div className="bg-white rounded-[24px] p-8 text-center border border-gray-100 shadow-sm text-gray-400 text-sm font-medium">
+            Tu usuario representante no tiene una empresa asociada.
+          </div>
+        ) : cargando ? (
           <div className="space-y-3">
             {(() => {
               const maxPlaceholders = 8;
@@ -162,7 +181,7 @@ const HomePageRepresentante: React.FC<HomePageRepresentanteProps> = ({ empresaId
         )}
       </div>
 
-      {!cargando && trabajadores.length > 0 && (
+      {tieneEmpresa && !cargando && trabajadores.length > 0 && (
         <div className="fixed bottom-0 left-0 w-full p-6 bg-white/90 backdrop-blur-xl shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-30">
           
           {totalPedidos === 0 ? (

@@ -24,12 +24,13 @@ const getDiaCorto = (fechaString?: string) => {
 };
 
 export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({ trabajador }) => {
+  const nombreTrabajador = trabajador?.nombre?.trim() || 'Usuario sin nombre';
   const [isExpanded, setIsExpanded] = useState(false);
   const [pedidoActivoId, setPedidoActivoId] = useState<number | null>(
-    trabajador.pedidos && trabajador.pedidos.length > 0 ? trabajador.pedidos[0].id : null
+    trabajador?.pedidos && trabajador.pedidos.length > 0 ? trabajador.pedidos[0].id : null
   );
 
-  const pedidos = trabajador.pedidos || [];
+  const pedidos = Array.isArray(trabajador?.pedidos) ? trabajador.pedidos : [];
   const pedidoSeleccionado = pedidos.find(p => p.id === pedidoActivoId);
 
   return (
@@ -40,11 +41,11 @@ export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({ trabajador
       >
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-full bg-gray-50 border border-gray-100 flex items-center justify-center text-[#1d2d50] font-black text-lg shadow-inner">
-            {trabajador.nombre ? trabajador.nombre.charAt(0).toUpperCase() : 'U'}
+            {nombreTrabajador.charAt(0).toUpperCase()}
           </div>
           <div className="flex flex-col text-left">
             <span className="font-black text-lg text-[#1d2d50] leading-tight capitalize">
-              {trabajador.nombre.toLowerCase()}
+              {nombreTrabajador.toLowerCase()}
             </span>
             {/* 🔥 La etiqueta cambia a gris si tiene 0 pedidos */}
             <span className={`text-[10px] font-black uppercase tracking-widest flex items-center gap-1 mt-1 ${pedidos.length > 0 ? 'text-[#70a344]' : 'text-gray-400'}`}>
@@ -112,7 +113,7 @@ export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({ trabajador
                   </div>
                   
                   <ul className="pl-2 space-y-2">
-                    {pedidoSeleccionado.listaPlatos && pedidoSeleccionado.listaPlatos.length > 0 ? (
+                    {Array.isArray(pedidoSeleccionado.listaPlatos) && pedidoSeleccionado.listaPlatos.length > 0 ? (
                       pedidoSeleccionado.listaPlatos.map((plato, index) => (
                         <li key={index} className="flex items-start gap-2 text-xs font-bold text-[#1d2d50] uppercase leading-snug">
                           <span className="text-[#70a344] text-sm mt-[0px]">•</span>

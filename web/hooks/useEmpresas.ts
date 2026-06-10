@@ -1,5 +1,10 @@
 import { useState, useCallback, useEffect } from "react"
 
+export type TipoEmpaquetado =
+  | "BOWL_CRAFT"
+  | "C10_ALUMINIO"
+  | "SERVICIO_TRADICIONAL_PLATO"
+
 export type ConvenioEmpresa = {
   id: number
   permitePlato: boolean
@@ -9,6 +14,7 @@ export type ConvenioEmpresa = {
   permiteJugo: boolean
   permiteBebida: boolean
   permiteAguaSaborizada: boolean
+  tipoEmpaquetado: TipoEmpaquetado | null
 }
 
 export type EmpresaCliente = {
@@ -35,6 +41,7 @@ export type EmpresasResponse = {
 }
 
 export type ConvenioForm = Omit<ConvenioEmpresa, "id">
+type CampoBooleanoConvenio = Exclude<keyof ConvenioForm, "tipoEmpaquetado">
 
 export const CONVENIO_DEFAULTS: ConvenioForm = {
   permitePlato: true,
@@ -44,9 +51,10 @@ export const CONVENIO_DEFAULTS: ConvenioForm = {
   permiteJugo: true,
   permiteBebida: false,
   permiteAguaSaborizada: false,
+  tipoEmpaquetado: null,
 }
 
-export const OPCIONES_CONVENIO: Array<{ campo: keyof ConvenioForm; label: string }> = [
+export const OPCIONES_CONVENIO: Array<{ campo: CampoBooleanoConvenio; label: string }> = [
   { campo: "permitePlato", label: "Plato" },
   { campo: "permiteEntrada", label: "Entrada" },
   { campo: "permitePostre", label: "Postre" },
@@ -54,6 +62,18 @@ export const OPCIONES_CONVENIO: Array<{ campo: keyof ConvenioForm; label: string
   { campo: "permiteJugo", label: "Jugo" },
   { campo: "permiteBebida", label: "Bebida" },
   { campo: "permiteAguaSaborizada", label: "Agua saborizada" },
+]
+
+export const OPCIONES_TIPO_EMPAQUETADO: Array<{
+  value: TipoEmpaquetado
+  label: string
+}> = [
+  { value: "BOWL_CRAFT", label: "Bowl craft" },
+  { value: "C10_ALUMINIO", label: "C10 aluminio" },
+  {
+    value: "SERVICIO_TRADICIONAL_PLATO",
+    label: "Servicio tradicional en plato",
+  },
 ]
 
 export function useEmpresas() {
@@ -104,6 +124,7 @@ export function useEmpresas() {
             permiteJugo: empresa.convenio.permiteJugo,
             permiteBebida: empresa.convenio.permiteBebida,
             permiteAguaSaborizada: empresa.convenio.permiteAguaSaborizada,
+            tipoEmpaquetado: empresa.convenio.tipoEmpaquetado,
           }
         : CONVENIO_DEFAULTS
     )
@@ -116,8 +137,12 @@ export function useEmpresas() {
     setErrorConvenio(null)
   }
 
-  const actualizarCampoConvenio = (campo: keyof ConvenioForm, checked: boolean) => {
+  const actualizarCampoConvenio = (campo: CampoBooleanoConvenio, checked: boolean) => {
     setConvenioForm((prev) => ({ ...prev, [campo]: checked }))
+  }
+
+  const actualizarTipoEmpaquetado = (tipoEmpaquetado: TipoEmpaquetado | null) => {
+    setConvenioForm((prev) => ({ ...prev, tipoEmpaquetado }))
   }
 
   const guardarConvenio = async () => {
@@ -187,6 +212,7 @@ export function useEmpresas() {
     abrirModalConvenio,
     cerrarModalConvenio,
     actualizarCampoConvenio,
+    actualizarTipoEmpaquetado,
     guardarConvenio,
     
     empresaCambiandoEstadoId,

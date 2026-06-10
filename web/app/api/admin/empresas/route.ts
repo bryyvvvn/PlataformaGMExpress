@@ -12,6 +12,7 @@ const CONVENIO_DEFAULTS = {
   permiteJugo: true,
   permiteBebida: false,
   permiteAguaSaborizada: false,
+  tipoEmpaquetado: null,
 }
 
 const CAMPOS_CONVENIO = [
@@ -24,8 +25,17 @@ const CAMPOS_CONVENIO = [
   "permiteAguaSaborizada",
 ] as const
 
+const TIPOS_EMPAQUETADO = [
+  "BOWL_CRAFT",
+  "C10_ALUMINIO",
+  "SERVICIO_TRADICIONAL_PLATO",
+] as const
+
 type CampoConvenio = (typeof CAMPOS_CONVENIO)[number]
-type ConvenioData = Record<CampoConvenio, boolean>
+type TipoEmpaquetadoValue = (typeof TIPOS_EMPAQUETADO)[number]
+type ConvenioData = Record<CampoConvenio, boolean> & {
+  tipoEmpaquetado: TipoEmpaquetadoValue | null
+}
 
 type ValidationResult<T> = { data: T } | { error: string }
 
@@ -115,6 +125,21 @@ function validarEstadoEmpresa(value: unknown): ValidationResult<EstadoEmpresa> {
   return { data: value }
 }
 
+function validarTipoEmpaquetado(value: unknown): ValidationResult<TipoEmpaquetadoValue | null> {
+  if (value === undefined || value === null || value === "") {
+    return { data: null }
+  }
+
+  if (
+    typeof value !== "string" ||
+    !TIPOS_EMPAQUETADO.includes(value as TipoEmpaquetadoValue)
+  ) {
+    return { error: "El tipo de empaquetado no es valido" }
+  }
+
+  return { data: value as TipoEmpaquetadoValue }
+}
+
 function validarConvenio(value: unknown): ValidationResult<ConvenioData> {
   if (value === undefined || value === null) {
     return { data: CONVENIO_DEFAULTS }
@@ -124,7 +149,10 @@ function validarConvenio(value: unknown): ValidationResult<ConvenioData> {
     return { error: "El convenio debe ser un objeto JSON" }
   }
 
-  const camposPermitidos = new Set<string>(CAMPOS_CONVENIO)
+  const camposPermitidos = new Set<string>([
+    ...CAMPOS_CONVENIO,
+    "tipoEmpaquetado",
+  ])
   const camposExtra = Object.keys(value).filter((key) => !camposPermitidos.has(key))
 
   if (camposExtra.length > 0) {
@@ -141,14 +169,20 @@ function validarConvenio(value: unknown): ValidationResult<ConvenioData> {
     }
   }
 
+  const tipoEmpaquetado = validarTipoEmpaquetado(value.tipoEmpaquetado)
+  if ("error" in tipoEmpaquetado) return tipoEmpaquetado
+
   return {
-    data: CAMPOS_CONVENIO.reduce(
-      (acc, campo) => ({
-        ...acc,
-        [campo]: value[campo],
-      }),
-      {} as ConvenioData
-    ),
+    data: {
+      ...CAMPOS_CONVENIO.reduce(
+        (acc, campo) => ({
+          ...acc,
+          [campo]: value[campo],
+        }),
+        {} as Record<CampoConvenio, boolean>
+      ),
+      tipoEmpaquetado: tipoEmpaquetado.data,
+    },
   }
 }
 
@@ -427,6 +461,7 @@ export async function GET() {
               permiteJugo: true,
               permiteBebida: true,
               permiteAguaSaborizada: true,
+              tipoEmpaquetado: true,
             },
           },
         },
@@ -553,6 +588,7 @@ export async function POST(req: NextRequest) {
               permiteJugo: true,
               permiteBebida: true,
               permiteAguaSaborizada: true,
+              tipoEmpaquetado: true,
             },
           },
           ContactoEmpresa: {

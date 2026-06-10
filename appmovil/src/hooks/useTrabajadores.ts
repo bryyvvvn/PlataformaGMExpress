@@ -15,7 +15,10 @@ export const useTrabajadores = (empresaId: number | null, fechaSeleccionada?: st
   useEffect(() => {
     const obtenerDatos = async () => {
       if (!empresaId) {
-        return; // Esperar a que llegue el empresaId, sin cambiar cargando
+        setResumenEmpresa(null);
+        setTrabajadores([]);
+        setCargando(false);
+        return;
       }
 
       setCargando(true);
@@ -36,7 +39,14 @@ export const useTrabajadores = (empresaId: number | null, fechaSeleccionada?: st
         }
         const empleadosRes = await fetch(empleadosUrl);
         const empleadosData = empleadosRes.ok ? await empleadosRes.json() : [];
-        setTrabajadores(empleadosData || []);
+        const empleados = Array.isArray(empleadosData) ? empleadosData : [];
+        setTrabajadores(
+          empleados.map((empleado) => ({
+            ...empleado,
+            nombre: empleado?.nombre ?? 'Usuario sin nombre',
+            pedidos: Array.isArray(empleado?.pedidos) ? empleado.pedidos : [],
+          }))
+        );
       } catch (error) {
         console.error("[useTrabajadores] Error al cargar los datos:", error);
         setTrabajadores([]);
