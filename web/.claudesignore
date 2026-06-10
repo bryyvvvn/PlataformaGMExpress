@@ -1,0 +1,20 @@
+# Dependencias y builds (Lo que más consume tokens)
+node_modules/
+.next/
+dist/
+build/
+out/
+
+# Archivos de entorno y logs
+.env
+.env.local
+.env.*
+*.log
+npm-debug.log*
+
+# Assets estáticos (Claude no necesita leer imágenes o fuentes)
+public/
+
+# Archivos de Git y configuraciones de editor
+.git/
+.vscode/

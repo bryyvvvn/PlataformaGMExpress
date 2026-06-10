@@ -1,8 +1,8 @@
 // web/app/auth/login/page.tsx
-"use client"
-import { SignIn } from '@clerk/nextjs'
+"use client";
+import { SignIn } from "@clerk/nextjs";
 // Ajusta la ruta de importación si tu carpeta lib está en otro nivel
-import { clerkAppearance } from '@/lib/clerk' 
+import { clerkAppearance } from "@/lib/clerk";
 
 export default function LoginPage() {
   return (
@@ -12,12 +12,11 @@ export default function LoginPage() {
           <h2 className="text-3xl font-bold text-secondary">GM Express</h2>
           <p className="mt-2 text-sm text-gray-600">Acceso Administrativo</p>
         </div>
-        
+
         <div className="space-y-4">
           <SignIn routing="hash" appearance={clerkAppearance} />
         </div>
-
       </div>
     </div>
-  )
+  );
 }
