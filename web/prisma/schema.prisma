@@ -180,18 +180,19 @@ model ContactoEmpresa {
 }
 
 model ConvenioEmpresa {
-  id                    Int      @id @default(autoincrement())
-  empresaId             Int      @unique
-  permitePlato          Boolean  @default(true)
-  permiteEntrada        Boolean  @default(true)
-  permitePostre         Boolean  @default(true)
-  permitePan            Boolean  @default(true)
-  permiteJugo           Boolean  @default(true)
-  permiteBebida         Boolean  @default(false)
-  permiteAguaSaborizada Boolean  @default(false)
-  creado_en             DateTime @default(now())
-  actualizado_en        DateTime @default(now())
-  Empresa               Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  id                    Int              @id @default(autoincrement())
+  empresaId             Int              @unique
+  permitePlato          Boolean          @default(true)
+  permiteEntrada        Boolean          @default(true)
+  permitePostre         Boolean          @default(true)
+  permitePan            Boolean          @default(true)
+  permiteJugo           Boolean          @default(true)
+  permiteBebida         Boolean          @default(false)
+  permiteAguaSaborizada Boolean          @default(false)
+  tipoEmpaquetado       TipoEmpaquetado?
+  creado_en             DateTime         @default(now())
+  actualizado_en        DateTime         @default(now())
+  Empresa               Empresa          @relation(fields: [empresaId], references: [id], onDelete: Cascade)
 }
 
 model MenuDiaEntradaSeleccion {
@@ -249,4 +250,10 @@ enum EstadoEmpresa {
 enum TipoContactoEmpresa {
   TITULAR
   SUPLENTE
+}
+
+enum TipoEmpaquetado {
+  BOWL_CRAFT
+  C10_ALUMINIO
+  SERVICIO_TRADICIONAL_PLATO
 }

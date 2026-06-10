@@ -9,7 +9,11 @@ import {
 
 export const dynamic = "force-dynamic";
 
-type ConvenioBebida = {
+type ConvenioMenuDia = {
+  permitePlato: boolean;
+  permiteEntrada: boolean;
+  permitePostre: boolean;
+  permitePan: boolean;
   permiteBebida: boolean;
   permiteJugo: boolean;
   permiteAguaSaborizada: boolean;
@@ -51,7 +55,7 @@ function construirEntradaDisplay(entradas: ReturnType<typeof formatearDetalle>[]
   return entradas.map((entrada) => entrada.nombre).join(" + ");
 }
 
-function puedeVerBebidaPorConvenio(bebida: PlatoBebida | null, convenio: ConvenioBebida | null) {
+function puedeVerBebidaPorConvenio(bebida: PlatoBebida | null, convenio: ConvenioMenuDia | null) {
   if (!bebida || !convenio) return false;
   if (bebida.categoria === "BEBIDA") return convenio.permiteBebida;
   if (bebida.categoria === "JUGO") return convenio.permiteJugo;
@@ -59,7 +63,7 @@ function puedeVerBebidaPorConvenio(bebida: PlatoBebida | null, convenio: Conveni
   return false;
 }
 
-async function obtenerConvenioUsuario(usuarioId: string | null): Promise<ConvenioBebida | null> {
+async function obtenerConvenioUsuario(usuarioId: string | null): Promise<ConvenioMenuDia | null> {
   if (!usuarioId) return null;
 
   const usuario = await db.usuario.findUnique({
@@ -69,6 +73,10 @@ async function obtenerConvenioUsuario(usuarioId: string | null): Promise<Conveni
         select: {
           ConvenioEmpresa: {
             select: {
+              permitePlato: true,
+              permiteEntrada: true,
+              permitePostre: true,
+              permitePan: true,
               permiteBebida: true,
               permiteJugo: true,
               permiteAguaSaborizada: true,
@@ -92,23 +100,27 @@ function formatearSeleccion(seleccion: {
     orden: number;
     menuDetalle: Parameters<typeof formatearDetalle>[0];
   }>;
-}, convenio: ConvenioBebida | null) {
+}, convenio: ConvenioMenuDia | null) {
   const entradas = seleccion.entradasSeleccionadas.length > 0
     ? seleccion.entradasSeleccionadas
         .sort((a, b) => a.orden - b.orden)
         .map((item) => formatearDetalle(item.menuDetalle))
     : [formatearDetalle(seleccion.entradaDetalle)];
+  const permiteEntrada = convenio?.permiteEntrada ?? true;
+  const permitePlato = convenio?.permitePlato ?? true;
+  const permitePostre = convenio?.permitePostre ?? true;
+  const entradasPermitidas = permiteEntrada ? entradas : [];
   const bebida = puedeVerBebidaPorConvenio(seleccion.bebidaPlato, convenio)
     ? seleccion.bebidaPlato
     : null;
 
   return {
-    entrada: entradas[0] ?? formatearDetalle(seleccion.entradaDetalle),
-    fondo: formatearDetalle(seleccion.fondoDetalle),
-    postre: formatearDetalle(seleccion.postreDetalle),
-    guarnicion: seleccion.guarnicion,
-    entradasSeleccionadas: entradas,
-    entradaDisplay: construirEntradaDisplay(entradas),
+    entrada: entradasPermitidas[0] ?? null,
+    fondo: permitePlato ? formatearDetalle(seleccion.fondoDetalle) : null,
+    postre: permitePostre ? formatearDetalle(seleccion.postreDetalle) : null,
+    guarnicion: permitePlato ? seleccion.guarnicion : null,
+    entradasSeleccionadas: entradasPermitidas,
+    entradaDisplay: permiteEntrada ? construirEntradaDisplay(entradasPermitidas) : null,
     bebida,
   };
 }
