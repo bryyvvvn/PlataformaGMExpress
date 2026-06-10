@@ -15,6 +15,14 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: 'GM Express',
+  icons: {
+    icon: [
+      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/icon.png', type: 'image/png' },
+    ],
+    shortcut: '/favicon.ico',
+    apple: '/icon.png',
+  },
   description: 'Plataforma de Administración GM Express',
 }
 
