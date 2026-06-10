@@ -127,7 +127,6 @@ const HomePageTrabajador: React.FC = () => {
 
   useEffect(() => { if (user?.id) cargarHistorial(); }, [user?.id, cargarHistorial]);
 
-  // ✅ BLINDAJE ANTICRASH: Si historial o fecha viene null, no se rompe
   const fechasBloqueadas = useMemo(() => new Set((historial || []).map((p: any) => String(p?.fecha || '').split('T')[0])), [historial]);
   
   const isSelectedDateToday = diasSemanaArray?.[diaSeleccionadoIdx]?.esHoy ?? false;
@@ -138,7 +137,6 @@ const HomePageTrabajador: React.FC = () => {
   const fechaSeleccionadaTienePedido = fechasBloqueadas.has(fechaSeleccionadaISO || '');
   const bloquearUI = (isSelectedDateToday && isDeadlinePassed) || (fechaBloqueada && !fechaSeleccionadaTienePedido);
 
-  // ✅ BLINDAJE ANTICRASH: Iteración segura
   const todosBloqueados = useMemo(() => {
     return (diasSemanaArray || []).every(dia => {
       if (!dia?.iso) return false;
@@ -203,7 +201,6 @@ const HomePageTrabajador: React.FC = () => {
     setTipoOtroSeleccionado(null);
   }, [fechaSeleccionadaISO]);
 
-  // ✅ BLINDAJE ANTICRASH: Verificación de String seguro
   const isPedidoDelDiaSeleccionado = String(pedidoExistente?.fecha || '').startsWith(fechaSeleccionadaISO || '');
   const pedidoSeguro = (isPedidoDelDiaSeleccionado && !cargandoVerificacion) ? pedidoExistente : null;
 
@@ -291,55 +288,56 @@ const HomePageTrabajador: React.FC = () => {
       return;
     }
 
+    // CASO FONDO 
     if (categoria === 'fondoId') {
       const sel = (menuHoy?.fondos || []).find((p: any) => p?.id === id);
       const isDeselecting = pedido.fondoId === id;
 
-      setPedido(prev => {
-        const newState = { ...prev, fondoId: isDeselecting ? null : id };
-        if (isDeselecting) {
-           newState.isDoblePostre = false;
-           newState.guarnicionId = null;
-        }
-        
-        // Limpiamos ensaladas si el nuevo fondo es hipocalórico
-        if (!isDeselecting && sel?.tipo === 'HIPOCALORICO') {
-          const sopasIds = (menuHoy?.entradas || []).filter((e:any) => {
-             const n = String(e?.nombre || '').toLowerCase();
-             return n.includes('sopa') || n.includes('crema'); 
-          }).map((e:any) => e.id);
-          newState.entradasIds = newState.entradasIds.filter(eId => sopasIds.includes(eId));
-        }
-        return newState;
-      });
-
-      if (!isDeselecting) {
-        if (sel?.tipo === 'HIPOCALORICO') {
-          setPedido(prev => ({ ...prev, guarnicionId: null, isDoblePostre: false }));
-          setOpcionHipoSeleccionada(null);
-          setSheetHipoOpen(true);
-          return;
-        }
-        if (sel?.tipo === 'PLATO_UNICO') {
-          setPedido(prev => ({ ...prev, guarnicionId: null, isDoblePostre: false }));
-          setTimeout(() => setSeccionAbierta('POSTRE'), 400); return; 
-        }
-        if ((sel?.guarniciones ?? []).length > 0) {
-          setPedido(prev => ({ ...prev, isDoblePostre: false }));
-          setSheetFondo(sel); setSheetSelectedGuarnicion(null); setSheetOpen(true); return;
-        }
+      if (isDeselecting) {
+        setPedido(prev => ({
+          ...prev,
+          fondoId: null,
+          guarnicionId: null,
+          isDoblePostre: false
+        }));
+        return;
       }
+
+      if (sel?.tipo === 'HIPOCALORICO') {
+        setSheetFondo(sel);
+        setOpcionHipoSeleccionada(null);
+        setSheetHipoOpen(true);
+        return;
+      }
+
+      if ((sel?.guarniciones ?? []).length > 0) {
+        setSheetFondo(sel);
+        setSheetSelectedGuarnicion(null);
+        setSheetOpen(true);
+        return;
+      }
+
+      setPedido(prev => ({
+        ...prev,
+        fondoId: id,
+        guarnicionId: null,
+        isDoblePostre: false
+      }));
+      setTimeout(() => setSeccionAbierta('POSTRE'), 400);
+      return;
     }
     
+    // CASO POSTRE
     setPedido(prev => ({ ...prev, [categoria]: prev[categoria] === id ? null : id }));
-    if (categoria === 'fondoId' && pedido.fondoId !== id) setTimeout(() => setSeccionAbierta('POSTRE'), 400);
-    if (categoria === 'postreId') setTimeout(() => setSeccionAbierta('JUGO'), 200);  
+    if (categoria === 'postreId' && pedido.postreId !== id) {
+      setTimeout(() => setSeccionAbierta('JUGO'), 200);  
+    }
   };
 
   const seleccionarEntrada = (plato: any) => {
     if (bloquearUI || penalizaEntradaPostre || pedido.isDoblePostre) return;
     
-    const nombre = String(plato?.nombre || '').toLowerCase(); // ✅ SEGURO
+    const nombre = String(plato?.nombre || '').toLowerCase(); 
     const isSopa = nombre.includes('sopa') || nombre.includes('crema'); 
     const isSurtida = nombre.includes('surtida');
     const isCurrentlySelected = pedido.entradasIds.includes(plato.id);
@@ -351,7 +349,7 @@ const HomePageTrabajador: React.FC = () => {
       if (isCurrentlySelected) return { ...prev, entradasIds: actuales.filter(id => id !== plato.id) };
       if (isSopa || isSurtida) return { ...prev, entradasIds: [plato.id] };
       const idsExclusivos = (menuHoy?.entradas || []).filter((p: any) => {
-         const n = String(p?.nombre || '').toLowerCase(); // ✅ SEGURO
+         const n = String(p?.nombre || '').toLowerCase(); 
          return n.includes('sopa') || n.includes('crema') || n.includes('surtida'); 
       }).map((p: any) => p.id);
       const nuevas = actuales.filter(id => !idsExclusivos.includes(id));
@@ -402,7 +400,6 @@ const HomePageTrabajador: React.FC = () => {
   };
 
   const manejarModificarPedido = () => {
-    // ✅ BLINDAJE ANTICRASH
     const resumen = pedidoExistente?.resumen || [];
     const entradas = resumen.filter((r:any)=>r?.categoria==='ENTRADA').map((e:any) => e.platoId);
     const f = resumen.find((r:any)=>r?.categoria==='FONDO');
@@ -433,7 +430,7 @@ const HomePageTrabajador: React.FC = () => {
   const categoriasPersonalizado = ['ENTRADA', 'FONDO', 'POSTRE', 'JUGO'];
 
   return (
-    <div className="min-h-screen pb-48 relative flex flex-col" style={{ backgroundColor: THEME.colors.background }} onClick={() => setSeccionAbierta(null)}>
+    <div className="min-h-screen pb-48 relative flex flex-col" style={{ backgroundColor: THEME.colors.background }}>
       <Sidebar isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} rolPropVisible="Trabajador" empresaNombre="Starco" />
 
       <div className="pt-5 pb-3 flex justify-between items-center px-6" style={{ backgroundColor: THEME.colors.secondary }}>
@@ -553,8 +550,8 @@ const HomePageTrabajador: React.FC = () => {
                   }
 
                   return (
-                    <section key={cat} id={`seccion-${cat}`} onClick={(e) => e.stopPropagation()} className="flex flex-col grow overflow-hidden bg-white rounded-3xl border border-gray-100 shadow-sm transition-all">
-                      <button onClick={e => { e.stopPropagation(); toggleSeccion(categoriaFormato); }} className="w-full grow min-h-[100px] flex items-center justify-between px-7 py-4 sm:px-8">
+                    <section key={cat} id={`seccion-${cat}`} className="flex flex-col grow overflow-hidden bg-white rounded-3xl border border-gray-100 shadow-sm transition-all">
+                      <button onClick={() => toggleSeccion(categoriaFormato)} className="w-full grow min-h-[100px] flex items-center justify-between px-7 py-4 sm:px-8">
                         <div className="flex items-center gap-4 sm:gap-5">
                           <div className={`shrink-0 w-7 h-7 rounded-lg border-2 flex items-center justify-center transition-all ${isHeaderSelected ? 'bg-[#70a344] border-[#70a344]' : 'bg-transparent border-gray-300'} ${isSeccionBloqueada ? 'opacity-30' : ''}`}>
                             {isHeaderSelected && <Check size={18} strokeWidth={4} className="text-white" />}
@@ -562,8 +559,9 @@ const HomePageTrabajador: React.FC = () => {
                           <div className="flex flex-col text-left">
                             <h3 className={`text-xl font-black uppercase tracking-widest flex items-center gap-2 ${isSeccionBloqueada ? 'text-gray-300' : 'text-[#1d2d50]'}`}>
                               {cat === 'JUGO' ? 'BEBESTIBLE' : cat}
+                              {/* 🔥 ETIQUETA X2 EN EL MENÚ CON ESTILO VERDE */}
                               {cat === 'POSTRE' && pedido.isDoblePostre && !isSeccionBloqueada && (
-                                <span className="bg-yellow-100 text-yellow-600 text-[9px] px-2 py-1 rounded-md font-black">X2 PORCIONES</span>
+                                <span className="text-[#70a344] text-[14px] px-2 py-1 rounded-md font-black uppercase tracking-wider ml-1">X2 PORCIONES</span>
                               )}
                             </h3>
                             {isSeccionBloqueada && <p className="text-[10px] font-black text-red-400 uppercase">{textoBloqueo}</p>}
@@ -579,7 +577,6 @@ const HomePageTrabajador: React.FC = () => {
                           {platos.map((plato: any) => {
                             const isPlatoSelected = cat === 'ENTRADA' ? pedido.entradasIds.includes(plato.id) : pedido[(cat.toLowerCase() + 'Id') as 'fondoId' | 'postreId' | 'jugoId'] === plato.id;
                             
-                            // ✅ SEGURO: Previene crash si no tiene nombre
                             const nombre = String(plato?.nombre || '').toLowerCase();
                             const isDisabled = isSeccionBloqueada || (cat === 'ENTRADA' && isHipocalorico && !nombre.includes('sopa') && !nombre.includes('crema'));
 
@@ -609,7 +606,7 @@ const HomePageTrabajador: React.FC = () => {
             {activeTab === 'OTRO' && (
               <div className="flex flex-col gap-2 relative grow mb-2">
                 <section className={`flex flex-col grow overflow-hidden rounded-3xl border transition-all duration-300 ${isPremiumSelected ? 'border-gray-100 bg-gray-50 opacity-60 grayscale pointer-events-none' : 'border-gray-100 bg-white shadow-sm'}`}>
-                  <button onClick={(e) => { e.stopPropagation(); handleSeleccionarTipoOtro('CANJE'); }} disabled={isPremiumSelected} className="w-full grow flex items-center justify-between px-7 py-4 sm:px-8">
+                  <button onClick={() => handleSeleccionarTipoOtro('CANJE')} disabled={isPremiumSelected} className="w-full grow flex items-center justify-between px-7 py-4 sm:px-8">
                     <div className="flex items-center gap-4 sm:gap-5">
                       <div className={`shrink-0 w-7 h-7 rounded-lg border-2 flex items-center justify-center transition-all ${isCanjeSelected ? 'bg-[#70a344] border-[#70a344]' : 'bg-transparent border-gray-300'}`}>
                         {isCanjeSelected && <Check size={18} strokeWidth={4} className="text-white" />}
@@ -625,14 +622,15 @@ const HomePageTrabajador: React.FC = () => {
                   <div className={`shrink-0 flex flex-col transition-all duration-500 ${isCanjeSelected ? 'max-h-[8000px] opacity-100 px-6 pb-6 visible' : 'max-h-0 opacity-0 px-6 pb-0 invisible overflow-hidden'}`}>
                     <div className="w-full border-b border-gray-200 pb-3 mb-4" />
                     <div className="flex flex-col gap-4">
-                      {loadingOtros ? (<div className="text-center text-sm text-gray-400 py-2">Cargando opciones...</div>) : (
+                      {loadingOtros && <div className="text-center text-sm text-gray-400 py-2">Cargando opciones...</div>}
+                      {!loadingOtros && (
                         <>
                           <h4 className="text-base font-black text-[#1d2d50] uppercase tracking-wider mb-2 ml-1 flex items-center gap-2"><span className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center text-[10px]">1</span> Elige tu Combo</h4>
                           {((otrosPlatos || []).filter(p => p?.categoria === 'CANJE').length === 0) ? (
                             <div className="text-center text-[10px] font-black uppercase text-gray-400 bg-gray-50 p-3 rounded-2xl">No hay opciones disponibles</div>
                           ) : (
                             (otrosPlatos || []).filter(p => p?.categoria === 'CANJE').map((plato: any) => (
-                              <TarjetaPlato key={plato.id} plato={plato} categoriaKey="canjeId" isSelected={pedido.canjeId === plato.id} isDeadlinePassed={bloquearUI} disabled={false} onSelect={(_, id) => seleccionarOtro('canjeId', id)} />
+                              <TarjetaPlato key={plato.id} plato={plato} categoriaKey="canjeId" isSelected={pedido.canjeId === plato.id} isDeadlinePassed={bloquearUI} disabled={false} onSelect={() => seleccionarOtro('canjeId', plato.id)} />
                             ))
                           )}
                         </>
@@ -642,7 +640,7 @@ const HomePageTrabajador: React.FC = () => {
                 </section>
 
                 <section className={`flex flex-col grow overflow-hidden rounded-3xl border transition-all duration-300 ${isCanjeSelected ? 'border-gray-100 bg-gray-50 opacity-60 grayscale pointer-events-none' : 'border-gray-100 bg-white shadow-sm'}`}>
-                  <button onClick={(e) => { e.stopPropagation(); handleSeleccionarTipoOtro('PREMIUM'); }} disabled={isCanjeSelected} className="w-full grow flex items-center justify-between px-7 py-4 sm:px-8">
+                  <button onClick={() => handleSeleccionarTipoOtro('PREMIUM')} disabled={isCanjeSelected} className="w-full grow flex items-center justify-between px-7 py-4 sm:px-8">
                     <div className="flex items-center gap-4 sm:gap-5">
                       <div className={`shrink-0 w-7 h-7 rounded-lg border-2 flex items-center justify-center transition-all ${isPremiumSelected ? 'bg-[#70a344] border-[#70a344]' : 'bg-transparent border-gray-300'}`}>
                         {isPremiumSelected && <Check size={18} strokeWidth={4} className="text-white" />}
@@ -658,7 +656,8 @@ const HomePageTrabajador: React.FC = () => {
                   <div className={`shrink-0 transition-all duration-500 ${isPremiumSelected ? 'max-h-[8000px] opacity-100 px-6 pb-6 visible' : 'max-h-0 opacity-0 px-6 pb-0 invisible overflow-hidden'}`}>
                     <div className="flex flex-col gap-6">
                       <div className="w-full border-b border-gray-200 pb-3 mb-4" /> 
-                      {loadingOtros ? (<div className="text-center text-sm text-gray-400 py-2">Cargando opciones...</div>) : (
+                      {loadingOtros && <div className="text-center text-sm text-gray-400 py-2">Cargando opciones...</div>}
+                      {!loadingOtros && (
                       <>
                         <div>
                           <h4 className="text-base font-black text-[#1d2d50] uppercase tracking-wider mb-4 ml-1 flex items-center gap-2"><span className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center text-[10px]">1</span> Elige tu Sándwich</h4>
@@ -667,7 +666,7 @@ const HomePageTrabajador: React.FC = () => {
                               <div className="text-center text-[10px] font-black uppercase text-gray-400 bg-gray-50 p-3 rounded-2xl">No hay opciones disponibles</div>
                             ) : (
                               (otrosPlatos || []).filter(p => p?.categoria === 'SANDWICH').map((plato: any) => (
-                                <TarjetaPlato key={plato.id} plato={plato} categoriaKey="sandwichId" isSelected={pedido.sandwichId === plato.id} isDeadlinePassed={bloquearUI} disabled={false} onSelect={(_, id) => seleccionarOtro('sandwichId', id)} />
+                                <TarjetaPlato key={plato.id} plato={plato} categoriaKey="sandwichId" isSelected={pedido.sandwichId === plato.id} isDeadlinePassed={bloquearUI} disabled={false} onSelect={() => seleccionarOtro('sandwichId', plato.id)} />
                               ))
                             )}
                           </div>
@@ -680,7 +679,7 @@ const HomePageTrabajador: React.FC = () => {
                               <div className="text-center text-[10px] font-black uppercase text-gray-400 bg-gray-50 p-3 rounded-2xl">No hay opciones disponibles</div>
                             ) : (
                               (otrosPlatos || []).filter(p => p?.categoria === 'BEBIDA' || p?.categoria === 'JUGO' || p?.categoria === 'AGUA_SABORIZADA').map((plato: any) => (
-                                <TarjetaPlato key={plato.id} plato={plato} categoriaKey="bebidaId" isSelected={pedido.bebidaId === plato.id} isDeadlinePassed={bloquearUI} disabled={false} onSelect={(_, id) => seleccionarOtro('bebidaId', id)} />
+                                <TarjetaPlato key={plato.id} plato={plato} categoriaKey="bebidaId" isSelected={pedido.bebidaId === plato.id} isDeadlinePassed={bloquearUI} disabled={false} onSelect={() => seleccionarOtro('bebidaId', plato.id)} />
                               ))
                             )}
                           </div>
@@ -697,7 +696,7 @@ const HomePageTrabajador: React.FC = () => {
       </div>
 
       <BottomSheet open={sheetHipoOpen} title="Menú Hipocalórico" onClose={() => setSheetHipoOpen(false)}>
-        <div className="px-6 pb-6 mt-2">
+        <div className="px-6 pb-6 mt-2" onClick={(e) => e.stopPropagation()}>
           <p className="text-sm font-medium text-gray-500 mb-4">Selecciona el acompañamiento de tu plato:</p>
           <div className="flex flex-col gap-3">
             <button 
@@ -705,7 +704,7 @@ const HomePageTrabajador: React.FC = () => {
               className={`flex items-center justify-between w-full px-5 py-4 rounded-2xl border ${opcionHipoSeleccionada==='SOPA' ? 'border-green-500 bg-green-50' : 'border-gray-200 bg-white'}`}
             >
               <div className="flex flex-col text-left">
-                <span className="font-bold text-sm text-[#1d2d50] uppercase">Sopa o Crema</span>
+                <span className="font-bold text-sm text-[#1d2d50] uppercase">Sopa/Crema del día</span>
                 <span className="text-xs text-gray-400 mt-1">Podrás elegir la sopa o crema de tu preferencia.</span>
               </div>
               <div className={`w-5 h-5 shrink-0 rounded-full border-2 flex items-center justify-center ${opcionHipoSeleccionada==='SOPA' ? 'border-green-500' : 'border-gray-300'}`}>{opcionHipoSeleccionada==='SOPA' && <div className="w-2.5 h-2.5 bg-green-500 rounded-full" />}</div>
@@ -725,13 +724,35 @@ const HomePageTrabajador: React.FC = () => {
           
           <div className="flex flex-col gap-2 mt-8">
             <button 
-              onClick={() => { 
+              onClick={(e) => { 
+                e.stopPropagation();
+                
+                setPedido(prev => {
+                  const newState = {
+                    ...prev,
+                    fondoId: sheetFondo?.id,
+                    guarnicionId: null
+                  };
+
+                  const sopasIds = (menuHoy?.entradas || []).filter((e:any) => {
+                     const n = String(e?.nombre || '').toLowerCase();
+                     return n.includes('sopa') || n.includes('crema'); 
+                  }).map((e:any) => e.id);
+                  newState.entradasIds = newState.entradasIds.filter(eId => sopasIds.includes(eId));
+
+                  if (opcionHipoSeleccionada === 'SOPA') {
+                    newState.isDoblePostre = false;
+                  } else if (opcionHipoSeleccionada === 'DOBLE_POSTRE') {
+                    newState.isDoblePostre = true;
+                    newState.entradasIds = [];
+                  }
+                  return newState;
+                });
+
                 setSheetHipoOpen(false); 
                 if (opcionHipoSeleccionada === 'SOPA') {
-                  setPedido(prev => ({ ...prev, isDoblePostre: false }));
                   setTimeout(() => setSeccionAbierta('ENTRADA'), 400); 
                 } else if (opcionHipoSeleccionada === 'DOBLE_POSTRE') {
-                  setPedido(prev => ({ ...prev, isDoblePostre: true, entradasIds: [] }));
                   setTimeout(() => setSeccionAbierta('POSTRE'), 400); 
                 }
               }} 
@@ -740,13 +761,13 @@ const HomePageTrabajador: React.FC = () => {
             >
               Confirmar
             </button>
-            <button onClick={() => { setSheetHipoOpen(false); setPedido(prev => ({...prev, fondoId: null})); }} className="w-full py-3 font-bold text-gray-400">Cancelar</button>
+            <button onClick={(e) => { e.stopPropagation(); setSheetHipoOpen(false); }} className="w-full py-3 font-bold text-gray-400">Cancelar</button>
           </div>
         </div>
       </BottomSheet>
 
       <BottomSheet open={sheetOpen} title="Elige una guarnición" onClose={() => setSheetOpen(false)}>
-        <div className="px-2 pb-2 mt-2 px-6 pb-6">
+        <div className="px-2 pb-2 mt-2 px-6 pb-6" onClick={(e) => e.stopPropagation()}>
           <div className="flex flex-col gap-3">
             {(sheetFondo?.guarniciones || []).map((g: any) => (
               <button key={g.id} onClick={() => setSheetSelectedGuarnicion(g.id)} className={`flex items-center justify-between w-full px-5 py-4 rounded-2xl border ${sheetSelectedGuarnicion===g.id ? 'border-green-500 bg-green-50' : 'border-gray-200 bg-white'}`}>
@@ -760,14 +781,33 @@ const HomePageTrabajador: React.FC = () => {
             </button>
           </div>
           <div className="flex flex-col gap-2 mt-8">
-            <button onClick={() => { setPedido(prev => ({ ...prev, fondoId: sheetFondo?.id, guarnicionId: sheetSelectedGuarnicion })); setSheetOpen(false); setTimeout(() => setSeccionAbierta('POSTRE'), 300); }} disabled={sheetSelectedGuarnicion===null} className={`w-full py-4 rounded-xl font-black ${sheetSelectedGuarnicion===null ? 'bg-gray-100 text-gray-400' : 'bg-[#70a344] text-white shadow-md'}`}>Seleccionar</button>
-            <button onClick={() => setSheetOpen(false)} className="w-full py-3 font-bold text-gray-400">Cancelar</button>
+            <button 
+              onClick={(e) => { 
+                e.stopPropagation();
+                setPedido(prev => ({ 
+                  ...prev, 
+                  fondoId: sheetFondo?.id, 
+                  guarnicionId: sheetSelectedGuarnicion,
+                  isDoblePostre: false
+                })); 
+                setSheetOpen(false); 
+                setTimeout(() => setSeccionAbierta('POSTRE'), 300); 
+              }} 
+              disabled={sheetSelectedGuarnicion===null} 
+              className={`w-full py-4 rounded-xl font-black ${sheetSelectedGuarnicion===null ? 'bg-gray-100 text-gray-400' : 'bg-[#70a344] text-white shadow-md'}`}
+            >
+              Seleccionar
+            </button>
+            <button onClick={(e) => { e.stopPropagation(); setSheetOpen(false); }} className="w-full py-3 font-bold text-gray-400">Cancelar</button>
           </div>
         </div>
       </BottomSheet>
 
       {!(cargandoVerificacion || cargandoMenu) && !bloquearUI && (!pedidoExistente || modoEdicion) && (
-        <div className="fixed bottom-0 left-0 w-full p-6 bg-white/90 backdrop-blur-xl shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-40">
+        <div 
+          className="fixed bottom-0 left-0 w-full p-6 bg-white/90 backdrop-blur-xl shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-40"
+          onClick={(e) => e.stopPropagation()}
+        >
           <button onClick={manejarEnvio} disabled={!puedeEnviar || enviando} className={`w-full py-5 rounded-[24px] font-black text-lg transition-all flex items-center justify-center gap-3 ${puedeEnviar ? 'bg-[#70a344] shadow-xl text-white' : 'bg-gray-200 text-gray-500'}`}>
             {enviando ? 'Enviando...' : modoEdicion ? 'Guardar Cambios' : 'Confirmar Pedido'}
           </button>
