@@ -17,18 +17,49 @@ const CAMPOS_CONVENIO = [
   "permiteAguaSaborizada",
 ] as const
 
+const TIPOS_EMPAQUETADO = [
+  "BOWL_CRAFT",
+  "C10_ALUMINIO",
+  "SERVICIO_TRADICIONAL_PLATO",
+] as const
+
 type CampoConvenio = (typeof CAMPOS_CONVENIO)[number]
+type TipoEmpaquetadoValue = (typeof TIPOS_EMPAQUETADO)[number]
+type ConvenioPayload = Record<CampoConvenio, boolean> & {
+  tipoEmpaquetado?: TipoEmpaquetadoValue | null
+}
+type ValidationResult<T> = { data: T } | { error: string }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
-function validarConvenioPayload(body: unknown) {
+function validarTipoEmpaquetado(
+  value: unknown
+): ValidationResult<TipoEmpaquetadoValue | null> {
+  if (value === undefined || value === null || value === "") {
+    return { data: null }
+  }
+
+  if (
+    typeof value !== "string" ||
+    !TIPOS_EMPAQUETADO.includes(value as TipoEmpaquetadoValue)
+  ) {
+    return { error: "El tipo de empaquetado no es valido" }
+  }
+
+  return { data: value as TipoEmpaquetadoValue }
+}
+
+function validarConvenioPayload(body: unknown): ValidationResult<ConvenioPayload> {
   if (!isRecord(body)) {
     return { error: "El body debe ser un objeto JSON" }
   }
 
-  const camposPermitidos = new Set<string>(CAMPOS_CONVENIO)
+  const camposPermitidos = new Set<string>([
+    ...CAMPOS_CONVENIO,
+    "tipoEmpaquetado",
+  ])
   const camposExtra = Object.keys(body).filter((key) => !camposPermitidos.has(key))
 
   if (camposExtra.length > 0) {
@@ -45,15 +76,22 @@ function validarConvenioPayload(body: unknown) {
     }
   }
 
-  return {
-    data: CAMPOS_CONVENIO.reduce(
-      (acc, campo) => ({
-        ...acc,
-        [campo]: body[campo],
-      }),
-      {} as Record<CampoConvenio, boolean>
-    ),
+  const data = CAMPOS_CONVENIO.reduce(
+    (acc, campo) => ({
+      ...acc,
+      [campo]: body[campo],
+    }),
+    {} as ConvenioPayload
+  )
+
+  if ("tipoEmpaquetado" in body) {
+    const tipoEmpaquetado = validarTipoEmpaquetado(body.tipoEmpaquetado)
+    if ("error" in tipoEmpaquetado) return tipoEmpaquetado
+
+    data.tipoEmpaquetado = tipoEmpaquetado.data
   }
+
+  return { data }
 }
 
 export async function PATCH(req: NextRequest, { params }: RouteContext) {
@@ -104,6 +142,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
         permiteJugo: true,
         permiteBebida: true,
         permiteAguaSaborizada: true,
+        tipoEmpaquetado: true,
       },
     })
 

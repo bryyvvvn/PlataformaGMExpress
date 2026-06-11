@@ -154,10 +154,11 @@ model DetallePedido {
 }
 
 model ConfiguracionSistema {
-  id               Int      @id @default(1)
-  horaLimite       String   @default("17:00") @db.VarChar(5)
-  diasAnticipacion Int      @default(2)
-  actualizadoEn    DateTime @default(now())
+  id                        Int      @id @default(1)
+  horaLimite                String   @default("17:00") @db.VarChar(5)
+  diasAnticipacion          Int      @default(2)
+  mensajePedidoTrabajadores String?
+  actualizadoEn             DateTime @default(now())
 }
 
 model ContactoEmpresa {
@@ -180,18 +181,19 @@ model ContactoEmpresa {
 }
 
 model ConvenioEmpresa {
-  id                    Int      @id @default(autoincrement())
-  empresaId             Int      @unique
-  permitePlato          Boolean  @default(true)
-  permiteEntrada        Boolean  @default(true)
-  permitePostre         Boolean  @default(true)
-  permitePan            Boolean  @default(true)
-  permiteJugo           Boolean  @default(true)
-  permiteBebida         Boolean  @default(false)
-  permiteAguaSaborizada Boolean  @default(false)
-  creado_en             DateTime @default(now())
-  actualizado_en        DateTime @default(now())
-  Empresa               Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  id                    Int              @id @default(autoincrement())
+  empresaId             Int              @unique
+  permitePlato          Boolean          @default(true)
+  permiteEntrada        Boolean          @default(true)
+  permitePostre         Boolean          @default(true)
+  permitePan            Boolean          @default(true)
+  permiteJugo           Boolean          @default(true)
+  permiteBebida         Boolean          @default(false)
+  permiteAguaSaborizada Boolean          @default(false)
+  tipoEmpaquetado       TipoEmpaquetado?
+  creado_en             DateTime         @default(now())
+  actualizado_en        DateTime         @default(now())
+  Empresa               Empresa          @relation(fields: [empresaId], references: [id], onDelete: Cascade)
 }
 
 model MenuDiaEntradaSeleccion {
@@ -249,4 +251,10 @@ enum EstadoEmpresa {
 enum TipoContactoEmpresa {
   TITULAR
   SUPLENTE
+}
+
+enum TipoEmpaquetado {
+  BOWL_CRAFT
+  C10_ALUMINIO
+  SERVICIO_TRADICIONAL_PLATO
 }
