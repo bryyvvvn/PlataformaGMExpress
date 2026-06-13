@@ -11,45 +11,54 @@ export default function LoginPage() {
     <main className="min-h-screen bg-slate-50 text-slate-900">
       <div className="grid min-h-screen lg:grid-cols-[0.95fr_1.05fr]">
         <section className="flex min-h-screen items-center justify-center px-5 py-8 sm:px-8 lg:px-12">
-          <div className="w-full max-w-[480px]">
-            <div className="mb-8 flex items-center gap-4">
-              <Image
-                src="/logo-gm-verde-azul.png"
-                alt="GM Express"
-                width={96}
-                height={96}
-                priority
-                className="h-26 w-26 object-contain"
-              />
+          <div className="w-full max-w-[550px]">
+            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl shadow-slate-200/70">
+              <header className="relative overflow-hidden bg-[#1B2C56] px-6 py-5 text-white">
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_90%_10%,rgba(117,170,70,0.38),transparent_30%)]" />
 
-              <div>
-                <p className="text-2xl font-bold tracking-tight text-[#1B2C56]">
-                  GM Express
-                </p>
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#75AA46]">
-                  Panel administrativo
+                <div className="relative z-10 flex items-center gap-4">
+                  <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg bg-white p-2 shadow-md">
+                    <Image
+                      src="/logo-gm-verde-azul.png"
+                      alt="GM Express"
+                      width={160}
+                      height={160}
+                      priority
+                      className="h-full w-full object-contain"
+                    />
+                  </div>
+
+                  <div>
+                    <p className="text-2xl font-bold tracking-tight text-white">
+                      GM Express
+                    </p>
+                    <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#BFE6A4]">
+                      Panel administrativo
+                    </p>
+                  </div>
+                </div>
+              </header>
+
+              <div className="px-6 py-7 sm:px-8">
+                <div className="mb-7 text-center">
+                  <h1 className="text-3xl font-bold tracking-tight text-[#1B2C56] sm:text-4xl">
+                    Bienvenido Administrador
+                  </h1>
+
+                  <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-slate-600">
+                    Ingresa con tus credenciales para continuar gestionando la operación.
+                  </p>
+                </div>
+
+                <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+                  <SignIn routing="hash" appearance={clerkAppearance} />
+                </div>
+
+                <p className="mx-auto mt-4 max-w-sm text-center text-xs leading-5 text-slate-500">
+                  Plataforma privada para administración, carga de minutas, pedidos y facturación.
                 </p>
               </div>
             </div>
-
-            <div className="mb-7">
-
-              <h1 className="text-3xl font-bold tracking-tight text-[#1B2C56] sm:text-4xl">
-                Bienvenido Administrador
-              </h1>
-
-              <p className="mt-3 max-w-md text-sm leading-6 text-slate-600">
-                Ingresa con tus credenciales para continuar gestionando la operación 
-              </p>
-            </div>
-
-            <div className="rounded-md border border-slate-200 bg-white p-3 shadow-xl shadow-slate-200/70 sm:p-4">
-              <SignIn routing="hash" appearance={clerkAppearance} />
-            </div>
-
-            <p className="mt-3 text-xs leading-5 text-slate-500 text-center">
-              Plataforma privada para administración, carga de minutas, pedidos y facturación.
-            </p>
           </div>
         </section>
 
