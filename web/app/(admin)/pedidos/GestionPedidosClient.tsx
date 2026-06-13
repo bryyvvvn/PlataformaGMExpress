@@ -321,7 +321,7 @@ export function GestionPedidosClient({ semana }: GestionPedidosClientProps) {
                 <div className="bg-slate-50 border-b border-slate-200 px-4 py-2">
                    <p className="text-xs font-bold text-[#1B2C56] uppercase tracking-wider">Desglose por Cliente</p>
                 </div>
-                <Accordion type="multiple" className="w-full">
+                <Accordion multiple className="w-full">
                   {dia.empresas.map((empresa) => (
                     <AccordionItem
                       key={empresa.id}
