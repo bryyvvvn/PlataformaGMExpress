@@ -127,7 +127,16 @@ export async function POST(request: Request) {
       )
     }
 
-    const { archivo, pedidoIdsIncluidos } = generarExcelProduccion(pedidos)
+    const pedidosNormalizados = pedidos.map((pedido) => ({
+      ...pedido,
+      usuario: {
+        ...pedido.usuario,
+        nombre: pedido.usuario.nombre ?? "Usuario sin nombre",
+      },
+    }))
+
+    const { archivo, pedidoIdsIncluidos } =
+      generarExcelProduccion(pedidosNormalizados)
 
     if (pedidoIdsIncluidos.length === 0) {
       return NextResponse.json(
