@@ -72,10 +72,6 @@ export function Sidebar() {
 
       {/* Footer Logístico - Toque profesional */}
       <div className="p-4 border-t border-white/10">
-         <div className="flex items-center gap-3 px-3 py-2 rounded-md bg-white/5 border border-white/5">
-            <div className="h-2 w-2 rounded-full bg-green-400 animate-pulse"></div>
-            <span className="text-xs font-medium text-slate-300">Sistema Operativo</span>
-         </div>
       </div>
     </aside>
   )
