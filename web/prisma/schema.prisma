@@ -30,6 +30,7 @@ model Empresa {
   actualizado_en        DateTime          @default(now())
   ContactoEmpresa       ContactoEmpresa[]
   ConvenioEmpresa       ConvenioEmpresa?
+  pedidosManuales       PedidoManual[]
   pedidos               Pedido[]
   usuarios              Usuario[]
 
@@ -139,6 +140,22 @@ model Pedido {
   empresa   Empresa         @relation(fields: [empresaId], references: [id])
   usuario   Usuario         @relation(fields: [usuarioId], references: [id])
 
+  @@index([empresaId, fecha])
+}
+
+model PedidoManual {
+  id             Int      @id @default(autoincrement())
+  empresaId      Int
+  fecha          DateTime
+  cantidad       Int
+  observacion    String?  @db.VarChar(500)
+  creado_por     String?  @db.VarChar(100)
+  creado_en      DateTime @default(now())
+  actualizado_en DateTime @updatedAt
+  empresa        Empresa  @relation(fields: [empresaId], references: [id])
+
+  @@index([empresaId])
+  @@index([fecha])
   @@index([empresaId, fecha])
 }
 

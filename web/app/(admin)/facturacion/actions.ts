@@ -20,16 +20,29 @@ export async function obtenerResumenFacturacion(
   fechaInicio: string,
   fechaFin: string
 ): Promise<ResumenFacturacion> {
+  const fechaDesde = chileStartOfDay(fechaInicio)
+  const fechaHasta = chileEndOfDay(fechaFin)
   const pedidos = await db.pedido.findMany({
     where: {
       empresaId,
       estado: { in: [EstadoPedido.CONFIRMADO, EstadoPedido.EN_PRODUCCION] },
       fecha: {
-        gte: chileStartOfDay(fechaInicio),
-        lte: chileEndOfDay(fechaFin),
+        gte: fechaDesde,
+        lte: fechaHasta,
       },
     },
     select: { fecha: true },
+    orderBy: { fecha: "asc" },
+  })
+  const pedidosManuales = await db.pedidoManual.findMany({
+    where: {
+      empresaId,
+      fecha: {
+        gte: fechaDesde,
+        lte: fechaHasta,
+      },
+    },
+    select: { fecha: true, cantidad: true },
     orderBy: { fecha: "asc" },
   })
 
@@ -38,13 +51,19 @@ export async function obtenerResumenFacturacion(
     const fechaISO = formatFechaISOChile(fecha)
     conteoPorFecha.set(fechaISO, (conteoPorFecha.get(fechaISO) ?? 0) + 1)
   }
+  for (const { fecha, cantidad } of pedidosManuales) {
+    const fechaISO = formatFechaISOChile(fecha)
+    conteoPorFecha.set(fechaISO, (conteoPorFecha.get(fechaISO) ?? 0) + cantidad)
+  }
 
   const tabla = Array.from(conteoPorFecha.entries())
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([fecha, pedidos]) => ({ fecha, pedidos }))
 
   return {
-    totalPedidos: pedidos.length,
+    totalPedidos:
+      pedidos.length +
+      pedidosManuales.reduce((total, pedidoManual) => total + pedidoManual.cantidad, 0),
     tabla,
   }
 }
