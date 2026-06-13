@@ -1,12 +1,107 @@
 "use client";
 
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import { SignIn } from "@clerk/nextjs";
+import { SignIn, useClerk, useUser } from "@clerk/nextjs";
+import { useRouter, useSearchParams } from "next/navigation";
 import { clerkAppearance } from "@/lib/clerk";
 
 const OPERACION_BADGES = ["Panel administrativo", "GM Express", "Producción y pedidos"];
+const NO_ADMIN_MESSAGE =
+  "Esta cuenta no tiene credenciales de administrador. No puedes acceder al sistema.";
+
+type AdminCheckResponse = {
+  ok: boolean;
+  motivo?: "NO_ADMIN";
+};
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginScreen showNoAdminError={false} isValidating={false} />}>
+      <LoginPageContent />
+    </Suspense>
+  );
+}
+
+function LoginPageContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { signOut } = useClerk();
+  const { isLoaded, isSignedIn } = useUser();
+  const [localError, setLocalError] = useState<string | null>(null);
+  const [isValidatingAdmin, setIsValidatingAdmin] = useState(false);
+
+  const hasNoAdminQuery = searchParams.get("error") === "no-admin";
+  const showNoAdminError = hasNoAdminQuery || localError === NO_ADMIN_MESSAGE;
+
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn) return;
+
+    let cancelado = false;
+
+    async function validarAdmin() {
+      setIsValidatingAdmin(true);
+
+      try {
+        const response = await fetch("/api/auth/admin-check", { cache: "no-store" });
+        const data = (await response.json()) as AdminCheckResponse;
+
+        if (cancelado) return;
+
+        if (response.ok && data.ok) {
+          router.replace("/dashboard");
+          return;
+        }
+
+        setLocalError(NO_ADMIN_MESSAGE);
+        await signOut();
+
+        if (!cancelado) {
+          router.replace("/auth/login?error=no-admin");
+        }
+      } catch {
+        if (!cancelado) {
+          setLocalError(NO_ADMIN_MESSAGE);
+          await signOut();
+          router.replace("/auth/login?error=no-admin");
+        }
+      } finally {
+        if (!cancelado) {
+          setIsValidatingAdmin(false);
+        }
+      }
+    }
+
+    void validarAdmin();
+
+    return () => {
+      cancelado = true;
+    };
+  }, [isLoaded, isSignedIn, router, signOut]);
+
+  const shouldShowSignIn = useMemo(
+    () => isLoaded && !isSignedIn && !isValidatingAdmin,
+    [isLoaded, isSignedIn, isValidatingAdmin]
+  );
+
+  return (
+    <LoginScreen
+      showNoAdminError={showNoAdminError}
+      isValidating={isValidatingAdmin || (isLoaded && Boolean(isSignedIn))}
+      showSignIn={shouldShowSignIn}
+    />
+  );
+}
+
+function LoginScreen({
+  showNoAdminError,
+  isValidating,
+  showSignIn = true,
+}: {
+  showNoAdminError: boolean;
+  isValidating: boolean;
+  showSignIn?: boolean;
+}) {
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
       <div className="grid min-h-screen lg:grid-cols-[0.95fr_1.05fr]">
@@ -51,7 +146,19 @@ export default function LoginPage() {
                 </div>
 
                 <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
-                  <SignIn routing="hash" appearance={clerkAppearance} />
+                  {showNoAdminError && (
+                    <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold leading-5 text-red-700">
+                      {NO_ADMIN_MESSAGE}
+                    </div>
+                  )}
+
+                  {isValidating ? (
+                    <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-5 text-center text-sm font-semibold text-[#1B2C56]">
+                      Validando credenciales...
+                    </div>
+                  ) : showSignIn ? (
+                    <SignIn routing="hash" appearance={clerkAppearance} />
+                  ) : null}
                 </div>
 
                 <p className="mx-auto mt-4 max-w-sm text-center text-xs leading-5 text-slate-500">
