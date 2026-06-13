@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ClerkProvider } from "@clerk/nextjs";
+import { esES } from "@clerk/localizations";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -34,12 +35,13 @@ export default function RootLayout({
   return (
     // Forzamos las rutas directamente en el componente
     <ClerkProvider
+      localization={esES}
       signInUrl="/auth/login"
       signUpUrl="/auth/login"
       signInFallbackRedirectUrl="/dashboard" // O a donde quieras que vaya al entrar
     >
       <html lang="es">
-        <body>{children}</body>
+        <body className={`${geistSans.variable} ${geistMono.variable}`}>{children}</body>
       </html>
     </ClerkProvider>
   );

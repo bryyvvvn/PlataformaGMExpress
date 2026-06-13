@@ -1,32 +1,29 @@
-import { auth } from '@clerk/nextjs/server';
-import { redirect } from 'next/navigation';
-import db from '@/lib/db'; 
-import { Sidebar } from '@/components/admin/sidebar'
+import { auth } from "@clerk/nextjs/server";
+import { Rol } from "@prisma/client";
+import { redirect } from "next/navigation";
+import { Sidebar } from "@/components/admin/sidebar";
+import db from "@/lib/db";
 
 export default async function AdminLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
   const { userId } = await auth();
 
-  // Si no está logueado, lo mandamos al login
   if (!userId) {
-    redirect('/auth/login');
+    redirect("/auth/login");
   }
 
-  // 🔥 EL CAMBIO ESTÁ AQUÍ: Buscamos por 'id' en lugar de 'clerkId'
   const usuarioDB = await db.usuario.findUnique({
-    where: { id: userId }, 
-    select: { rol: true }
+    where: { id: userId },
+    select: { rol: true },
   });
 
-  // 🚨 Si NO es administrador, lo expulsamos del panel
-  if (usuarioDB?.rol !== 'ADMIN') {
-    redirect('/acceso-denegado'); 
+  if (usuarioDB?.rol !== Rol.ADMIN) {
+    redirect("/auth/login?error=no-admin");
   }
 
-  // Si es ADMIN, lo dejamos ver el contenido
   return (
     <>
       <Sidebar />
