@@ -5,6 +5,7 @@ type StatsCardProps = {
   value: number | string;
   icon: React.ReactNode;
   color?: "primary" | "success" | "warning" | "destructive";
+  loading?: boolean;
 };
 
 const iconStyles = {
@@ -19,6 +20,7 @@ export function StatsCard({
   value,
   icon,
   color = "primary",
+  loading = false,
 }: StatsCardProps) {
   return (
     <Card className="rounded-md border-slate-200 bg-white shadow-sm">
@@ -29,7 +31,11 @@ export function StatsCard({
         <div className={`rounded-md p-1.5 ${iconStyles[color]}`}>{icon}</div>
       </CardHeader>
       <CardContent className="px-4 pb-4 pt-0">
-        <p className="text-2xl font-semibold tabular-nums text-[#1B2C56]">{value}</p>
+        {loading ? (
+          <div className="h-8 w-20 bg-slate-200 rounded animate-pulse" />
+        ) : (
+          <p className="text-2xl font-semibold tabular-nums text-[#1B2C56]">{value}</p>
+        )}
       </CardContent>
     </Card>
   );

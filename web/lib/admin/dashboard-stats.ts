@@ -9,6 +9,8 @@ import {
   startOfWeek,
 } from "date-fns";
 import { es } from "date-fns/locale";
+import { getConsolidadoDia } from "@/lib/admin/generar-consolidado";
+import { chileEndOfDay, chileStartOfDay, getChileHour } from "@/lib/chile-time";
 
 export type PedidoReciente = {
   id: number;
@@ -24,7 +26,12 @@ export type DashboardStats = {
   totalPorciones: number;
   totalEmpresas: number;
   chartData: Array<{ day: string; pedidos: number }>;
+  chartDataDia: Array<{ time: string; pedidos: number }>;
   ultimosPedidos: PedidoReciente[];
+  zonaCalienteCount: number;
+  zonaFriaCount: number;
+  empaqueCount: number;
+  empresaTop: string | null;
 };
 
 function etiquetaDia(fecha: Date): string {
@@ -39,6 +46,8 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   const lunes = startOfWeek(ahora, { weekStartsOn: 1 });
   const inicioSemana = startOfDay(lunes);
   const finSemana = endOfDay(addDays(lunes, 6));
+  const inicioHoyChile = chileStartOfDay();
+  const finHoyChile = chileEndOfDay();
 
   const [
     pedidosDelDia,
@@ -46,7 +55,10 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     porciones,
     totalEmpresas,
     pedidosEnSemana,
+    pedidosHoyChile,
     ultimosPedidos,
+    consolidado,
+    empaqueCount,
   ] = await Promise.all([
     db.pedido.count({
       where: { fecha: { gte: inicioHoy, lte: finHoy } },
@@ -54,10 +66,16 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     db.pedido.count({
       where: { estado: EstadoPedido.PENDIENTE },
     }),
-    db.detallePedido.aggregate({ _sum: { cantidad: true } }),
+    db.detallePedido.aggregate({_sum: { cantidad: true },
+      where: {pedido: {fecha: { gte: inicioHoyChile, lt: finHoyChile },
+      estado: { not: EstadoPedido.CANCELADO }}}}),
     db.empresa.count(),
     db.pedido.findMany({
       where: { fecha: { gte: inicioSemana, lte: finSemana } },
+      select: { fecha: true },
+    }),
+    db.pedido.findMany({
+      where: { fecha: { gte: inicioHoyChile, lt: finHoyChile } },
       select: { fecha: true },
     }),
     db.pedido.findMany({
@@ -68,7 +86,21 @@ export async function getDashboardStats(): Promise<DashboardStats> {
         detalles: { select: { cantidad: true } },
       },
     }),
+    getConsolidadoDia(),
+    db.pedido.count({
+      where: { estado: EstadoPedido.EN_PRODUCCION },
+    }),
   ]);
+
+  const zonaFriaCount = consolidado.zonaFria.reduce(
+    (sum, i) => sum + i.cantidad,
+    0
+  );
+  const zonaCalienteCount = consolidado.zonaCaliente.reduce(
+    (sum, i) => sum + i.cantidad,
+    0
+  );
+  const empresaTop = consolidado.resumenGeneral.empresaTopNombre;
 
   const conteoPorDia = Array.from({ length: 7 }, () => 0);
   for (const { fecha } of pedidosEnSemana) {
@@ -82,6 +114,16 @@ export async function getDashboardStats(): Promise<DashboardStats> {
 
   const chartData = conteoPorDia.map((pedidos, i) => ({
     day: etiquetaDia(addDays(lunes, i)),
+    pedidos,
+  }));
+
+  const conteoPorHora = Array.from({ length: 24 }, () => 0);
+  for (const { fecha } of pedidosHoyChile) {
+    conteoPorHora[getChileHour(fecha)]++;
+  }
+
+  const chartDataDia = conteoPorHora.map((pedidos, hour) => ({
+    time: `${String(hour).padStart(2, "0")}:00`,
     pedidos,
   }));
 
@@ -99,6 +141,11 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     totalPorciones: porciones._sum.cantidad ?? 0,
     totalEmpresas,
     chartData,
+    chartDataDia,
     ultimosPedidos: ultimosFormateados,
+    zonaCalienteCount,
+    zonaFriaCount,
+    empaqueCount,
+    empresaTop,
   };
 }
