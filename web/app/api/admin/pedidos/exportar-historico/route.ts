@@ -102,7 +102,15 @@ export async function GET(request: Request) {
       )
     }
 
-    const archivo = generarExcelHistorico(pedidos)
+    const pedidosNormalizados = pedidos.map((pedido) => ({
+      ...pedido,
+      usuario: {
+        ...pedido.usuario,
+        nombre: pedido.usuario.nombre ?? "Usuario sin nombre",
+      },
+    }))
+
+    const archivo = generarExcelHistorico(pedidosNormalizados)
 
     return new Response(archivo, {
       headers: {

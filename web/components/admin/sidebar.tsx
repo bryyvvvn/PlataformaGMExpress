@@ -11,12 +11,14 @@ import {
   Building2,
   Users,
   Settings,
+  FileSpreadsheet,
 } from "lucide-react"
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Planificador", href: "/planificador", icon: CalendarDays },
   { name: "Gestión de Pedidos", href: "/pedidos", icon: ClipboardList },
+  { name: "Facturación", href: "/facturacion", icon: FileSpreadsheet },
   { name: "Empresas Clientes", href: "/empresas", icon: Building2 },
   { name: "Usuarios de App", href: "/usuarios", icon: Users },
   { name: "Configuración", href: "/configuracion", icon: Settings },
@@ -70,10 +72,6 @@ export function Sidebar() {
 
       {/* Footer Logístico - Toque profesional */}
       <div className="p-4 border-t border-white/10">
-         <div className="flex items-center gap-3 px-3 py-2 rounded-md bg-white/5 border border-white/5">
-            <div className="h-2 w-2 rounded-full bg-green-400 animate-pulse"></div>
-            <span className="text-xs font-medium text-slate-300">Sistema Operativo</span>
-         </div>
       </div>
     </aside>
   )

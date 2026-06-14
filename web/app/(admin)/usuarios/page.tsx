@@ -69,15 +69,6 @@ export default function UsuariosAppPage() {
             Gestión de accesos, roles y vinculación empresarial.
           </p>
         </div>
-        <Button
-          type="button"
-          disabled
-          title="Las altas de usuarios se gestionan mediante Clerk"
-          className="bg-[#1B2C56] text-white shadow-sm h-10 px-4 font-semibold opacity-50 cursor-not-allowed"
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          Nuevo Usuario (Vía Clerk)
-        </Button>
       </header>
 
       {/* Tarjetas KPI */}

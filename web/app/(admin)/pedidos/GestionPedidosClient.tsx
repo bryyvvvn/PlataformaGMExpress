@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import {
   ArrowRight,
   Building2,
-  CalendarDays,
+  ClipboardPlus,
   Download,
   FileSpreadsheet,
   Loader2,
@@ -24,9 +24,17 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import {
   Table,
   TableBody,
@@ -44,6 +52,33 @@ import {
 
 type GestionPedidosClientProps = {
   semana: SemanaConsolidada
+}
+
+type EmpresaOption = {
+  id: number
+  nombre: string
+}
+
+type EmpresaAdminResponse = EmpresaOption & {
+  estado?: string
+}
+
+type PedidoManual = {
+  id: number
+  empresaId: number
+  empresa: EmpresaOption
+  fecha: string
+  cantidad: number
+  observacion: string | null
+  creadoPor: string | null
+  creadoEn: string
+}
+
+const FORM_MANUAL_INICIAL = {
+  empresaId: "",
+  fecha: "",
+  cantidad: "1",
+  observacion: "",
 }
 
 async function obtenerMensajeError(response: Response): Promise<string> {
@@ -72,6 +107,13 @@ export function GestionPedidosClient({ semana }: GestionPedidosClientProps) {
   const [descargandoHistorico, setDescargandoHistorico] = useState(false)
   const [descargandoProduccion, setDescargandoProduccion] = useState(false)
   const [errorExportacion, setErrorExportacion] = useState<string | null>(null)
+  const [empresas, setEmpresas] = useState<EmpresaOption[]>([])
+  const [pedidosManuales, setPedidosManuales] = useState<PedidoManual[]>([])
+  const [loadingManuales, setLoadingManuales] = useState(true)
+  const [modalManualOpen, setModalManualOpen] = useState(false)
+  const [guardandoManual, setGuardandoManual] = useState(false)
+  const [mensajeManual, setMensajeManual] = useState<{ tipo: "exito" | "error"; texto: string } | null>(null)
+  const [formManual, setFormManual] = useState(FORM_MANUAL_INICIAL)
 
   useEffect(() => {
     const actualizarAhora = () => setAhora(new Date())
@@ -81,6 +123,160 @@ export function GestionPedidosClient({ semana }: GestionPedidosClientProps) {
 
     return () => window.clearInterval(interval)
   }, [])
+
+  useEffect(() => {
+    const cargarEmpresas = async () => {
+      try {
+        const response = await fetch("/api/admin/empresas", { cache: "no-store" })
+        const data = await response.json()
+
+        if (!response.ok) {
+          throw new Error(data.error || "No se pudieron cargar las empresas")
+        }
+
+        const empresasData = (data.empresas ?? []) as EmpresaAdminResponse[]
+
+        setEmpresas(
+          empresasData
+            .filter((empresa) => empresa.estado === "ACTIVA")
+            .map((empresa) => ({ id: empresa.id, nombre: empresa.nombre }))
+        )
+      } catch (error) {
+        setMensajeManual({
+          tipo: "error",
+          texto: error instanceof Error ? error.message : "No se pudieron cargar las empresas",
+        })
+      }
+    }
+
+    void cargarEmpresas()
+  }, [])
+
+  async function cargarPedidosManuales() {
+    try {
+      const response = await fetch("/api/admin/pedidos-manuales", { cache: "no-store" })
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "No se pudieron cargar los pedidos manuales")
+      }
+
+      setPedidosManuales(data.pedidosManuales ?? [])
+    } catch (error) {
+      setMensajeManual({
+        tipo: "error",
+        texto: error instanceof Error ? error.message : "No se pudieron cargar los pedidos manuales",
+      })
+    } finally {
+      setLoadingManuales(false)
+    }
+  }
+
+  useEffect(() => {
+    let cancelado = false
+
+    void fetch("/api/admin/pedidos-manuales", { cache: "no-store" })
+      .then(async (response) => {
+        const data = await response.json()
+
+        if (!response.ok) {
+          throw new Error(data.error || "No se pudieron cargar los pedidos manuales")
+        }
+
+        if (!cancelado) {
+          setPedidosManuales(data.pedidosManuales ?? [])
+        }
+      })
+      .catch((error) => {
+        if (!cancelado) {
+          setMensajeManual({
+            tipo: "error",
+            texto:
+              error instanceof Error
+                ? error.message
+                : "No se pudieron cargar los pedidos manuales",
+          })
+        }
+      })
+      .finally(() => {
+        if (!cancelado) {
+          setLoadingManuales(false)
+        }
+      })
+
+    return () => {
+      cancelado = true
+    }
+  }, [])
+
+  function abrirModalManual() {
+    setFormManual((actual) => ({
+      ...FORM_MANUAL_INICIAL,
+      fecha: activeTab || semana.dias[0]?.fechaISO || "",
+      empresaId: actual.empresaId,
+    }))
+    setMensajeManual(null)
+    setModalManualOpen(true)
+  }
+
+  async function guardarPedidoManual() {
+    const cantidad = Number(formManual.cantidad)
+
+    if (!formManual.empresaId) {
+      setMensajeManual({ tipo: "error", texto: "Selecciona una empresa" })
+      return
+    }
+
+    if (!formManual.fecha) {
+      setMensajeManual({ tipo: "error", texto: "Selecciona una fecha" })
+      return
+    }
+
+    if (!Number.isInteger(cantidad) || cantidad <= 0) {
+      setMensajeManual({ tipo: "error", texto: "La cantidad debe ser mayor a 0" })
+      return
+    }
+
+    if (formManual.observacion.trim().length > 500) {
+      setMensajeManual({ tipo: "error", texto: "La observación no puede superar 500 caracteres" })
+      return
+    }
+
+    setGuardandoManual(true)
+    setMensajeManual(null)
+
+    try {
+      const response = await fetch("/api/admin/pedidos-manuales", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          empresaId: Number(formManual.empresaId),
+          fecha: formManual.fecha,
+          cantidad,
+          observacion: formManual.observacion,
+        }),
+      })
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "No se pudo crear el pedido manual")
+      }
+
+      setMensajeManual({ tipo: "exito", texto: "Pedido manual creado correctamente" })
+      setFormManual(FORM_MANUAL_INICIAL)
+      setModalManualOpen(false)
+      setLoadingManuales(true)
+      await cargarPedidosManuales()
+      router.refresh()
+    } catch (error) {
+      setMensajeManual({
+        tipo: "error",
+        texto: error instanceof Error ? error.message : "No se pudo crear el pedido manual",
+      })
+    } finally {
+      setGuardandoManual(false)
+    }
+  }
 
   async function handleExportarHistorico(fechaISO: string) {
     setDescargandoHistorico(true)
@@ -164,6 +360,10 @@ export function GestionPedidosClient({ semana }: GestionPedidosClientProps) {
     }
   }
 
+  const empresaManualSeleccionada = empresas.find(
+  (empresa) => String(empresa.id) === formManual.empresaId
+);
+
   return (
     <div className="mx-auto max-w-[1600px] space-y-6 p-6 bg-slate-50 min-h-screen">
       {/* Header Corporativo */}
@@ -176,7 +376,170 @@ export function GestionPedidosClient({ semana }: GestionPedidosClientProps) {
           <h1 className="text-2xl font-bold text-[#1B2C56] tracking-tight">Consolidado de Pedidos</h1>
           <p className="text-sm text-slate-500 mt-1">Gestión de raciones, monitor de empresas y despachos. {semana.rango}</p>
         </div>
+        <Button
+          onClick={abrirModalManual}
+          className="bg-[#1B2C56] text-white shadow-sm hover:bg-[#122042] font-semibold h-10 px-5"
+        >
+          <ClipboardPlus className="mr-2 h-4 w-4" />
+          Agregar pedido manual
+        </Button>
       </header>
+
+      {mensajeManual && !modalManualOpen && (
+        <div
+          className={`rounded-md border px-4 py-3 text-sm font-semibold ${
+            mensajeManual.tipo === "exito"
+              ? "border-[#75AA46]/20 bg-[#75AA46]/10 text-[#5d8a38]"
+              : "border-red-200 bg-red-50 text-red-700"
+          }`}
+        >
+          {mensajeManual.texto}
+        </div>
+      )}
+
+      {modalManualOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
+          <div className="w-full max-w-lg rounded-md border border-slate-200 bg-white shadow-xl">
+            <div className="border-b border-slate-100 p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-lg font-bold text-[#1B2C56]">Agregar pedido manual</h2>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Pedido fuera de plazo o pedido solicitado por canal externo.
+                  </p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setModalManualOpen(false)}
+                  disabled={guardandoManual}
+                >
+                  Cerrar
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-4 p-5">
+              <div className="space-y-1.5">
+                <Label className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
+                  Empresa
+                </Label>
+                <Select
+                  value={formManual.empresaId}
+                  onValueChange={(value) =>
+                    setFormManual((actual) => ({ ...actual, empresaId: value ?? "" }))
+                  }
+                  disabled={guardandoManual}
+                >
+                  <SelectTrigger className="h-10 w-full bg-slate-50 border-slate-200">
+                    <span className={empresaManualSeleccionada ? "text-slate-900" : "text-slate-400"}>
+                      {empresaManualSeleccionada?.nombre ?? "Selecciona una empresa..."}
+                    </span>
+                  </SelectTrigger>
+                  <SelectContent
+                    side="bottom"
+                    sideOffset={4}
+                    alignItemWithTrigger={false}
+                    className="z-50 max-h-64 bg-white border-slate-200 shadow-md"
+                  >
+                    {empresas.map((empresa) => (
+                      <SelectItem key={empresa.id} value={String(empresa.id)} className="cursor-pointer">
+                        {empresa.nombre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
+                    Fecha del pedido
+                  </Label>
+                  <Input
+                    type="date"
+                    value={formManual.fecha}
+                    onChange={(event) => setFormManual((actual) => ({ ...actual, fecha: event.target.value }))}
+                    disabled={guardandoManual}
+                    className="h-10 bg-slate-50 border-slate-200"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
+                    Cantidad de almuerzos
+                  </Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={formManual.cantidad}
+                    onChange={(event) => setFormManual((actual) => ({ ...actual, cantidad: event.target.value }))}
+                    disabled={guardandoManual}
+                    className="h-10 bg-slate-50 border-slate-200"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
+                  Observación opcional
+                </Label>
+                <textarea
+                  value={formManual.observacion}
+                  onChange={(event) => setFormManual((actual) => ({ ...actual, observacion: event.target.value }))}
+                  disabled={guardandoManual}
+                  maxLength={500}
+                  className="min-h-24 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none transition-colors focus:border-[#1B2C56] focus:bg-white"
+                  placeholder="Ej: Solicitud por WhatsApp para invitados"
+                />
+                <p className="text-right text-[10px] font-medium text-slate-400">
+                  {formManual.observacion.length}/500
+                </p>
+              </div>
+
+              {mensajeManual && (
+                <div
+                  className={`rounded-md border px-3 py-2 text-sm font-semibold ${
+                    mensajeManual.tipo === "exito"
+                      ? "border-[#75AA46]/20 bg-[#75AA46]/10 text-[#5d8a38]"
+                      : "border-red-200 bg-red-50 text-red-700"
+                  }`}
+                >
+                  {mensajeManual.texto}
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-3 border-t border-slate-100 p-5">
+              <Button
+                variant="outline"
+                onClick={() => setModalManualOpen(false)}
+                disabled={guardandoManual}
+                className="h-9"
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={() => void guardarPedidoManual()}
+                disabled={guardandoManual}
+                className="h-9 bg-[#75AA46] text-white hover:bg-[#5d8a38]"
+              >
+                {guardandoManual ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Guardando...
+                  </>
+                ) : (
+                  <>
+                    <ClipboardPlus className="mr-2 h-4 w-4" />
+                    Guardar pedido
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Tarjetas KPI Superiores */}
       <section className="grid gap-4 md:grid-cols-3">
@@ -269,6 +632,13 @@ export function GestionPedidosClient({ semana }: GestionPedidosClientProps) {
         </TabsList>
 
         {semana.dias.map((dia) => {
+          const pedidosManualesDia = pedidosManuales.filter(
+            (pedidoManual) => pedidoManual.fecha === dia.fechaISO
+          )
+          const totalManualesDia = pedidosManualesDia.reduce(
+            (total, pedidoManual) => total + pedidoManual.cantidad,
+            0
+          )
           const disponibilidadHistorico = ahora
             ? obtenerDisponibilidadHistorico(dia.fechaISO, ahora)
             : {
@@ -309,6 +679,82 @@ export function GestionPedidosClient({ semana }: GestionPedidosClientProps) {
               </CardContent>
             </Card>
 
+            {/* Pedidos Manuales */}
+            <Card className="rounded-md border border-slate-200 bg-white shadow-sm">
+              <div className="flex flex-col gap-2 border-b border-slate-200 bg-slate-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-[#1B2C56]">
+                    Pedidos manuales / fuera de plazo
+                  </p>
+                  <p className="mt-0.5 text-[11px] font-medium text-slate-500">
+                    Solicitudes creadas por administracion, separadas de pedidos de trabajadores.
+                  </p>
+                </div>
+                <span className="inline-flex w-fit items-center rounded border border-[#75AA46]/30 bg-[#75AA46]/10 px-2.5 py-1 text-xs font-bold text-[#5d8a38]">
+                  {totalManualesDia} almuerzos manuales
+                </span>
+              </div>
+              <CardContent className="p-0">
+                {loadingManuales ? (
+                  <div className="p-5 text-sm font-medium text-slate-500">
+                    <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
+                    Cargando pedidos manuales...
+                  </div>
+                ) : pedidosManualesDia.length === 0 ? (
+                  <p className="p-5 text-sm font-medium text-slate-400">
+                    No hay pedidos manuales registrados para este dia.
+                  </p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="border-b border-slate-200 hover:bg-transparent">
+                        <TableHead className="h-9 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                          Empresa
+                        </TableHead>
+                        <TableHead className="h-9 text-center text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                          Cantidad
+                        </TableHead>
+                        <TableHead className="h-9 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                          Observacion
+                        </TableHead>
+                        <TableHead className="h-9 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                          Creado
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {pedidosManualesDia.map((pedidoManual) => (
+                        <TableRow key={pedidoManual.id} className="text-xs hover:bg-slate-50/50">
+                          <TableCell className="py-3">
+                            <div className="flex items-center gap-2">
+                              <span className="rounded bg-[#1B2C56]/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest text-[#1B2C56]">
+                                Manual
+                              </span>
+                              <span className="font-bold text-slate-800">
+                                {pedidoManual.empresa.nombre}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="py-3 text-center">
+                            <span className="font-bold text-[#75AA46]">
+                              {pedidoManual.cantidad}
+                            </span>
+                          </TableCell>
+                          <TableCell className="max-w-md py-3 font-medium text-slate-600">
+                            {pedidoManual.observacion || "Sin observacion"}
+                          </TableCell>
+                          <TableCell className="py-3 text-slate-500">
+                            {new Date(pedidoManual.creadoEn).toLocaleDateString("es-CL")}
+                            {pedidoManual.creadoPor ? ` - ${pedidoManual.creadoPor}` : ""}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+
             {/* Listado de Empresas */}
             {dia.empresas.length === 0 ? (
               <Card className="rounded-md border border-dashed border-slate-300 bg-slate-50 shadow-sm">
@@ -321,7 +767,7 @@ export function GestionPedidosClient({ semana }: GestionPedidosClientProps) {
                 <div className="bg-slate-50 border-b border-slate-200 px-4 py-2">
                    <p className="text-xs font-bold text-[#1B2C56] uppercase tracking-wider">Desglose por Cliente</p>
                 </div>
-                <Accordion type="multiple" className="w-full">
+                <Accordion multiple className="w-full">
                   {dia.empresas.map((empresa) => (
                     <AccordionItem
                       key={empresa.id}
