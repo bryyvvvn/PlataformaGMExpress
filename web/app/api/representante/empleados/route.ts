@@ -1,6 +1,19 @@
 import { NextResponse } from 'next/server';
 import db from '../../../../lib/db';
 
+async function obtenerTrabajaFinDeSemana(empresaId: number) {
+  const empresa = await db.empresa.findUnique({
+    where: { id: empresaId },
+    select: {
+      ConvenioEmpresa: {
+        select: { trabajaFinDeSemana: true },
+      },
+    },
+  });
+
+  return Boolean(empresa?.ConvenioEmpresa?.trabajaFinDeSemana);
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const empresaIdStr = searchParams.get('empresaId');
@@ -30,7 +43,8 @@ export async function GET(request: Request) {
     inicioSemana.setHours(0, 0, 0, 0);
 
     const finSemana = new Date(inicioSemana);
-    finSemana.setDate(inicioSemana.getDate() + 6);
+    const trabajaFinDeSemana = await obtenerTrabajaFinDeSemana(empresaId);
+    finSemana.setDate(inicioSemana.getDate() + (trabajaFinDeSemana ? 6 : 4));
     finSemana.setHours(23, 59, 59, 999);
 
     const usuarios = await db.usuario.findMany({

@@ -10,6 +10,9 @@ export interface DiaSemana {
   bloqueado:    boolean;
 }
 
+const diasSemanaLaboral = ['L', 'M', 'M', 'J', 'V'];
+const diasSemanaCompleta = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+
 // 🔥 Lo hacemos dinámico según si tiene o no fin de semana
 function getIndiceHoy(incluyeFines: boolean): number {
   const d = new Date().getDay(); 
@@ -46,7 +49,7 @@ export const useCalendario = (incluyeFinesDeSemana: boolean = false) => {
     lunesReferencia.setDate(lunesReferencia.getDate() - (diaActual - 1) + semanaOffset * 7);
 
     // 🔥 GENERADOR DINÁMICO: 5 o 7 Días
-    const letras = incluyeFinesDeSemana ? ['L', 'M', 'M', 'J', 'V', 'S', 'D'] : ['L', 'M', 'M', 'J', 'V'];
+    const letras = incluyeFinesDeSemana ? diasSemanaCompleta : diasSemanaLaboral;
 
     const array: DiaSemana[] = letras.map((letra, index) => {
       const fechaDia = new Date(lunesReferencia);

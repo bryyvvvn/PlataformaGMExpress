@@ -35,6 +35,9 @@ export interface MenuDia {
     entradaDisplay?: string | null;
     bebida?: Plato | null;
   } | null;
+  convenio?: {
+    trabajaFinDeSemana?: boolean | null;
+  };
 }
 
 const MENU_VACIO: MenuDia = { entradas: [], fondos: [], postres: [], menuDia: null };

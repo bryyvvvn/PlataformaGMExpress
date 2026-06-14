@@ -8,10 +8,12 @@ import { useCalendario } from '../../hooks/useCalendario';
 import { usePlanilla } from '../../hooks/usePlanilla';
 import { VerificadorRut } from '../../components/VerificadorRut';
 import { useUser } from '@clerk/clerk-react';
+import type { ConvenioEmpresa } from '../../hooks/usePerfil';
 
 interface HomePageRepresentanteProps {
   empresaId: number | null;
   empresaNombre: string;
+  convenio: ConvenioEmpresa | null;
 }
 
 const capitalizar = (texto: string | null | undefined) => {
@@ -19,12 +21,13 @@ const capitalizar = (texto: string | null | undefined) => {
   return texto.charAt(0).toUpperCase() + texto.slice(1).toLowerCase();
 };
 
-const HomePageRepresentante: React.FC<HomePageRepresentanteProps> = ({ empresaId, empresaNombre }) => {
+const HomePageRepresentante: React.FC<HomePageRepresentanteProps> = ({ empresaId, empresaNombre, convenio }) => {
   const { user } = useUser();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { enviarPlanilla, loading: enviandoTodo } = usePlanilla();
+  const trabajaFinDeSemana = Boolean(convenio?.trabajaFinDeSemana);
   
-  const { setSemanaOffset, getSemanaTexto, fechaSeleccionadaISO, fechaTexto } = useCalendario();
+  const { setSemanaOffset, getSemanaTexto, fechaSeleccionadaISO, fechaTexto } = useCalendario(trabajaFinDeSemana);
   const { trabajadores, cargando, resumenEmpresa } = useTrabajadores(empresaId, fechaSeleccionadaISO);
 
   const manejarEnviarTodo = async () => {

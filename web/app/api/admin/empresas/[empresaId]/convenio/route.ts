@@ -15,6 +15,7 @@ const CAMPOS_CONVENIO = [
   "permiteJugo",
   "permiteBebida",
   "permiteAguaSaborizada",
+  "trabajaFinDeSemana",
 ] as const
 
 const TIPOS_EMPAQUETADO = [
@@ -142,6 +143,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
         permiteJugo: true,
         permiteBebida: true,
         permiteAguaSaborizada: true,
+        trabajaFinDeSemana: true,
         tipoEmpaquetado: true,
       },
     })

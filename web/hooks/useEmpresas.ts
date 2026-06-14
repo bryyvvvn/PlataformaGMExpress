@@ -14,6 +14,7 @@ export type ConvenioEmpresa = {
   permiteJugo: boolean
   permiteBebida: boolean
   permiteAguaSaborizada: boolean
+  trabajaFinDeSemana: boolean
   tipoEmpaquetado: TipoEmpaquetado | null
 }
 
@@ -51,10 +52,15 @@ export const CONVENIO_DEFAULTS: ConvenioForm = {
   permiteJugo: true,
   permiteBebida: false,
   permiteAguaSaborizada: false,
+  trabajaFinDeSemana: false,
   tipoEmpaquetado: null,
 }
 
-export const OPCIONES_CONVENIO: Array<{ campo: CampoBooleanoConvenio; label: string }> = [
+export const OPCIONES_CONVENIO: Array<{
+  campo: CampoBooleanoConvenio
+  label: string
+  ayuda?: string
+}> = [
   { campo: "permitePlato", label: "Plato" },
   { campo: "permiteEntrada", label: "Entrada" },
   { campo: "permitePostre", label: "Postre" },
@@ -62,6 +68,12 @@ export const OPCIONES_CONVENIO: Array<{ campo: CampoBooleanoConvenio; label: str
   { campo: "permiteJugo", label: "Jugo" },
   { campo: "permiteBebida", label: "Bebida" },
   { campo: "permiteAguaSaborizada", label: "Agua saborizada" },
+  {
+    campo: "trabajaFinDeSemana",
+    label: "¿Trabaja fin de semana?",
+    ayuda:
+      "Si está activado, la empresa podrá operar y visualizar pedidos de lunes a domingo.",
+  },
 ]
 
 export const OPCIONES_TIPO_EMPAQUETADO: Array<{
@@ -124,6 +136,7 @@ export function useEmpresas() {
             permiteJugo: empresa.convenio.permiteJugo,
             permiteBebida: empresa.convenio.permiteBebida,
             permiteAguaSaborizada: empresa.convenio.permiteAguaSaborizada,
+            trabajaFinDeSemana: Boolean(empresa.convenio.trabajaFinDeSemana),
             tipoEmpaquetado: empresa.convenio.tipoEmpaquetado,
           }
         : CONVENIO_DEFAULTS

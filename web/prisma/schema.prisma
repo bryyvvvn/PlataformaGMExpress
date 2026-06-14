@@ -172,10 +172,10 @@ model DetallePedido {
 }
 
 model ConfiguracionSistema {
-  id               Int      @id @default(1)
-  horaLimite       String   @default("17:00") @db.VarChar(5)
-  diasAnticipacion Int      @default(2)
-  actualizadoEn    DateTime @default(now())
+  id                        Int      @id @default(1)
+  horaLimite                String   @default("17:00") @db.VarChar(5)
+  diasAnticipacion          Int      @default(2)
+  actualizadoEn             DateTime @default(now())
   mensajePedidoTrabajadores String?
 }
 

@@ -4,11 +4,16 @@ import { API_BASE_URL } from '../constants/api';
 
 export type RolUsuario = 'TRABAJADOR' | 'REPRESENTANTE' | 'ADMIN' | null;
 
+export type ConvenioEmpresa = {
+  trabajaFinDeSemana?: boolean | null;
+};
+
 export const usePerfil = () => {
   const { user, isLoaded } = useUser();
   const [rol, setRol] = useState<RolUsuario>(null);
   const [empresaId, setEmpresaId] = useState<number | null>(null);
   const [empresaNombre, setEmpresaNombre] = useState<string>('');
+  const [convenio, setConvenio] = useState<ConvenioEmpresa | null>(null);
   const [cargandoRol, setCargandoRol] = useState(true);
 
   useEffect(() => {
@@ -27,6 +32,7 @@ export const usePerfil = () => {
           setRol(data.rol);
           setEmpresaId(data.empresaId);
           setEmpresaNombre(data.empresa?.nombre || 'Sin Empresa');
+          setConvenio(data.empresa?.ConvenioEmpresa ?? null);
         } else {
           setRol('TRABAJADOR'); 
         }
@@ -41,5 +47,5 @@ export const usePerfil = () => {
     obtenerPerfil();
   }, [user?.id, isLoaded]); // 🔥 Optimizado por ID
 
-  return { rol, empresaId, empresaNombre, cargandoRol };
+  return { rol, empresaId, empresaNombre, convenio, cargandoRol };
 };

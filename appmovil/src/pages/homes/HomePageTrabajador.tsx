@@ -86,7 +86,7 @@ const HomePageTrabajador: React.FC = () => {
   useEffect(() => { setAutoSelected(false); }, [location.pathname]);
 
   const { diasBloqueadosAdmin, convenio } = usePerfilTrabajador(user?.id);
-  const trabajaFinDeSemana = convenio?.trabajaFinDeSemana ?? false;
+  const trabajaFinDeSemana = Boolean(convenio?.trabajaFinDeSemana);
 
   const {
     setSemanaOffset: _setSemanaOffset, fechaTexto, diasSemanaArray, getSemanaTexto,

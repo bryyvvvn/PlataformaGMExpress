@@ -198,19 +198,11 @@ export function Header({ title, subtitle }: HeaderProps) {
             </Avatar>
             <div className="hidden flex-col items-start md:flex text-left">
               <span className="text-sm font-semibold text-foreground leading-none">
-                Administraci&oacute;n
+                Administración
               </span>
             </div>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56 rounded-xl">
-            <DropdownMenuGroup>
-              <DropdownMenuLabel>Mi Cuenta</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="cursor-pointer">
-                <UserIcon className="mr-2 h-4 w-4" /> Configuraci&oacute;n
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-
             <DropdownMenuSeparator />
             <DropdownMenuItem
               className="cursor-pointer text-destructive focus:text-destructive"
@@ -218,7 +210,7 @@ export function Header({ title, subtitle }: HeaderProps) {
               onClick={cerrarSesion}
             >
               <LogOut className="mr-2 h-4 w-4" />
-              {cerrandoSesion ? "Cerrando..." : "Cerrar Sesi\u00f3n"}
+              {cerrandoSesion ? "Cerrando..." : "Cerrar Sesión"}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

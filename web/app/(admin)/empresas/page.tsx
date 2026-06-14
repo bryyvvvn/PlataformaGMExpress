@@ -289,7 +289,7 @@ export default function EmpresasView() {
               </div>
 
               {OPCIONES_CONVENIO.map((opcion) => (
-                <div key={opcion.campo} className="flex items-center gap-3">
+                <div key={opcion.campo} className="flex items-start gap-3">
                   <input
                     id={opcion.campo}
                     type="checkbox"
@@ -298,11 +298,16 @@ export default function EmpresasView() {
                     onChange={(event) =>
                       actualizarCampoConvenio(opcion.campo, event.target.checked)
                     }
-                    className="h-4 w-4 rounded border-border accent-[#75aa46]"
+                    className="mt-0.5 h-4 w-4 rounded border-border accent-[#75aa46]"
                   />
-                  <Label htmlFor={opcion.campo} className="text-sm font-medium">
-                    {opcion.label}
-                  </Label>
+                  <div className="space-y-1">
+                    <Label htmlFor={opcion.campo} className="text-sm font-medium">
+                      {opcion.label}
+                    </Label>
+                    {opcion.ayuda && (
+                      <p className="text-xs leading-5 text-slate-500">{opcion.ayuda}</p>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
