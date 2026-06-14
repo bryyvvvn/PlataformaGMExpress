@@ -26,6 +26,7 @@ model Empresa {
   representanteLegal    String?           @db.VarChar(150)
   rutRepresentanteLegal String?           @db.VarChar(20)
   estado                EstadoEmpresa     @default(ACTIVA)
+  horaDespacho          String?           @db.VarChar(5)
   creado_en             DateTime          @default(now())
   actualizado_en        DateTime          @default(now())
   ContactoEmpresa       ContactoEmpresa[]
@@ -172,10 +173,10 @@ model DetallePedido {
 }
 
 model ConfiguracionSistema {
-  id                        Int      @id @default(1)
-  horaLimite                String   @default("17:00") @db.VarChar(5)
-  diasAnticipacion          Int      @default(2)
-  actualizadoEn             DateTime @default(now())
+  id               Int      @id @default(1)
+  horaLimite       String   @default("10:00") @db.VarChar(5)
+  diasAnticipacion Int      @default(2)
+  actualizadoEn    DateTime @default(now())
   mensajePedidoTrabajadores String?
 }
 

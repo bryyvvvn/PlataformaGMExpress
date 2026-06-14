@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 type PuntoSemanal = {
@@ -5,8 +8,14 @@ type PuntoSemanal = {
   pedidos: number;
 };
 
-type PedidosSemanalChartProps = {
-  data: PuntoSemanal[];
+type PuntoDiario = {
+  time: string;
+  pedidos: number;
+};
+
+type ChartProps = {
+  dataSemana: PuntoSemanal[];
+  dataDia: PuntoDiario[];
   title: string;
 };
 
@@ -21,17 +30,24 @@ function marcasEje(max: number): number[] {
   return [...marcas].sort((a, b) => a - b);
 }
 
-export function PedidosSemanalChart({ data, title }: PedidosSemanalChartProps) {
-  const max = Math.max(...data.map((d) => d.pedidos), 1);
+export function PedidosSemanalChart({ dataSemana, dataDia, title }: ChartProps) {
+  const [vista, setVista] = useState<"semana" | "dia">("semana");
+
+  const puntosBase =
+    vista === "semana"
+      ? dataSemana.map((d) => ({ label: d.day, pedidos: d.pedidos }))
+      : dataDia.map((d) => ({ label: d.time, pedidos: d.pedidos }));
+
+  const max = Math.max(...puntosBase.map((d) => d.pedidos), 1);
   const marcas = marcasEje(max);
   const alto = 200;
   const ancho = 600;
   const margen = 40;
   const area = alto - margen * 2;
 
-  const puntos = data.map((d, i) => {
+  const puntos = puntosBase.map((d, i) => {
     const x =
-      margen + (i * (ancho - margen * 2)) / Math.max(data.length - 1, 1);
+      margen + (i * (ancho - margen * 2)) / Math.max(puntosBase.length - 1, 1);
     const y = alto - margen - (d.pedidos / max) * area;
     return { x, y, ...d };
   });
@@ -42,8 +58,30 @@ export function PedidosSemanalChart({ data, title }: PedidosSemanalChartProps) {
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between gap-2">
         <CardTitle className="text-sm font-medium">{title}</CardTitle>
+        <div className="flex gap-1 rounded-md border border-border p-0.5">
+          <button
+            onClick={() => setVista("semana")}
+            className={`px-3 py-1 text-xs rounded font-medium transition-colors ${
+              vista === "semana"
+                ? "bg-[#1b2c56] text-white"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Semana
+          </button>
+          <button
+            onClick={() => setVista("dia")}
+            className={`px-3 py-1 text-xs rounded font-medium transition-colors ${
+              vista === "dia"
+                ? "bg-[#75aa46] text-white"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Hoy
+          </button>
+        </div>
       </CardHeader>
       <CardContent>
         <svg
@@ -95,13 +133,13 @@ export function PedidosSemanalChart({ data, title }: PedidosSemanalChartProps) {
 
           {puntos.map((p, i) => (
             <text
-              key={`dia-${i}`}
+              key={`label-${i}`}
               x={p.x}
               y={alto - margen + 18}
               textAnchor="middle"
               className="fill-muted-foreground text-[11px]"
             >
-              {p.day}
+              {p.label}
             </text>
           ))}
 

@@ -147,3 +147,12 @@ export function getChileDayName(isoDate: string): string {
   const rawDay = dayFmt.format(ref);
   return rawDay.charAt(0).toUpperCase() + rawDay.slice(1);
 }
+
+/**
+ * Retorna la hora (0-23) de un Date en zona horaria Chile.
+ *
+ * Uso: getChileHour(pedido.fecha) → 14
+ */
+export function getChileHour(date: Date): number {
+  return chileComponents(date).hour;
+}

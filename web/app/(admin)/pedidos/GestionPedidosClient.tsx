@@ -14,6 +14,7 @@ import {
   CheckCircle2
 } from "lucide-react"
 import type { SemanaConsolidada } from "@/lib/pedidos/consolidado"
+import { HoraLimiteGlobal } from "@/components/admin/hora-limite-global"
 import {
   obtenerDisponibilidadHistorico,
   obtenerDisponibilidadProduccion,
@@ -384,6 +385,12 @@ export function GestionPedidosClient({ semana }: GestionPedidosClientProps) {
           Agregar pedido manual
         </Button>
       </header>
+
+      <Card className="rounded-md border-slate-200 bg-white shadow-sm">
+        <CardContent className="p-5">
+          <HoraLimiteGlobal />
+        </CardContent>
+      </Card>
 
       {mensajeManual && !modalManualOpen && (
         <div

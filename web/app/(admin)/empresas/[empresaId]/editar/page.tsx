@@ -16,6 +16,8 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { TimePickerBlock } from "@/components/ui/time-picker-block"
+import { getHoraLimiteEfectiva } from "@/lib/horario-pedidos"
 
 type ContactoEmpresa = {
   id: number
@@ -46,6 +48,7 @@ type EmpresaDetalle = {
   representanteLegal: string | null
   rutRepresentanteLegal: string | null
   estado: "ACTIVA" | "INACTIVA"
+  horaDespacho: string | null
   contactos: ContactoEmpresa[]
 }
 
@@ -69,6 +72,7 @@ type EmpresaEditForm = {
   representanteLegal: string
   rutRepresentanteLegal: string
   estado: "ACTIVA" | "INACTIVA"
+  horaDespacho: string
 }
 
 type ContactoEmpresaForm = {
@@ -96,6 +100,7 @@ const EMPRESA_DEFAULTS: EmpresaEditForm = {
   representanteLegal: "",
   rutRepresentanteLegal: "",
   estado: "ACTIVA",
+  horaDespacho: "",
 }
 
 const CONTACTO_DEFAULTS: ContactoEmpresaForm = {
@@ -121,6 +126,11 @@ function fechaParaInput(value: string | null | undefined) {
   }
 
   return fecha.toISOString().slice(0, 10)
+}
+
+function calcularCierrePorDespacho(horaDespacho: string): string {
+  // horaGlobal no se usa cuando horaDespacho esta definido
+  return getHoraLimiteEfectiva(horaDespacho, horaDespacho).horaLimite
 }
 
 function contactoAFormulario(contacto: ContactoEmpresa | undefined): ContactoEmpresaForm {
@@ -151,6 +161,7 @@ export default function EditarEmpresaPage() {
   const [empresaCargada, setEmpresaCargada] = useState(false)
   const [empresaNombre, setEmpresaNombre] = useState("")
   const [form, setForm] = useState<EmpresaEditForm>(EMPRESA_DEFAULTS)
+  const [horaDespachoActivada, setHoraDespachoActivada] = useState(false)
   const [contactoTitularForm, setContactoTitularForm] =
     useState<ContactoEmpresaForm>(CONTACTO_DEFAULTS)
   const [contactoSuplenteForm, setContactoSuplenteForm] =
@@ -168,6 +179,7 @@ export default function EditarEmpresaPage() {
 
     setEmpresaCargada(true)
     setEmpresaNombre(empresa.nombre)
+    setHoraDespachoActivada(empresa.horaDespacho !== null)
     setForm({
       nombre: empresa.nombre,
       razonSocial: textoFormulario(empresa.razonSocial),
@@ -184,6 +196,7 @@ export default function EditarEmpresaPage() {
       representanteLegal: textoFormulario(empresa.representanteLegal),
       rutRepresentanteLegal: textoFormulario(empresa.rutRepresentanteLegal),
       estado: empresa.estado,
+      horaDespacho: textoFormulario(empresa.horaDespacho),
     })
     setContactoTitularForm(contactoAFormulario(contactoTitular))
     setContactoSuplenteForm(contactoAFormulario(contactoSuplente))
@@ -234,6 +247,11 @@ export default function EditarEmpresaPage() {
     }))
   }
 
+  const alternarHoraDespacho = (activada: boolean) => {
+    setHoraDespachoActivada(activada)
+    actualizarCampoEmpresa("horaDespacho", activada ? form.horaDespacho || "08:00" : "")
+  }
+
   const actualizarContacto = (
     tipo: "titular" | "suplente",
     campo: keyof ContactoEmpresaForm,
@@ -277,6 +295,7 @@ export default function EditarEmpresaPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
+          horaDespacho: form.horaDespacho || null,
           contactoTitular: {
             ...contactoTitularForm,
             fechaNacimiento: contactoTitularForm.fechaNacimiento || null,
@@ -547,6 +566,37 @@ export default function EditarEmpresaPage() {
                 actualizarCampoEmpresa("direccionFaena", event.target.value)
               }
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Hora de Despacho</Label>
+
+            <label className="flex items-center gap-2 text-sm font-normal text-slate-600">
+              <input
+                type="checkbox"
+                checked={horaDespachoActivada}
+                disabled={guardando}
+                onChange={(event) => alternarHoraDespacho(event.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-[#75aa46] focus:ring-[#75aa46]"
+              />
+              Configurar hora específica
+            </label>
+
+            {horaDespachoActivada && (
+              <TimePickerBlock
+                value={form.horaDespacho || "08:00"}
+                onChange={(valor) => actualizarCampoEmpresa("horaDespacho", valor)}
+                min="06:00"
+                max="23:00"
+                disabled={guardando}
+              />
+            )}
+
+            <p className="text-xs leading-relaxed text-slate-500">
+              {horaDespachoActivada && form.horaDespacho
+                ? `Cierre de pedidos: ${calcularCierrePorDespacho(form.horaDespacho)} (3 horas antes del despacho)`
+                : "Sin hora específica — aplicará la hora global del sistema"}
+            </p>
           </div>
         </CardContent>
       </Card>
