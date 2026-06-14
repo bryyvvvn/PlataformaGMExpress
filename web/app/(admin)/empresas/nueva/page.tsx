@@ -31,6 +31,7 @@ type ConvenioForm = {
   permiteJugo: boolean
   permiteBebida: boolean
   permiteAguaSaborizada: boolean
+  trabajaFinDeSemana: boolean
   tipoEmpaquetado: TipoEmpaquetado | null
 }
 
@@ -78,6 +79,7 @@ const CONVENIO_DEFAULTS: ConvenioForm = {
   permiteJugo: true,
   permiteBebida: false,
   permiteAguaSaborizada: false,
+  trabajaFinDeSemana: false,
   tipoEmpaquetado: null,
 }
 
@@ -108,7 +110,11 @@ const CONTACTO_DEFAULTS: ContactoEmpresaForm = {
   fechaNacimiento: "",
 }
 
-const OPCIONES_CONVENIO: Array<{ campo: CampoBooleanoConvenio; label: string }> = [
+const OPCIONES_CONVENIO: Array<{
+  campo: CampoBooleanoConvenio
+  label: string
+  ayuda?: string
+}> = [
   { campo: "permitePlato", label: "Plato" },
   { campo: "permiteEntrada", label: "Entrada" },
   { campo: "permitePostre", label: "Postre" },
@@ -116,6 +122,12 @@ const OPCIONES_CONVENIO: Array<{ campo: CampoBooleanoConvenio; label: string }> 
   { campo: "permiteJugo", label: "Jugo" },
   { campo: "permiteBebida", label: "Bebida" },
   { campo: "permiteAguaSaborizada", label: "Agua saborizada" },
+  {
+    campo: "trabajaFinDeSemana",
+    label: "¿Trabaja fin de semana?",
+    ayuda:
+      "Si está activado, la empresa podrá operar y visualizar pedidos de lunes a domingo.",
+  },
 ]
 
 const OPCIONES_TIPO_EMPAQUETADO: Array<{
@@ -771,7 +783,7 @@ export default function NuevaEmpresaPage() {
                 {OPCIONES_CONVENIO.map((opcion) => (
                   <div
                     key={opcion.campo}
-                    className="flex items-center gap-3 rounded-lg border border-border p-3"
+                    className="flex items-start gap-3 rounded-lg border border-border p-3"
                   >
                     <input
                       id={opcion.campo}
@@ -781,14 +793,21 @@ export default function NuevaEmpresaPage() {
                       onChange={(event) =>
                         actualizarConvenioCrearEmpresa(opcion.campo, event.target.checked)
                       }
-                      className="h-5 w-5 rounded border-slate-300 accent-[#75aa46]"
+                      className="mt-0.5 h-5 w-5 rounded border-slate-300 accent-[#75aa46]"
                     />
-                    <Label
-                      htmlFor={opcion.campo}
-                      className="cursor-pointer text-sm font-medium"
-                    >
-                      {opcion.label}
-                    </Label>
+                    <div className="space-y-1">
+                      <Label
+                        htmlFor={opcion.campo}
+                        className="cursor-pointer text-sm font-medium"
+                      >
+                        {opcion.label}
+                      </Label>
+                      {opcion.ayuda && (
+                        <p className="text-xs leading-5 text-muted-foreground">
+                          {opcion.ayuda}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>

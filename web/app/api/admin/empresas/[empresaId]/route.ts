@@ -488,6 +488,7 @@ export async function GET(_req: Request, { params }: RouteContext) {
             permiteJugo: true,
             permiteBebida: true,
             permiteAguaSaborizada: true,
+            trabajaFinDeSemana: true,
             tipoEmpaquetado: true,
           },
         },

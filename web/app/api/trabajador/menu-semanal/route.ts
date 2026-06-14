@@ -17,6 +17,7 @@ type ConvenioMenuDia = {
   permiteBebida: boolean;
   permiteJugo: boolean;
   permiteAguaSaborizada: boolean;
+  trabajaFinDeSemana: boolean;
 };
 
 type PlatoBebida = {
@@ -80,6 +81,7 @@ async function obtenerConvenioUsuario(usuarioId: string | null): Promise<Conveni
               permiteBebida: true,
               permiteJugo: true,
               permiteAguaSaborizada: true,
+              trabajaFinDeSemana: true,
             },
           },
         },
@@ -185,7 +187,15 @@ export async function GET(req: NextRequest) {
     });
 
     if (!menuActivo || menuActivo.detalles.length === 0) {
-      return NextResponse.json({ entradas: [], fondos: [], postres: [], menuDia: null });
+      return NextResponse.json({
+        entradas: [],
+        fondos: [],
+        postres: [],
+        menuDia: null,
+        convenio: {
+          trabajaFinDeSemana: Boolean(convenio?.trabajaFinDeSemana),
+        },
+      });
     }
 
     const seleccion = menuActivo.menuDiaSelecciones[0];
@@ -225,6 +235,9 @@ export async function GET(req: NextRequest) {
         .map(formatearDetalle),
 
       menuDia: seleccion ? formatearSeleccion(seleccion, convenio) : null,
+      convenio: {
+        trabajaFinDeSemana: Boolean(convenio?.trabajaFinDeSemana),
+      },
     };
 
     return NextResponse.json(menuFormateado);

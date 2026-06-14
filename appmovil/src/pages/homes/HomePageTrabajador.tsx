@@ -113,7 +113,7 @@ const HomePageTrabajador: React.FC = () => {
   }, [user?.id]);
 
   const { diasBloqueadosAdmin, convenio } = usePerfilTrabajador(user?.id);
-  const trabajaFinDeSemana = convenio?.trabajaFinDeSemana ?? false;
+  const trabajaFinDeSemana = Boolean(convenio?.trabajaFinDeSemana);
 
   const {
     setSemanaOffset: _setSemanaOffset, fechaTexto, diasSemanaArray, getSemanaTexto,

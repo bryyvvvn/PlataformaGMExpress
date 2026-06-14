@@ -1,6 +1,19 @@
 import { NextResponse } from 'next/server';
 import db from '../../../../lib/db';
 
+async function obtenerTrabajaFinDeSemana(empresaId: number) {
+  const empresa = await db.empresa.findUnique({
+    where: { id: empresaId },
+    select: {
+      ConvenioEmpresa: {
+        select: { trabajaFinDeSemana: true },
+      },
+    },
+  });
+
+  return Boolean(empresa?.ConvenioEmpresa?.trabajaFinDeSemana);
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -22,12 +35,14 @@ export async function POST(request: Request) {
     inicioSemana.setHours(0, 0, 0, 0);
 
     const finSemana = new Date(inicioSemana);
-    finSemana.setDate(inicioSemana.getDate() + 6);
+    const empresaIdNumber = typeof empresaId === 'string' ? parseInt(empresaId, 10) : empresaId;
+    const trabajaFinDeSemana = await obtenerTrabajaFinDeSemana(empresaIdNumber);
+    finSemana.setDate(inicioSemana.getDate() + (trabajaFinDeSemana ? 6 : 4));
     finSemana.setHours(23, 59, 59, 999);
 
     const actualizados = await db.pedido.updateMany({
       where: {
-        empresaId: typeof empresaId === 'string' ? parseInt(empresaId, 10) : empresaId,
+        empresaId: empresaIdNumber,
         estado: 'PENDIENTE',
         fecha: {
           gte: inicioSemana,

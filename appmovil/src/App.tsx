@@ -15,7 +15,7 @@ import LoadingView from './components/LoadingView';
 import { usePerfil } from './hooks/usePerfil';
 
 const SelectorDeHome = () => {
-  const { rol, empresaId, empresaNombre, cargandoRol } = usePerfil();
+  const { rol, empresaId, empresaNombre, convenio, cargandoRol } = usePerfil();
 
   if (cargandoRol) {
     return <LoadingView message="Verificando accesos..." />;
@@ -27,7 +27,7 @@ const SelectorDeHome = () => {
   }
 
   return rol === 'REPRESENTANTE' 
-    ? <HomePageRepresentante empresaId={empresaId} empresaNombre={empresaNombre} /> 
+    ? <HomePageRepresentante empresaId={empresaId} empresaNombre={empresaNombre} convenio={convenio} /> 
     : <HomePageTrabajador />;
 };
 

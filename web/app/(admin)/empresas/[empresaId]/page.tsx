@@ -36,6 +36,7 @@ type ConvenioEmpresa = {
   permiteJugo: boolean
   permiteBebida: boolean
   permiteAguaSaborizada: boolean
+  trabajaFinDeSemana: boolean
   tipoEmpaquetado: TipoEmpaquetado | null
 }
 
@@ -44,7 +45,10 @@ type TipoEmpaquetado =
   | "C10_ALUMINIO"
   | "SERVICIO_TRADICIONAL_PLATO"
 
-type CampoConvenio = Exclude<keyof ConvenioEmpresa, "id" | "tipoEmpaquetado">
+type CampoConvenio = Exclude<
+  keyof ConvenioEmpresa,
+  "id" | "tipoEmpaquetado" | "trabajaFinDeSemana"
+>
 
 type ContactoEmpresa = {
   id: number
@@ -444,6 +448,10 @@ export default function EmpresaDetallePage() {
                 <Dato
                   label="Tipo de empaquetado"
                   value={mostrarTipoEmpaquetado(empresa.convenio.tipoEmpaquetado)}
+                />
+                <Dato
+                  label="Trabaja fin de semana"
+                  value={Boolean(empresa.convenio.trabajaFinDeSemana) ? "Sí" : "No"}
                 />
 
                 <div className="grid gap-3 sm:grid-cols-2">

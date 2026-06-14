@@ -12,6 +12,7 @@ const CONVENIO_DEFAULTS = {
   permiteJugo: true,
   permiteBebida: false,
   permiteAguaSaborizada: false,
+  trabajaFinDeSemana: false,
   tipoEmpaquetado: null,
 }
 
@@ -23,6 +24,7 @@ const CAMPOS_CONVENIO = [
   "permiteJugo",
   "permiteBebida",
   "permiteAguaSaborizada",
+  "trabajaFinDeSemana",
 ] as const
 
 const TIPOS_EMPAQUETADO = [
@@ -461,6 +463,7 @@ export async function GET() {
               permiteJugo: true,
               permiteBebida: true,
               permiteAguaSaborizada: true,
+              trabajaFinDeSemana: true,
               tipoEmpaquetado: true,
             },
           },
@@ -588,6 +591,7 @@ export async function POST(req: NextRequest) {
               permiteJugo: true,
               permiteBebida: true,
               permiteAguaSaborizada: true,
+              trabajaFinDeSemana: true,
               tipoEmpaquetado: true,
             },
           },

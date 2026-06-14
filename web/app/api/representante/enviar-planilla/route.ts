@@ -2,6 +2,42 @@ import { NextResponse } from 'next/server';
 import db from '../../../../lib/db';
 import nodemailer from 'nodemailer'; // 🔥 IMPORTAMOS NODEMAILER
 
+import type { Prisma } from '@prisma/client';
+
+async function obtenerTrabajaFinDeSemana(empresaId?: number, usuarioId?: string) {
+  if (empresaId) {
+    const empresa = await db.empresa.findUnique({
+      where: { id: empresaId },
+      select: {
+        ConvenioEmpresa: {
+          select: { trabajaFinDeSemana: true },
+        },
+      },
+    });
+
+    return Boolean(empresa?.ConvenioEmpresa?.trabajaFinDeSemana);
+  }
+
+  if (usuarioId) {
+    const usuario = await db.usuario.findUnique({
+      where: { id: usuarioId },
+      select: {
+        empresa: {
+          select: {
+            ConvenioEmpresa: {
+              select: { trabajaFinDeSemana: true },
+            },
+          },
+        },
+      },
+    });
+
+    return Boolean(usuario?.empresa?.ConvenioEmpresa?.trabajaFinDeSemana);
+  }
+
+  return false;
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -23,10 +59,16 @@ export async function POST(request: Request) {
     inicioSemana.setHours(0, 0, 0, 0);
 
     const finSemana = new Date(inicioSemana);
-    finSemana.setDate(inicioSemana.getDate() + 6);
+    const idEmpresaNum = empresaId
+      ? typeof empresaId === 'string'
+        ? parseInt(empresaId, 10)
+        : empresaId
+      : undefined;
+    const trabajaFinDeSemana = await obtenerTrabajaFinDeSemana(idEmpresaNum, usuarioId);
+    finSemana.setDate(inicioSemana.getDate() + (trabajaFinDeSemana ? 6 : 4));
     finSemana.setHours(23, 59, 59, 999);
 
-    const whereClause: any = {
+    const whereClause: Prisma.PedidoWhereInput = {
       estado: 'PENDIENTE',
       fecha: {
         gte: inicioSemana,
@@ -35,7 +77,7 @@ export async function POST(request: Request) {
     };
 
     if (usuarioId) whereClause.usuarioId = usuarioId;
-    else if (empresaId) whereClause.empresaId = typeof empresaId === 'string' ? parseInt(empresaId, 10) : empresaId;
+    else if (idEmpresaNum) whereClause.empresaId = idEmpresaNum;
 
     // 1. ACTUALIZAMOS LA BASE DE DATOS (Tu código original)
     const actualizados = await db.pedido.updateMany({
@@ -44,10 +86,9 @@ export async function POST(request: Request) {
     });
 
     // 🔥 2. SI SE CONFIRMARON PEDIDOS, MANDAMOS EL CORREO
-    if (actualizados.count > 0 && empresaId) {
+    if (actualizados.count > 0 && idEmpresaNum) {
       try {
         // Buscamos el nombre de la empresa para personalizar el correo
-        const idEmpresaNum = typeof empresaId === 'string' ? parseInt(empresaId, 10) : empresaId;
         const empresaData = await db.empresa.findUnique({
           where: { id: idEmpresaNum },
           select: { nombre: true }
