@@ -13,6 +13,7 @@
     "@capacitor/android": "^8.3.0",
     "@capacitor/cli": "^8.3.0",
     "@capacitor/core": "^8.3.0",
+    "@capacitor/push-notifications": "^8.1.1",
     "@clerk/clerk-react": "^5.61.6",
     "@clerk/localizations": "^4.5.5",
     "@tailwindcss/postcss": "^4.2.4",

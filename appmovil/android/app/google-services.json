@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "364947660835",
+    "project_id": "gmexpress-app",
+    "storage_bucket": "gmexpress-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:364947660835:android:de36dbcfd2db618af95196",
+        "android_client_info": {
+          "package_name": "com.gmexpress.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDcQt7RZOmThE7r_2RVG-bWSgjxnh_ygzM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

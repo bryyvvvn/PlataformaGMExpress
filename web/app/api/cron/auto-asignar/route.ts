@@ -1,101 +1,123 @@
-import { NextResponse } from 'next/server';
-import db from '../../../../lib/db'; // Ajusta los '..' según la profundidad de tu carpeta
+import { NextRequest, NextResponse } from 'next/server';
+import db from '../../../../lib/db';
+import { chileStartOfDay, chileEndOfDay } from '../../../../lib/chile-time';
 
-export async function GET(request: Request) {
-  // Nota: Usamos GET para poder probarla fácilmente en el navegador y para que Vercel la ejecute.
+export const dynamic = 'force-dynamic';
 
-  // Opcional: Proteger la ruta para que nadie externo pueda ejecutarla
+// CAMBIADO A POST PARA PRODUCCIÓN
+export async function POST(request: NextRequest) {
+  
+  // 1. SEGURIDAD ACTIVADA: Solo Railway con el CRON_SECRET puede ejecutar esto
   const authHeader = request.headers.get('authorization');
-  if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    return new NextResponse('Acceso denegado. Intento no autorizado.', { status: 401 });
   }
 
   try {
-    // 1. Definir para cuándo es el pedido. 
-    // Asumimos que si la hora límite es hoy a las 17:00, estamos asignando la comida de MAÑANA.
-    const fechaObjetivo = new Date();
-    fechaObjetivo.setDate(fechaObjetivo.getDate() + 1); // +1 día (Mañana)
+    const inicioDia = chileStartOfDay();
+    const finDia = chileEndOfDay();
 
-    const isoString = fechaObjetivo.toISOString().split('T')[0]; 
-    const numDiaSemana = fechaObjetivo.getDay(); // 1 = Lunes, 5 = Viernes...
-
-    // No hacemos nada si mañana es Sábado (6) o Domingo (0)
-    if (numDiaSemana === 0 || numDiaSemana === 6) {
-      return NextResponse.json({ message: 'Fin de semana. No se auto-asignan pedidos.' });
-    }
-
-    // 2. Buscar el Menú del Día configurado para esa fecha
-    const inicioDia = new Date(`${isoString}T00:00:00.000Z`);
-    const finDia = new Date(`${isoString}T23:59:59.999Z`);
-
-    const menuDia = await db.menuDiaSeleccion.findFirst({
-      where: { fecha_dia: { gte: inicioDia, lte: finDia } },
+    // 2. OBTENER EL MENÚ DEL DÍA EXACTO PARA HOY
+    const menuHoy = await db.menuDiaSeleccion.findFirst({
+      where: {
+        fecha_dia: {
+          gte: inicioDia,
+          lte: finDia,
+        },
+      },
       include: {
         entradaDetalle: true,
         fondoDetalle: true,
         postreDetalle: true,
-      }
-    });
-
-    if (!menuDia) {
-      return NextResponse.json({ message: 'No hay Menú del Día configurado para mañana.' });
-    }
-
-    // 3. Traer todos los trabajadores activos y sus pedidos de esa fecha
-    const trabajadores = await db.usuario.findMany({
-      where: { rol: 'TRABAJADOR' },
-      include: {
-        pedidos: {
-          where: { fecha: { gte: inicioDia, lte: finDia } }
+        entradasSeleccionadas: {
+          include: { menuDetalle: true }
         }
       }
     });
 
-    // 4. Filtrar a los "despistados": Los que NO pidieron y NO tienen el día bloqueado
-    const despistados = trabajadores.filter(t => {
-      const yaPidio = t.pedidos.length > 0;
-      const diaBloqueado = t.diasBloqueados.includes(numDiaSemana);
-      return !yaPidio && !diaBloqueado;
-    });
-
-    if (despistados.length === 0) {
-      return NextResponse.json({ message: 'Genial. Todos pidieron o tienen el día bloqueado.' });
+    if (!menuHoy) {
+      console.log('No hay Menú del Día configurado para hoy.');
+      return NextResponse.json({ success: true, mensaje: 'Sin menú configurado, no se asignó nada.' });
     }
 
-    // 5. Inyectar los pedidos en la base de datos masivamente
-    const operaciones = despistados.map(t => {
-      // Validamos si el plato de fondo incluye guarnición en el Menú del Día
-      const datosGuarnicion = menuDia.guarnicionId ? { guarnicionId: menuDia.guarnicionId } : {};
+    // 3. ARMAR EL PLATO PERFECTO
+    const detallesData: { platoId: number; guarnicionId?: number | null; cantidad: number }[] = [];
 
+    // -- Entradas
+    if (menuHoy.entradasSeleccionadas && menuHoy.entradasSeleccionadas.length > 0) {
+      menuHoy.entradasSeleccionadas.forEach(ent => {
+        detallesData.push({ platoId: ent.menuDetalle.platoId, cantidad: 1 });
+      });
+    } else if (menuHoy.entradaDetalle) {
+      detallesData.push({ platoId: menuHoy.entradaDetalle.platoId, cantidad: 1 });
+    }
+
+    // -- Fondo + Guarnición
+    if (menuHoy.fondoDetalle) {
+      detallesData.push({ 
+        platoId: menuHoy.fondoDetalle.platoId, 
+        guarnicionId: menuHoy.guarnicionId ?? null, 
+        cantidad: 1 
+      });
+    }
+
+    // -- Postre
+    if (menuHoy.postreDetalle) {
+      detallesData.push({ platoId: menuHoy.postreDetalle.platoId, cantidad: 1 });
+    }
+
+    // -- Jugo/Bebida
+    if (menuHoy.bebidaPlatoId) {
+      detallesData.push({ platoId: menuHoy.bebidaPlatoId, cantidad: 1 });
+    }
+
+    // 4. BUSCAR A LOS USUARIOS REZAGADOS
+    const usuariosSinPedido = await db.usuario.findMany({
+      where: {
+        empresaId: { not: null },
+        pedidos: {
+          none: {
+            fecha: {
+              gte: inicioDia,
+              lte: finDia,
+            },
+          },
+        },
+      },
+      select: { 
+        id: true, 
+        empresaId: true 
+      },
+    });
+
+    if (usuariosSinPedido.length === 0) {
+      return NextResponse.json({ success: true, mensaje: 'Todos los usuarios ya pidieron o no hay trabajadores disponibles. Nada que asignar.' });
+    }
+
+    // 5. CREACIÓN MASIVA CON TRANSACCIÓN
+    const transacciones = usuariosSinPedido.map((usuario) => {
       return db.pedido.create({
         data: {
-          fecha: new Date(`${isoString}T12:00:00.000Z`), // Guardamos a mediodía para evitar lios de zonas horarias
-          estado: 'PENDIENTE', // O 'CONFIRMADO', dependiendo de cómo inicie tu flujo
-          empresaId: t.empresaId!,
-          usuarioId: t.id,
+          fecha: inicioDia, 
+          usuarioId: usuario.id,
+          empresaId: usuario.empresaId!, 
+          estado: 'PENDIENTE',
           detalles: {
-            create: [
-              { platoId: menuDia.entradaDetalle.platoId, cantidad: 1 },
-              { platoId: menuDia.fondoDetalle.platoId, cantidad: 1, ...datosGuarnicion },
-              { platoId: menuDia.postreDetalle.platoId, cantidad: 1 }
-            ]
-          }
-        }
+            create: detallesData, 
+          },
+        },
       });
     });
 
-    // Ejecutamos todo de golpe con una transacción (si falla uno, no se guarda ninguno, protegiendo tu BD)
-    await db.$transaction(operaciones);
+    await db.$transaction(transacciones);
 
-    return NextResponse.json({
-      success: true,
-      asignados: despistados.length,
-      nombres: despistados.map(u => u.nombre),
-      mensaje: `Menú del Día asignado exitosamente a ${despistados.length} trabajadores.`
+    return NextResponse.json({ 
+      success: true, 
+      mensaje: `¡Éxito! Se asignó el menú del día a ${usuariosSinPedido.length} usuarios rezagados.` 
     });
 
   } catch (error) {
-    console.error('[CRON AUTO-ASIGNAR] Error:', error);
-    return NextResponse.json({ error: 'Error interno ejecutando el Cron' }, { status: 500 });
+    console.error('[CRON AUTO-ASIGNAR] Error crítico:', error);
+    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
   }
 }
