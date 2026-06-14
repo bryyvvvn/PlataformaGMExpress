@@ -18,7 +18,7 @@ import { useCalendario } from '../../hooks/useCalendario';
 import { useHistorial } from '../../hooks/useHistorial';
 import { usePerfilTrabajador } from '../../hooks/usePerfilTrabajador';
 import { useOtrosPlatos } from '../../hooks/useOtrosPlatos';
-
+import { useConfigurarNotificaciones } from '../../hooks/useConfigurarNotificaciones';
 // Nuevos Componentes
 import { MenuSkeleton } from '../../components/MenuSkeleton';
 import { CalendarioSemanal } from '../../components/CalendarioSemanal';
@@ -62,34 +62,36 @@ const getPlatoEntradaMenuDia = (menuDia: any): Plato | null => {
 
 const obtenerIncluidosPorConvenio = (menuDia: any, convenio: any) => {
   const incluidos: string[] = [];
-
-  if (convenio?.permitePan) {
-    incluidos.push('Pan');
-  }
-
-  if (menuDia?.bebida?.nombre) {
-    incluidos.push(menuDia.bebida.nombre);
-  } else if (convenio?.permiteJugo) {
-    incluidos.push('Jugo del día');
-  }
-
+  if (convenio?.permitePan) incluidos.push('Pan');
+  if (menuDia?.bebida?.nombre) incluidos.push(menuDia.bebida.nombre);
+  else if (convenio?.permiteJugo) incluidos.push('Jugo del día');
   return incluidos;
 };
+
+// 🔥 LAS 4 OPCIONES FIJAS QUE PIDIÓ EL CLIENTE PARA EL FIN DE SEMANA
+const OPCIONES_FIN_DE_SEMANA = [
+  { id: 'MENU_DIA', nombre: 'MENÚ DEL DÍA', descripcion: 'Opción tradicional.' },
+  { id: 'HIPOCALORICO', nombre: 'HIPOCALÓRICO', descripcion: 'Alternativa baja en calorías.' },
+  { id: 'VEGETARIANO', nombre: 'VEGETARIANO', descripcion: 'Alternativa sin contenido cárnico.' },
+  { id: 'COLACION', nombre: 'COLACIÓN', descripcion: 'Opción rápida o sándwich.' },
+];
 
 const HomePageTrabajador: React.FC = () => {
   const { user } = useUser();
   const location = useLocation();
 
+  const [autoSelected, setAutoSelected] = useState(false);
+  useConfigurarNotificaciones(user?.id);
+  
+  useEffect(() => { setAutoSelected(false); }, [location.pathname]);
+
+  const { diasBloqueadosAdmin, convenio } = usePerfilTrabajador(user?.id);
+  const trabajaFinDeSemana = convenio?.trabajaFinDeSemana ?? false;
+
   const {
     setSemanaOffset: _setSemanaOffset, fechaTexto, diasSemanaArray, getSemanaTexto,
     diaSeleccionadoIdx, setDiaSeleccionadoIdx, fechaSeleccionadaISO,
-  } = useCalendario();
-
-  const [autoSelected, setAutoSelected] = useState(false);
-
-  useEffect(() => {
-    setAutoSelected(false);
-  }, [location.pathname]);
+  } = useCalendario(trabajaFinDeSemana);
 
   const setSemanaOffset = (delta: number) => {
     setAutoSelected(false);
@@ -103,6 +105,8 @@ const HomePageTrabajador: React.FC = () => {
   });
 
   const [activeTab, setActiveTab] = useState<TipoMenu>('MENU_DIA');
+  const [opcionFinde, setOpcionFinde] = useState<string | null>(null); // 🔥 ESTADO PARA EL FIN DE SEMANA
+
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetFondo, setSheetFondo] = useState<any | null>(null);
   const [sheetSelectedGuarnicion, setSheetSelectedGuarnicion] = useState<number | null>(null);
@@ -117,8 +121,6 @@ const HomePageTrabajador: React.FC = () => {
 
   useEffect(() => { window.scrollTo(0, 0); }, []);
 
-  // --- LLAMADA A HOOKS ---
-  const { diasBloqueadosAdmin, convenio } = usePerfilTrabajador(user?.id);
   const { otrosPlatos, loadingOtros } = useOtrosPlatos(activeTab === 'OTRO' || activeTab === 'PERSONALIZADO');
   const { timeRemaining } = useCountdown(DEADLINE_HOUR);
   const { menuHoy, cargando: cargandoMenu } = useMenuAPI(fechaSeleccionadaISO, user?.id);
@@ -127,7 +129,6 @@ const HomePageTrabajador: React.FC = () => {
 
   useEffect(() => { if (user?.id) cargarHistorial(); }, [user?.id, cargarHistorial]);
 
-  // ✅ BLINDAJE ANTICRASH: Si historial o fecha viene null, no se rompe
   const fechasBloqueadas = useMemo(() => new Set((historial || []).map((p: any) => String(p?.fecha || '').split('T')[0])), [historial]);
   
   const isSelectedDateToday = diasSemanaArray?.[diaSeleccionadoIdx]?.esHoy ?? false;
@@ -138,7 +139,9 @@ const HomePageTrabajador: React.FC = () => {
   const fechaSeleccionadaTienePedido = fechasBloqueadas.has(fechaSeleccionadaISO || '');
   const bloquearUI = (isSelectedDateToday && isDeadlinePassed) || (fechaBloqueada && !fechaSeleccionadaTienePedido);
 
-  // ✅ BLINDAJE ANTICRASH: Iteración segura
+  // 🔥 DETECTOR DE FIN DE SEMANA
+  const esFinDeSemana = numDiaSeleccionado === 0 || numDiaSeleccionado === 6;
+
   const todosBloqueados = useMemo(() => {
     return (diasSemanaArray || []).every(dia => {
       if (!dia?.iso) return false;
@@ -176,7 +179,6 @@ const HomePageTrabajador: React.FC = () => {
   const fondoNeedsGuarnicion = Boolean(fondoObj && (fondoObj.guarniciones || []).length > 0 && !isPlatoUnicoOrHipocalorico);
   
   const jugoObj = (otrosPlatos || []).find((p: any) => p?.id === pedido.jugoId);
-  const isBebidaPremiumSeleccionada = jugoObj?.categoria === 'BEBIDA' || jugoObj?.categoria === 'AGUA_SABORIZADA';
   const penalizaEntradaPostre = (jugoObj?.categoria === 'BEBIDA' && !convenio?.permiteBebida) || (jugoObj?.categoria === 'AGUA_SABORIZADA' && !convenio?.permiteAguaSaborizada);
 
   const menuDiaSeleccionado = Boolean(menuHoy?.menuDia);
@@ -191,7 +193,11 @@ const HomePageTrabajador: React.FC = () => {
   );
 
   const estaCompletoOtro = activeTab === 'OTRO' && Boolean((pedido.canjeId !== null) || (pedido.sandwichId !== null && pedido.bebidaId !== null));
-  const puedeEnviar = activeTab === 'MENU_DIA' ? menuDiaSeleccionado : (activeTab === 'PERSONALIZADO' ? estaCompletoPersonalizado : estaCompletoOtro);
+  
+  // 🔥 LÓGICA DE ENVÍO
+  const puedeEnviar = esFinDeSemana 
+    ? Boolean(opcionFinde) 
+    : (activeTab === 'MENU_DIA' ? menuDiaSeleccionado : (activeTab === 'PERSONALIZADO' ? estaCompletoPersonalizado : estaCompletoOtro));
 
   const isCanjeSelected = tipoOtroSeleccionado === 'CANJE';
   const isPremiumSelected = tipoOtroSeleccionado === 'PREMIUM';
@@ -201,9 +207,9 @@ const HomePageTrabajador: React.FC = () => {
     setSeccionAbierta(null);
     setModoEdicion(false); 
     setTipoOtroSeleccionado(null);
+    setOpcionFinde(null);
   }, [fechaSeleccionadaISO]);
 
-  // ✅ BLINDAJE ANTICRASH: Verificación de String seguro
   const isPedidoDelDiaSeleccionado = String(pedidoExistente?.fecha || '').startsWith(fechaSeleccionadaISO || '');
   const pedidoSeguro = (isPedidoDelDiaSeleccionado && !cargandoVerificacion) ? pedidoExistente : null;
 
@@ -227,26 +233,6 @@ const HomePageTrabajador: React.FC = () => {
     }
   };
 
-  const seleccionarMenuDelDia = () => {
-    if (!menuHoy?.menuDia || bloquearUI) return;
-    if (menuDiaSeleccionado) {
-      setPedido({ entradasIds: [], fondoId: null, postreId: null, guarnicionId: null, canjeId: null, sandwichId: null, bebidaId: null, jugoId: null, isDoblePostre: false });
-    } else {
-      const entradasIds = getEntradasMenuDia(menuHoy.menuDia).map((entrada) => entrada.id);
-      setPedido({
-        entradasIds,
-        fondoId: menuHoy.menuDia.fondo?.id ?? null,
-        postreId: menuHoy.menuDia.postre?.id ?? null,
-        guarnicionId: menuHoy.menuDia.guarnicion?.id ?? null,
-        canjeId: null,
-        sandwichId: null,
-        bebidaId: null,
-        jugoId: menuHoy.menuDia.bebida?.id ?? null,
-        isDoblePostre: false
-      });
-    }
-  };
-
   const seleccionarOtro = (categoria: 'canjeId' | 'sandwichId' | 'bebidaId', id: number) => {
     if (bloquearUI) return;
     setPedido(prev => {
@@ -267,91 +253,47 @@ const HomePageTrabajador: React.FC = () => {
 
   const seleccionarPlato = (categoria: 'fondoId' | 'postreId' | 'jugoId', id: number) => {
     if (bloquearUI) return;
-    
-    // CASO JUGO/BEBIDA
     if (categoria === 'jugoId') {
       const selectedPlato = (otrosPlatos || []).find((p: any) => p?.id === id);
       setPedido(prev => {
         const isDeselecting = prev.jugoId === id;
         const newState = { ...prev, jugoId: isDeselecting ? null : id };
-        
         if (!isDeselecting) {
            const isBebida = selectedPlato?.categoria === 'BEBIDA';
            const isAgua = selectedPlato?.categoria === 'AGUA_SABORIZADA';
            const penaliza = (isBebida && !convenio?.permiteBebida) || (isAgua && !convenio?.permiteAguaSaborizada);
-
-           if (penaliza) {
-             newState.entradasIds = [];
-             newState.postreId = null;
-             newState.isDoblePostre = false;
-           }
+           if (penaliza) { newState.entradasIds = []; newState.postreId = null; newState.isDoblePostre = false; }
         }
         return newState;
       });
       return;
     }
-
     if (categoria === 'fondoId') {
       const sel = (menuHoy?.fondos || []).find((p: any) => p?.id === id);
       const isDeselecting = pedido.fondoId === id;
-
-      setPedido(prev => {
-        const newState = { ...prev, fondoId: isDeselecting ? null : id };
-        if (isDeselecting) {
-           newState.isDoblePostre = false;
-           newState.guarnicionId = null;
-        }
-        
-        // Limpiamos ensaladas si el nuevo fondo es hipocalórico
-        if (!isDeselecting && sel?.tipo === 'HIPOCALORICO') {
-          const sopasIds = (menuHoy?.entradas || []).filter((e:any) => {
-             const n = String(e?.nombre || '').toLowerCase();
-             return n.includes('sopa') || n.includes('crema'); 
-          }).map((e:any) => e.id);
-          newState.entradasIds = newState.entradasIds.filter(eId => sopasIds.includes(eId));
-        }
-        return newState;
-      });
-
-      if (!isDeselecting) {
-        if (sel?.tipo === 'HIPOCALORICO') {
-          setPedido(prev => ({ ...prev, guarnicionId: null, isDoblePostre: false }));
-          setOpcionHipoSeleccionada(null);
-          setSheetHipoOpen(true);
-          return;
-        }
-        if (sel?.tipo === 'PLATO_UNICO') {
-          setPedido(prev => ({ ...prev, guarnicionId: null, isDoblePostre: false }));
-          setTimeout(() => setSeccionAbierta('POSTRE'), 400); return; 
-        }
-        if ((sel?.guarniciones ?? []).length > 0) {
-          setPedido(prev => ({ ...prev, isDoblePostre: false }));
-          setSheetFondo(sel); setSheetSelectedGuarnicion(null); setSheetOpen(true); return;
-        }
-      }
+      if (isDeselecting) { setPedido(prev => ({ ...prev, fondoId: null, guarnicionId: null, isDoblePostre: false })); return; }
+      if (sel?.tipo === 'HIPOCALORICO') { setSheetFondo(sel); setOpcionHipoSeleccionada(null); setSheetHipoOpen(true); return; }
+      if ((sel?.guarniciones ?? []).length > 0) { setSheetFondo(sel); setSheetSelectedGuarnicion(null); setSheetOpen(true); return; }
+      setPedido(prev => ({ ...prev, fondoId: id, guarnicionId: null, isDoblePostre: false }));
+      setTimeout(() => setSeccionAbierta('POSTRE'), 400); return;
     }
-    
     setPedido(prev => ({ ...prev, [categoria]: prev[categoria] === id ? null : id }));
-    if (categoria === 'fondoId' && pedido.fondoId !== id) setTimeout(() => setSeccionAbierta('POSTRE'), 400);
-    if (categoria === 'postreId') setTimeout(() => setSeccionAbierta('JUGO'), 200);  
+    if (categoria === 'postreId' && pedido.postreId !== id) setTimeout(() => setSeccionAbierta('JUGO'), 200);  
   };
 
   const seleccionarEntrada = (plato: any) => {
     if (bloquearUI || penalizaEntradaPostre || pedido.isDoblePostre) return;
-    
-    const nombre = String(plato?.nombre || '').toLowerCase(); // ✅ SEGURO
+    const nombre = String(plato?.nombre || '').toLowerCase(); 
     const isSopa = nombre.includes('sopa') || nombre.includes('crema'); 
     const isSurtida = nombre.includes('surtida');
     const isCurrentlySelected = pedido.entradasIds.includes(plato.id);
-    
     if (isHipocalorico && !isSopa) return;
-
     setPedido(prev => {
       const actuales = prev.entradasIds;
       if (isCurrentlySelected) return { ...prev, entradasIds: actuales.filter(id => id !== plato.id) };
       if (isSopa || isSurtida) return { ...prev, entradasIds: [plato.id] };
       const idsExclusivos = (menuHoy?.entradas || []).filter((p: any) => {
-         const n = String(p?.nombre || '').toLowerCase(); // ✅ SEGURO
+         const n = String(p?.nombre || '').toLowerCase(); 
          return n.includes('sopa') || n.includes('crema') || n.includes('surtida'); 
       }).map((p: any) => p.id);
       const nuevas = actuales.filter(id => !idsExclusivos.includes(id));
@@ -361,6 +303,14 @@ const HomePageTrabajador: React.FC = () => {
   };
 
   const manejarEnvio = async () => {
+    // 🔥 SI ES FIN DE SEMANA, ENVIAMOS LA OPCIÓN AL BACKEND
+    if (esFinDeSemana) {
+      if (!opcionFinde) return;
+      const exito = await enviarPedido({ esFinDeSemana: true, tipoFinde: opcionFinde } as any);
+      if (exito) { setModoEdicion(false); cargarHistorial(); }
+      return;
+    }
+
     if (activeTab === 'MENU_DIA' && !menuDiaSeleccionado) { alert('No hay menú disponible para este día.'); return; }
     if (activeTab === 'PERSONALIZADO' || activeTab === 'MENU_DIA') {
       const pedidoAEnviar = activeTab === 'MENU_DIA' && menuHoy?.menuDia
@@ -397,12 +347,18 @@ const HomePageTrabajador: React.FC = () => {
       setModoEdicion(false);
       setPedido({ entradasIds: [], fondoId: null, postreId: null, guarnicionId: null, canjeId: null, sandwichId: null, bebidaId: null, jugoId: null, isDoblePostre: false });
       setTipoOtroSeleccionado(null);
+      setOpcionFinde(null);
       try { await cargarHistorial(); refrescarVerificacion(); } catch (e) { }
     }
   };
 
   const manejarModificarPedido = () => {
-    // ✅ BLINDAJE ANTICRASH
+    if (esFinDeSemana) {
+      setModoEdicion(true);
+      setOpcionFinde(pedidoExistente?.tipoFinde || null);
+      return;
+    }
+
     const resumen = pedidoExistente?.resumen || [];
     const entradas = resumen.filter((r:any)=>r?.categoria==='ENTRADA').map((e:any) => e.platoId);
     const f = resumen.find((r:any)=>r?.categoria==='FONDO');
@@ -433,7 +389,7 @@ const HomePageTrabajador: React.FC = () => {
   const categoriasPersonalizado = ['ENTRADA', 'FONDO', 'POSTRE', 'JUGO'];
 
   return (
-    <div className="min-h-screen pb-48 relative flex flex-col" style={{ backgroundColor: THEME.colors.background }} onClick={() => setSeccionAbierta(null)}>
+    <div className="min-h-screen pb-48 relative flex flex-col" style={{ backgroundColor: THEME.colors.background }}>
       <Sidebar isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} rolPropVisible="Trabajador" empresaNombre="Starco" />
 
       <div className="pt-5 pb-3 flex justify-between items-center px-6" style={{ backgroundColor: THEME.colors.secondary }}>
@@ -484,220 +440,261 @@ const HomePageTrabajador: React.FC = () => {
           />
         ) : (
           <>
-            <div id="seccion-tabs" className="flex bg-white border border-gray-100 p-1.5 rounded-[20px] mb-6 shadow-sm shrink-0">
-              <button onClick={() => { setActiveTab('MENU_DIA'); if (!modoEdicion) { setTipoOtroSeleccionado(null); } }} className={`flex-1 py-3 px-2 text-[10px] sm:text-[11px] font-black uppercase tracking-widest rounded-2xl transition-all ${activeTab === 'MENU_DIA' ? 'bg-[#70a344] shadow-md text-white' : 'text-gray-400 bg-transparent'}`}>Menú Día</button>
-              <button onClick={() => { setActiveTab('PERSONALIZADO'); if (!modoEdicion) { setPedido({ entradasIds: [], fondoId: null, postreId: null, guarnicionId: null, canjeId: null, sandwichId: null, bebidaId: null, jugoId: null, isDoblePostre: false }); setTipoOtroSeleccionado(null); } }} className={`flex-1 py-3 px-2 text-[10px] sm:text-[11px] font-black uppercase tracking-widest rounded-2xl transition-all ${activeTab === 'PERSONALIZADO' ? 'bg-[#70a344] shadow-md text-white' : 'text-gray-400 bg-transparent'}`}>Personalizado</button>
-              <button onClick={() => { setActiveTab('OTRO'); if (!modoEdicion) { setPedido({ entradasIds: [], fondoId: null, postreId: null, guarnicionId: null, canjeId: null, sandwichId: null, bebidaId: null, jugoId: null, isDoblePostre: false }); setTipoOtroSeleccionado(null); } }} className={`flex-1 py-3 px-2 text-[10px] sm:text-[11px] font-black uppercase tracking-widest rounded-2xl transition-all ${activeTab === 'OTRO' ? 'bg-[#70a344] shadow-md text-white' : 'text-gray-400 bg-transparent'}`}>Otros</button>
-            </div>
-
-            {modoEdicion && (
-              <div className="flex justify-between items-center mb-2 px-2 shrink-0">
-                <span className="font-black text-sm text-[#1d2d50] uppercase tracking-widest flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" /> Modificando</span>
-                <button onClick={() => setModoEdicion(false)} className="text-[11px] font-bold text-gray-400 uppercase bg-gray-100 px-3 py-1.5 rounded-full active:scale-95 transition-transform"><X size={14} className="inline mr-1" /> Cancelar</button>
-              </div>
-            )}
-            
-            {activeTab === 'MENU_DIA' && (
+            {/* 🔥 VISTA DE FIN DE SEMANA REDISEÑADA */}
+            {esFinDeSemana ? (
               <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm flex flex-col grow mb-4">
-                {menuHoy?.menuDia ? (
-                  <>
-                    <div className="space-y-4 text-left grow">
-                      {[
-                        { label: 'Entrada', plato: entradaMenuDiaPlato, categoriaKey: 'entradaId' as const },
-                        { label: 'Fondo', plato: menuHoy.menuDia.fondo, categoriaKey: 'fondoId' as const },
-                        { label: 'Postre', plato: menuHoy.menuDia.postre, categoriaKey: 'postreId' as const },
-                      ].filter(({ plato }) => Boolean(plato)).map(({ label, plato, categoriaKey }) => (
-                        <div key={label} className="space-y-3">
-                          <div className="border-b border-gray-200 pb-3 mb-4"><span className="text-xl font-black text-[#1d2d50] uppercase tracking-widest">{label}</span></div>
-                          <TarjetaPlato plato={plato} categoriaKey={categoriaKey as any} isSelected={false} hideSelectionIcon={true} readOnly={true} extraInfo={label === 'Fondo' && menuHoy.menuDia?.guarnicion ? `+ ${menuHoy.menuDia.guarnicion.nombre}` : undefined} isDeadlinePassed={true} grayTag={true} onSelect={() => {}} />
-                        </div>
-                      ))}
-                      {incluidosPorConvenioMenuDia.length > 0 && (
-                        <div className="mt-2 pt-4 border-t border-dashed border-gray-200">
-                          <span className="text-xs font-black text-[#70a344] uppercase tracking-widest mb-0.5">INCLUIDO POR CONVENIO</span>
-                          <p className="font-bold text-[#1d2d50] leading-tight mt-1 text-lg">
-                            {incluidosPorConvenioMenuDia.join(' | ')}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </>
-                ) : (
-                  <div className="p-4 bg-gray-50 rounded-2xl border border-dashed border-gray-300 text-gray-400 text-[10px] font-black uppercase tracking-widest mt-auto mb-auto text-center">Sin menú seleccionado para este día</div>
+                
+                {/* Cabecera Estilo "Entrada" */}
+                <div className="border-b border-gray-200 pb-3 mb-4 flex flex-col items-center text-center">
+                  <span className="text-xl font-black text-[#1d2d50] uppercase tracking-widest">Menú Fin de Semana</span>
+                  <span className="text-[11px] font-bold text-gray-400 mt-1 uppercase tracking-wider">Revisa WhatsApp o correo para ver el menú</span>
+                </div>
+                
+                {modoEdicion && (
+                  <div className="flex justify-between items-center mb-4 shrink-0">
+                    <span className="font-black text-sm text-[#1d2d50] uppercase tracking-widest flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" /> Modificando
+                    </span>
+                    <button onClick={() => setModoEdicion(false)} className="text-[11px] font-bold text-gray-400 uppercase bg-gray-100 px-3 py-1.5 rounded-full active:scale-95 transition-transform">
+                      <X size={14} className="inline mr-1" /> Cancelar
+                    </button>
+                  </div>
                 )}
+
+                <div className="flex flex-col gap-3">
+                  {/* Tarjetas de Opciones */}
+                  {OPCIONES_FIN_DE_SEMANA.map(opcion => (
+                    <button 
+                      key={opcion.id}
+                      onClick={() => setOpcionFinde(opcion.id === opcionFinde ? null : opcion.id)}
+                      disabled={bloquearUI}
+                      className={`flex items-center justify-between w-full px-5 py-5 rounded-3xl border transition-all ${opcionFinde === opcion.id ? 'border-[#70a344] bg-green-50 shadow-sm scale-[0.98]' : 'border-gray-200 bg-white shadow-sm hover:bg-gray-50'}`}
+                    >
+                      <div className="flex flex-col text-left">
+                        <span className={`font-black text-[16px] uppercase tracking-widest ${opcionFinde === opcion.id ? 'text-[#70a344]' : 'text-[#1d2d50]'}`}>{opcion.nombre}</span>
+                        <span className={`text-xs font-medium mt-1 pr-4 ${opcionFinde === opcion.id ? 'text-[#5a8335]' : 'text-gray-400'}`}>{opcion.descripcion}</span>
+                      </div>
+                      <div className={`shrink-0 w-7 h-7 rounded-lg border-2 flex items-center justify-center transition-all ${opcionFinde === opcion.id ? 'bg-[#70a344] border-[#70a344]' : 'bg-transparent border-gray-300'}`}>
+                        {opcionFinde === opcion.id && <Check size={18} strokeWidth={4} className="text-white" />}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
               </div>
-            )}
+            ) : (
+              /* VISTA NORMAL (LUNES A VIERNES) */
+              <>
+                <div id="seccion-tabs" className="flex bg-white border border-gray-100 p-1.5 rounded-[20px] mb-6 shadow-sm shrink-0">
+                  <button onClick={() => { setActiveTab('MENU_DIA'); if (!modoEdicion) { setTipoOtroSeleccionado(null); } }} className={`flex-1 py-3 px-2 text-[10px] sm:text-[11px] font-black uppercase tracking-widest rounded-2xl transition-all ${activeTab === 'MENU_DIA' ? 'bg-[#70a344] shadow-md text-white' : 'text-gray-400 bg-transparent'}`}>Menú Día</button>
+                  <button onClick={() => { setActiveTab('PERSONALIZADO'); if (!modoEdicion) { setPedido({ entradasIds: [], fondoId: null, postreId: null, guarnicionId: null, canjeId: null, sandwichId: null, bebidaId: null, jugoId: null, isDoblePostre: false }); setTipoOtroSeleccionado(null); } }} className={`flex-1 py-3 px-2 text-[10px] sm:text-[11px] font-black uppercase tracking-widest rounded-2xl transition-all ${activeTab === 'PERSONALIZADO' ? 'bg-[#70a344] shadow-md text-white' : 'text-gray-400 bg-transparent'}`}>Personalizado</button>
+                  <button onClick={() => { setActiveTab('OTRO'); if (!modoEdicion) { setPedido({ entradasIds: [], fondoId: null, postreId: null, guarnicionId: null, canjeId: null, sandwichId: null, bebidaId: null, jugoId: null, isDoblePostre: false }); setTipoOtroSeleccionado(null); } }} className={`flex-1 py-3 px-2 text-[10px] sm:text-[11px] font-black uppercase tracking-widest rounded-2xl transition-all ${activeTab === 'OTRO' ? 'bg-[#70a344] shadow-md text-white' : 'text-gray-400 bg-transparent'}`}>Otros</button>
+                </div>
 
-            {activeTab === 'PERSONALIZADO' && (
-              <div className="flex flex-col gap-4 grow mb-4">
-                {categoriasPersonalizado.map((cat: string) => {
-                  const categoriaFormato = cat as Categoria;
-                  const isOpen = seccionAbierta === categoriaFormato;
-                  const isHeaderSelected = cat === 'ENTRADA' ? pedido.entradasIds.length > 0 : pedido[(cat.toLowerCase() + 'Id') as 'fondoId' | 'postreId' | 'jugoId'] !== null;
-                  
-                  const platos = cat === 'JUGO'
-                    ? (otrosPlatos || []).filter((p: any) =>
-                        p?.categoria === 'JUGO' || p?.categoria === 'BEBIDA' || p?.categoria === 'AGUA_SABORIZADA'
-                      )
-                    : (menuHoy as any)?.[cat === 'ENTRADA' ? 'entradas' : cat === 'FONDO' ? 'fondos' : 'postres'] ?? [];
+                {modoEdicion && (
+                  <div className="flex justify-between items-center mb-2 px-2 shrink-0">
+                    <span className="font-black text-sm text-[#1d2d50] uppercase tracking-widest flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" /> Modificando</span>
+                    <button onClick={() => setModoEdicion(false)} className="text-[11px] font-bold text-gray-400 uppercase bg-gray-100 px-3 py-1.5 rounded-full active:scale-95 transition-transform"><X size={14} className="inline mr-1" /> Cancelar</button>
+                  </div>
+                )}
+                
+                {activeTab === 'MENU_DIA' && (
+                  <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm flex flex-col grow mb-4">
+                    {menuHoy?.menuDia ? (
+                      <>
+                        <div className="space-y-4 text-left grow">
+                          {[
+                            { label: 'Entrada', plato: entradaMenuDiaPlato, categoriaKey: 'entradaId' as const },
+                            { label: 'Fondo', plato: menuHoy.menuDia.fondo, categoriaKey: 'fondoId' as const },
+                            { label: 'Postre', plato: menuHoy.menuDia.postre, categoriaKey: 'postreId' as const },
+                          ].filter(({ plato }) => Boolean(plato)).map(({ label, plato, categoriaKey }) => (
+                            <div key={label} className="space-y-3">
+                              <div className="border-b border-gray-200 pb-3 mb-4"><span className="text-xl font-black text-[#1d2d50] uppercase tracking-widest">{label}</span></div>
+                              <TarjetaPlato plato={plato} categoriaKey={categoriaKey as any} isSelected={false} hideSelectionIcon={true} readOnly={true} extraInfo={label === 'Fondo' && menuHoy.menuDia?.guarnicion ? `+ ${menuHoy.menuDia.guarnicion.nombre}` : undefined} isDeadlinePassed={true} grayTag={true} onSelect={() => {}} />
+                            </div>
+                          ))}
+                          {incluidosPorConvenioMenuDia.length > 0 && (
+                            <div className="mt-2 pt-4 border-t border-dashed border-gray-200">
+                              <span className="text-xs font-black text-[#70a344] uppercase tracking-widest mb-0.5">INCLUIDO POR CONVENIO</span>
+                              <p className="font-bold text-[#1d2d50] leading-tight mt-1 text-lg">
+                                {incluidosPorConvenioMenuDia.join(' | ')}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="p-4 bg-gray-50 rounded-2xl border border-dashed border-gray-300 text-gray-400 text-[10px] font-black uppercase tracking-widest mt-auto mb-auto text-center">Sin menú seleccionado para este día</div>
+                    )}
+                  </div>
+                )}
 
-                  let isSeccionBloqueada = false;
-                  let textoBloqueo = "";
-                  
-                  if (cat === 'ENTRADA' && penalizaEntradaPostre) {
-                     isSeccionBloqueada = true; textoBloqueo = "Reemplazado por Bebida/Agua";
-                  } else if (cat === 'POSTRE' && penalizaEntradaPostre) {
-                     isSeccionBloqueada = true; textoBloqueo = "Reemplazado por Bebida/Agua";
-                  } else if (cat === 'ENTRADA' && pedido.isDoblePostre) {
-                     isSeccionBloqueada = true; textoBloqueo = "Reemplazado por Doble Postre";
-                  }
+                {activeTab === 'PERSONALIZADO' && (
+                  <div className="flex flex-col gap-4 grow mb-4">
+                    {categoriasPersonalizado.map((cat: string) => {
+                      const categoriaFormato = cat as Categoria;
+                      const isOpen = seccionAbierta === categoriaFormato;
+                      const isHeaderSelected = cat === 'ENTRADA' ? pedido.entradasIds.length > 0 : pedido[(cat.toLowerCase() + 'Id') as 'fondoId' | 'postreId' | 'jugoId'] !== null;
+                      
+                      const platos = cat === 'JUGO'
+                        ? (otrosPlatos || []).filter((p: any) => p?.categoria === 'JUGO' || p?.categoria === 'BEBIDA' || p?.categoria === 'AGUA_SABORIZADA')
+                        : (menuHoy as any)?.[cat === 'ENTRADA' ? 'entradas' : cat === 'FONDO' ? 'fondos' : 'postres'] ?? [];
 
-                  return (
-                    <section key={cat} id={`seccion-${cat}`} onClick={(e) => e.stopPropagation()} className="flex flex-col grow overflow-hidden bg-white rounded-3xl border border-gray-100 shadow-sm transition-all">
-                      <button onClick={e => { e.stopPropagation(); toggleSeccion(categoriaFormato); }} className="w-full grow min-h-[100px] flex items-center justify-between px-7 py-4 sm:px-8">
+                      let isSeccionBloqueada = false;
+                      let textoBloqueo = "";
+                      
+                      if (cat === 'ENTRADA' && penalizaEntradaPostre) { isSeccionBloqueada = true; textoBloqueo = "Reemplazado por Bebida/Agua"; } 
+                      else if (cat === 'POSTRE' && penalizaEntradaPostre) { isSeccionBloqueada = true; textoBloqueo = "Reemplazado por Bebida/Agua"; } 
+                      else if (cat === 'ENTRADA' && pedido.isDoblePostre) { isSeccionBloqueada = true; textoBloqueo = "Reemplazado por Doble Postre"; }
+
+                      return (
+                        <section key={cat} id={`seccion-${cat}`} className="flex flex-col grow overflow-hidden bg-white rounded-3xl border border-gray-100 shadow-sm transition-all">
+                          <button onClick={() => toggleSeccion(categoriaFormato)} className="w-full grow min-h-[100px] flex items-center justify-between px-7 py-4 sm:px-8">
+                            <div className="flex items-center gap-4 sm:gap-5">
+                              <div className={`shrink-0 w-7 h-7 rounded-lg border-2 flex items-center justify-center transition-all ${isHeaderSelected ? 'bg-[#70a344] border-[#70a344]' : 'bg-transparent border-gray-300'} ${isSeccionBloqueada ? 'opacity-30' : ''}`}>
+                                {isHeaderSelected && <Check size={18} strokeWidth={4} className="text-white" />}
+                              </div>
+                              <div className="flex flex-col text-left">
+                                <h3 className={`text-xl font-black uppercase tracking-widest flex items-center gap-2 ${isSeccionBloqueada ? 'text-gray-300' : 'text-[#1d2d50]'}`}>
+                                  {cat === 'JUGO' ? 'BEBESTIBLE' : cat}
+                                  {cat === 'POSTRE' && pedido.isDoblePostre && !isSeccionBloqueada && (
+                                    <span className="text-[#70a344] text-[14px] px-2 py-1 rounded-md font-black uppercase tracking-wider ml-1">X2 PORCIONES</span>
+                                  )}
+                                </h3>
+                                {isSeccionBloqueada && <p className="text-[10px] font-black text-red-400 uppercase">{textoBloqueo}</p>}
+                              </div>
+                            </div>
+                            <div className="shrink-0 ml-2">{isOpen ? <ChevronUp size={24} className="text-gray-300" /> : <ChevronDown size={24} className="text-gray-300" />}</div>
+                          </button>
+
+                          <div className={`shrink-0 flex flex-col transition-all duration-500 ${isOpen ? 'max-h-[8000px] opacity-100 px-6 pb-6 visible' : 'max-h-0 opacity-0 px-6 pb-0 invisible overflow-hidden'}`}>
+                            <div className="w-full border-b border-gray-200 pb-3 mb-4" />
+                            
+                            <div className="flex flex-col gap-4">
+                              {platos.map((plato: any) => {
+                                const isPlatoSelected = cat === 'ENTRADA' ? pedido.entradasIds.includes(plato.id) : pedido[(cat.toLowerCase() + 'Id') as 'fondoId' | 'postreId' | 'jugoId'] === plato.id;
+                                const nombre = String(plato?.nombre || '').toLowerCase();
+                                const isDisabled = isSeccionBloqueada || (cat === 'ENTRADA' && isHipocalorico && !nombre.includes('sopa') && !nombre.includes('crema'));
+
+                                return (
+                                  <TarjetaPlato 
+                                    key={plato.id} plato={plato} 
+                                    categoriaKey={cat === 'ENTRADA' ? 'entradaId' as any : (cat.toLowerCase() + 'Id')} 
+                                    isSelected={isPlatoSelected} 
+                                    isDeadlinePassed={bloquearUI || isDisabled} 
+                                    disabled={isDisabled} 
+                                    onSelect={() => { 
+                                      if (isDisabled) return;
+                                      if (cat === 'ENTRADA') seleccionarEntrada(plato); 
+                                      else seleccionarPlato((cat.toLowerCase() + 'Id') as 'fondoId' | 'postreId' | 'jugoId', plato.id); 
+                                    }}
+                                  />
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </section>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {activeTab === 'OTRO' && (
+                  <div className="flex flex-col gap-2 relative grow mb-2">
+                    <section className={`flex flex-col grow overflow-hidden rounded-3xl border transition-all duration-300 ${isPremiumSelected ? 'border-gray-100 bg-gray-50 opacity-60 grayscale pointer-events-none' : 'border-gray-100 bg-white shadow-sm'}`}>
+                      <button onClick={() => handleSeleccionarTipoOtro('CANJE')} disabled={isPremiumSelected} className="w-full grow flex items-center justify-between px-7 py-4 sm:px-8">
                         <div className="flex items-center gap-4 sm:gap-5">
-                          <div className={`shrink-0 w-7 h-7 rounded-lg border-2 flex items-center justify-center transition-all ${isHeaderSelected ? 'bg-[#70a344] border-[#70a344]' : 'bg-transparent border-gray-300'} ${isSeccionBloqueada ? 'opacity-30' : ''}`}>
-                            {isHeaderSelected && <Check size={18} strokeWidth={4} className="text-white" />}
+                          <div className={`shrink-0 w-7 h-7 rounded-lg border-2 flex items-center justify-center transition-all ${isCanjeSelected ? 'bg-[#70a344] border-[#70a344]' : 'bg-transparent border-gray-300'}`}>
+                            {isCanjeSelected && <Check size={18} strokeWidth={4} className="text-white" />}
                           </div>
                           <div className="flex flex-col text-left">
-                            <h3 className={`text-xl font-black uppercase tracking-widest flex items-center gap-2 ${isSeccionBloqueada ? 'text-gray-300' : 'text-[#1d2d50]'}`}>
-                              {cat === 'JUGO' ? 'BEBESTIBLE' : cat}
-                              {cat === 'POSTRE' && pedido.isDoblePostre && !isSeccionBloqueada && (
-                                <span className="bg-yellow-100 text-yellow-600 text-[9px] px-2 py-1 rounded-md font-black">X2 PORCIONES</span>
-                              )}
-                            </h3>
-                            {isSeccionBloqueada && <p className="text-[10px] font-black text-red-400 uppercase">{textoBloqueo}</p>}
+                            <h3 className={`text-xl font-black uppercase tracking-widest leading-tight ${isPremiumSelected ? 'text-gray-400' : 'text-[#1d2d50]'}`}>CANJE</h3>
+                            <p className="text-gray-400 text-sm font-medium leading-none mt-0.5">Combo pre-elaborado.</p>
                           </div>
                         </div>
-                        <div className="shrink-0 ml-2">{isOpen ? <ChevronUp size={24} className="text-gray-300" /> : <ChevronDown size={24} className="text-gray-300" />}</div>
+                        <div className="shrink-0 ml-2">{isPremiumSelected ? <Lock size={24} className="text-gray-300" /> : isCanjeSelected ? <ChevronUp size={24} className="text-gray-300" /> : <ChevronDown size={24} className="text-gray-300" />}</div>
                       </button>
-
-                      <div className={`shrink-0 flex flex-col transition-all duration-500 ${isOpen ? 'max-h-[8000px] opacity-100 px-6 pb-6 visible' : 'max-h-0 opacity-0 px-6 pb-0 invisible overflow-hidden'}`}>
+                      
+                      <div className={`shrink-0 flex flex-col transition-all duration-500 ${isCanjeSelected ? 'max-h-[8000px] opacity-100 px-6 pb-6 visible' : 'max-h-0 opacity-0 px-6 pb-0 invisible overflow-hidden'}`}>
                         <div className="w-full border-b border-gray-200 pb-3 mb-4" />
-                        
                         <div className="flex flex-col gap-4">
-                          {platos.map((plato: any) => {
-                            const isPlatoSelected = cat === 'ENTRADA' ? pedido.entradasIds.includes(plato.id) : pedido[(cat.toLowerCase() + 'Id') as 'fondoId' | 'postreId' | 'jugoId'] === plato.id;
-                            
-                            // ✅ SEGURO: Previene crash si no tiene nombre
-                            const nombre = String(plato?.nombre || '').toLowerCase();
-                            const isDisabled = isSeccionBloqueada || (cat === 'ENTRADA' && isHipocalorico && !nombre.includes('sopa') && !nombre.includes('crema'));
-
-                            return (
-                              <TarjetaPlato 
-                                key={plato.id} plato={plato} 
-                                categoriaKey={cat === 'ENTRADA' ? 'entradaId' as any : (cat.toLowerCase() + 'Id')} 
-                                isSelected={isPlatoSelected} 
-                                isDeadlinePassed={bloquearUI || isDisabled} 
-                                disabled={isDisabled} 
-                                onSelect={() => { 
-                                  if (isDisabled) return;
-                                  if (cat === 'ENTRADA') seleccionarEntrada(plato); 
-                                  else seleccionarPlato((cat.toLowerCase() + 'Id') as 'fondoId' | 'postreId' | 'jugoId', plato.id); 
-                                }}
-                              />
-                            );
-                          })}
+                          {loadingOtros && <div className="text-center text-sm text-gray-400 py-2">Cargando opciones...</div>}
+                          {!loadingOtros && (
+                            <>
+                              <h4 className="text-base font-black text-[#1d2d50] uppercase tracking-wider mb-2 ml-1 flex items-center gap-2"><span className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center text-[10px]">1</span> Elige tu Combo</h4>
+                              {((otrosPlatos || []).filter(p => p?.categoria === 'CANJE').length === 0) ? (
+                                <div className="text-center text-[10px] font-black uppercase text-gray-400 bg-gray-50 p-3 rounded-2xl">No hay opciones disponibles</div>
+                              ) : (
+                                (otrosPlatos || []).filter(p => p?.categoria === 'CANJE').map((plato: any) => (
+                                  <TarjetaPlato key={plato.id} plato={plato} categoriaKey="canjeId" isSelected={pedido.canjeId === plato.id} isDeadlinePassed={bloquearUI} disabled={false} onSelect={() => seleccionarOtro('canjeId', plato.id)} />
+                                ))
+                              )}
+                            </>
+                          )}
                         </div>
                       </div>
                     </section>
-                  );
-                })}
-              </div>
-            )}
 
-            {activeTab === 'OTRO' && (
-              <div className="flex flex-col gap-2 relative grow mb-2">
-                <section className={`flex flex-col grow overflow-hidden rounded-3xl border transition-all duration-300 ${isPremiumSelected ? 'border-gray-100 bg-gray-50 opacity-60 grayscale pointer-events-none' : 'border-gray-100 bg-white shadow-sm'}`}>
-                  <button onClick={(e) => { e.stopPropagation(); handleSeleccionarTipoOtro('CANJE'); }} disabled={isPremiumSelected} className="w-full grow flex items-center justify-between px-7 py-4 sm:px-8">
-                    <div className="flex items-center gap-4 sm:gap-5">
-                      <div className={`shrink-0 w-7 h-7 rounded-lg border-2 flex items-center justify-center transition-all ${isCanjeSelected ? 'bg-[#70a344] border-[#70a344]' : 'bg-transparent border-gray-300'}`}>
-                        {isCanjeSelected && <Check size={18} strokeWidth={4} className="text-white" />}
-                      </div>
-                      <div className="flex flex-col text-left">
-                        <h3 className={`text-xl font-black uppercase tracking-widest leading-tight ${isPremiumSelected ? 'text-gray-400' : 'text-[#1d2d50]'}`}>CANJE</h3>
-                        <p className="text-gray-400 text-sm font-medium leading-none mt-0.5">Combo pre-elaborado.</p>
-                      </div>
-                    </div>
-                    <div className="shrink-0 ml-2">{isPremiumSelected ? <Lock size={24} className="text-gray-300" /> : isCanjeSelected ? <ChevronUp size={24} className="text-gray-300" /> : <ChevronDown size={24} className="text-gray-300" />}</div>
-                  </button>
-                  
-                  <div className={`shrink-0 flex flex-col transition-all duration-500 ${isCanjeSelected ? 'max-h-[8000px] opacity-100 px-6 pb-6 visible' : 'max-h-0 opacity-0 px-6 pb-0 invisible overflow-hidden'}`}>
-                    <div className="w-full border-b border-gray-200 pb-3 mb-4" />
-                    <div className="flex flex-col gap-4">
-                      {loadingOtros ? (<div className="text-center text-sm text-gray-400 py-2">Cargando opciones...</div>) : (
-                        <>
-                          <h4 className="text-base font-black text-[#1d2d50] uppercase tracking-wider mb-2 ml-1 flex items-center gap-2"><span className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center text-[10px]">1</span> Elige tu Combo</h4>
-                          {((otrosPlatos || []).filter(p => p?.categoria === 'CANJE').length === 0) ? (
-                            <div className="text-center text-[10px] font-black uppercase text-gray-400 bg-gray-50 p-3 rounded-2xl">No hay opciones disponibles</div>
-                          ) : (
-                            (otrosPlatos || []).filter(p => p?.categoria === 'CANJE').map((plato: any) => (
-                              <TarjetaPlato key={plato.id} plato={plato} categoriaKey="canjeId" isSelected={pedido.canjeId === plato.id} isDeadlinePassed={bloquearUI} disabled={false} onSelect={(_, id) => seleccionarOtro('canjeId', id)} />
-                            ))
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </section>
-
-                <section className={`flex flex-col grow overflow-hidden rounded-3xl border transition-all duration-300 ${isCanjeSelected ? 'border-gray-100 bg-gray-50 opacity-60 grayscale pointer-events-none' : 'border-gray-100 bg-white shadow-sm'}`}>
-                  <button onClick={(e) => { e.stopPropagation(); handleSeleccionarTipoOtro('PREMIUM'); }} disabled={isCanjeSelected} className="w-full grow flex items-center justify-between px-7 py-4 sm:px-8">
-                    <div className="flex items-center gap-4 sm:gap-5">
-                      <div className={`shrink-0 w-7 h-7 rounded-lg border-2 flex items-center justify-center transition-all ${isPremiumSelected ? 'bg-[#70a344] border-[#70a344]' : 'bg-transparent border-gray-300'}`}>
-                        {isPremiumSelected && <Check size={18} strokeWidth={4} className="text-white" />}
-                      </div>
-                      <div className="flex flex-col text-left">
-                        <h3 className={`text-xl font-black uppercase tracking-widest leading-tight ${isCanjeSelected ? 'text-gray-400' : 'text-[#1d2d50]'}`}>COLACIÓN PREMIUM</h3>
-                        <p className="text-gray-400 text-sm font-medium leading-none mt-0.5">Sándwich a elección + Bebida.</p>
-                      </div>
-                    </div>
-                    <div className="shrink-0 ml-2">{isCanjeSelected ? <Lock size={24} className="text-gray-300" /> : isPremiumSelected ? <ChevronUp size={24} className="text-gray-300" /> : <ChevronDown size={24} className="text-gray-300" />}</div>
-                  </button>
-
-                  <div className={`shrink-0 transition-all duration-500 ${isPremiumSelected ? 'max-h-[8000px] opacity-100 px-6 pb-6 visible' : 'max-h-0 opacity-0 px-6 pb-0 invisible overflow-hidden'}`}>
-                    <div className="flex flex-col gap-6">
-                      <div className="w-full border-b border-gray-200 pb-3 mb-4" /> 
-                      {loadingOtros ? (<div className="text-center text-sm text-gray-400 py-2">Cargando opciones...</div>) : (
-                      <>
-                        <div>
-                          <h4 className="text-base font-black text-[#1d2d50] uppercase tracking-wider mb-4 ml-1 flex items-center gap-2"><span className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center text-[10px]">1</span> Elige tu Sándwich</h4>
-                          <div className="flex flex-col gap-3">
-                            {((otrosPlatos || []).filter(p => p?.categoria === 'SANDWICH').length === 0) ? (
-                              <div className="text-center text-[10px] font-black uppercase text-gray-400 bg-gray-50 p-3 rounded-2xl">No hay opciones disponibles</div>
-                            ) : (
-                              (otrosPlatos || []).filter(p => p?.categoria === 'SANDWICH').map((plato: any) => (
-                                <TarjetaPlato key={plato.id} plato={plato} categoriaKey="sandwichId" isSelected={pedido.sandwichId === plato.id} isDeadlinePassed={bloquearUI} disabled={false} onSelect={(_, id) => seleccionarOtro('sandwichId', id)} />
-                              ))
-                            )}
+                    <section className={`flex flex-col grow overflow-hidden rounded-3xl border transition-all duration-300 ${isCanjeSelected ? 'border-gray-100 bg-gray-50 opacity-60 grayscale pointer-events-none' : 'border-gray-100 bg-white shadow-sm'}`}>
+                      <button onClick={() => handleSeleccionarTipoOtro('PREMIUM')} disabled={isCanjeSelected} className="w-full grow flex items-center justify-between px-7 py-4 sm:px-8">
+                        <div className="flex items-center gap-4 sm:gap-5">
+                          <div className={`shrink-0 w-7 h-7 rounded-lg border-2 flex items-center justify-center transition-all ${isPremiumSelected ? 'bg-[#70a344] border-[#70a344]' : 'bg-transparent border-gray-300'}`}>
+                            {isPremiumSelected && <Check size={18} strokeWidth={4} className="text-white" />}
+                          </div>
+                          <div className="flex flex-col text-left">
+                            <h3 className={`text-xl font-black uppercase tracking-widest leading-tight ${isCanjeSelected ? 'text-gray-400' : 'text-[#1d2d50]'}`}>COLACIÓN PREMIUM</h3>
+                            <p className="text-gray-400 text-sm font-medium leading-none mt-0.5">Sándwich a elección + Bebida.</p>
                           </div>
                         </div>
+                        <div className="shrink-0 ml-2">{isCanjeSelected ? <Lock size={24} className="text-gray-300" /> : isPremiumSelected ? <ChevronUp size={24} className="text-gray-300" /> : <ChevronDown size={24} className="text-gray-300" />}</div>
+                      </button>
 
-                        <div>
-                          <h4 className="text-base font-black text-[#1d2d50] uppercase tracking-wider mb-4 ml-1 flex items-center gap-2"><span className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center text-[10px]">2</span> Elige tu Bebida</h4>
-                          <div className="flex flex-col gap-3">
-                            {((otrosPlatos || []).filter(p => p?.categoria === 'BEBIDA' || p?.categoria === 'JUGO' || p?.categoria === 'AGUA_SABORIZADA').length === 0) ? (
-                              <div className="text-center text-[10px] font-black uppercase text-gray-400 bg-gray-50 p-3 rounded-2xl">No hay opciones disponibles</div>
-                            ) : (
-                              (otrosPlatos || []).filter(p => p?.categoria === 'BEBIDA' || p?.categoria === 'JUGO' || p?.categoria === 'AGUA_SABORIZADA').map((plato: any) => (
-                                <TarjetaPlato key={plato.id} plato={plato} categoriaKey="bebidaId" isSelected={pedido.bebidaId === plato.id} isDeadlinePassed={bloquearUI} disabled={false} onSelect={(_, id) => seleccionarOtro('bebidaId', id)} />
-                              ))
-                            )}
-                          </div>
-                        </div>
-                      </>
-                    )}
+                      <div className={`shrink-0 transition-all duration-500 ${isPremiumSelected ? 'max-h-[8000px] opacity-100 px-6 pb-6 visible' : 'max-h-0 opacity-0 px-6 pb-0 invisible overflow-hidden'}`}>
+                        <div className="flex flex-col gap-6">
+                          <div className="w-full border-b border-gray-200 pb-3 mb-4" /> 
+                          {loadingOtros && <div className="text-center text-sm text-gray-400 py-2">Cargando opciones...</div>}
+                          {!loadingOtros && (
+                          <>
+                            <div>
+                              <h4 className="text-base font-black text-[#1d2d50] uppercase tracking-wider mb-4 ml-1 flex items-center gap-2"><span className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center text-[10px]">1</span> Elige tu Sándwich</h4>
+                              <div className="flex flex-col gap-3">
+                                {((otrosPlatos || []).filter(p => p?.categoria === 'SANDWICH').length === 0) ? (
+                                  <div className="text-center text-[10px] font-black uppercase text-gray-400 bg-gray-50 p-3 rounded-2xl">No hay opciones disponibles</div>
+                                ) : (
+                                  (otrosPlatos || []).filter(p => p?.categoria === 'SANDWICH').map((plato: any) => (
+                                    <TarjetaPlato key={plato.id} plato={plato} categoriaKey="sandwichId" isSelected={pedido.sandwichId === plato.id} isDeadlinePassed={bloquearUI} disabled={false} onSelect={() => seleccionarOtro('sandwichId', plato.id)} />
+                                  ))
+                                )}
+                              </div>
+                            </div>
+
+                            <div>
+                              <h4 className="text-base font-black text-[#1d2d50] uppercase tracking-wider mb-4 ml-1 flex items-center gap-2"><span className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center text-[10px]">2</span> Elige tu Bebida</h4>
+                              <div className="flex flex-col gap-3">
+                                {((otrosPlatos || []).filter(p => p?.categoria === 'BEBIDA' || p?.categoria === 'JUGO' || p?.categoria === 'AGUA_SABORIZADA').length === 0) ? (
+                                  <div className="text-center text-[10px] font-black uppercase text-gray-400 bg-gray-50 p-3 rounded-2xl">No hay opciones disponibles</div>
+                                ) : (
+                                  (otrosPlatos || []).filter(p => p?.categoria === 'BEBIDA' || p?.categoria === 'JUGO' || p?.categoria === 'AGUA_SABORIZADA').map((plato: any) => (
+                                    <TarjetaPlato key={plato.id} plato={plato} categoriaKey="bebidaId" isSelected={pedido.bebidaId === plato.id} isDeadlinePassed={bloquearUI} disabled={false} onSelect={() => seleccionarOtro('bebidaId', plato.id)} />
+                                  ))
+                                )}
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    </section>
                   </div>
-                </div>
-                </section>
-              </div>
+                )}
+              </>
             )}
           </>
         )}
       </div>
 
       <BottomSheet open={sheetHipoOpen} title="Menú Hipocalórico" onClose={() => setSheetHipoOpen(false)}>
-        <div className="px-6 pb-6 mt-2">
+        <div className="px-6 pb-6 mt-2" onClick={(e) => e.stopPropagation()}>
           <p className="text-sm font-medium text-gray-500 mb-4">Selecciona el acompañamiento de tu plato:</p>
           <div className="flex flex-col gap-3">
             <button 
@@ -705,7 +702,7 @@ const HomePageTrabajador: React.FC = () => {
               className={`flex items-center justify-between w-full px-5 py-4 rounded-2xl border ${opcionHipoSeleccionada==='SOPA' ? 'border-green-500 bg-green-50' : 'border-gray-200 bg-white'}`}
             >
               <div className="flex flex-col text-left">
-                <span className="font-bold text-sm text-[#1d2d50] uppercase">Sopa o Crema</span>
+                <span className="font-bold text-sm text-[#1d2d50] uppercase">Sopa/Crema del día</span>
                 <span className="text-xs text-gray-400 mt-1">Podrás elegir la sopa o crema de tu preferencia.</span>
               </div>
               <div className={`w-5 h-5 shrink-0 rounded-full border-2 flex items-center justify-center ${opcionHipoSeleccionada==='SOPA' ? 'border-green-500' : 'border-gray-300'}`}>{opcionHipoSeleccionada==='SOPA' && <div className="w-2.5 h-2.5 bg-green-500 rounded-full" />}</div>
@@ -725,13 +722,35 @@ const HomePageTrabajador: React.FC = () => {
           
           <div className="flex flex-col gap-2 mt-8">
             <button 
-              onClick={() => { 
+              onClick={(e) => { 
+                e.stopPropagation();
+                
+                setPedido(prev => {
+                  const newState = {
+                    ...prev,
+                    fondoId: sheetFondo?.id,
+                    guarnicionId: null
+                  };
+
+                  const sopasIds = (menuHoy?.entradas || []).filter((e:any) => {
+                     const n = String(e?.nombre || '').toLowerCase();
+                     return n.includes('sopa') || n.includes('crema'); 
+                  }).map((e:any) => e.id);
+                  newState.entradasIds = newState.entradasIds.filter(eId => sopasIds.includes(eId));
+
+                  if (opcionHipoSeleccionada === 'SOPA') {
+                    newState.isDoblePostre = false;
+                  } else if (opcionHipoSeleccionada === 'DOBLE_POSTRE') {
+                    newState.isDoblePostre = true;
+                    newState.entradasIds = [];
+                  }
+                  return newState;
+                });
+
                 setSheetHipoOpen(false); 
                 if (opcionHipoSeleccionada === 'SOPA') {
-                  setPedido(prev => ({ ...prev, isDoblePostre: false }));
                   setTimeout(() => setSeccionAbierta('ENTRADA'), 400); 
                 } else if (opcionHipoSeleccionada === 'DOBLE_POSTRE') {
-                  setPedido(prev => ({ ...prev, isDoblePostre: true, entradasIds: [] }));
                   setTimeout(() => setSeccionAbierta('POSTRE'), 400); 
                 }
               }} 
@@ -740,13 +759,13 @@ const HomePageTrabajador: React.FC = () => {
             >
               Confirmar
             </button>
-            <button onClick={() => { setSheetHipoOpen(false); setPedido(prev => ({...prev, fondoId: null})); }} className="w-full py-3 font-bold text-gray-400">Cancelar</button>
+            <button onClick={(e) => { e.stopPropagation(); setSheetHipoOpen(false); }} className="w-full py-3 font-bold text-gray-400">Cancelar</button>
           </div>
         </div>
       </BottomSheet>
 
       <BottomSheet open={sheetOpen} title="Elige una guarnición" onClose={() => setSheetOpen(false)}>
-        <div className="px-2 pb-2 mt-2 px-6 pb-6">
+        <div className="px-2 pb-2 mt-2 px-6 pb-6" onClick={(e) => e.stopPropagation()}>
           <div className="flex flex-col gap-3">
             {(sheetFondo?.guarniciones || []).map((g: any) => (
               <button key={g.id} onClick={() => setSheetSelectedGuarnicion(g.id)} className={`flex items-center justify-between w-full px-5 py-4 rounded-2xl border ${sheetSelectedGuarnicion===g.id ? 'border-green-500 bg-green-50' : 'border-gray-200 bg-white'}`}>
@@ -760,14 +779,33 @@ const HomePageTrabajador: React.FC = () => {
             </button>
           </div>
           <div className="flex flex-col gap-2 mt-8">
-            <button onClick={() => { setPedido(prev => ({ ...prev, fondoId: sheetFondo?.id, guarnicionId: sheetSelectedGuarnicion })); setSheetOpen(false); setTimeout(() => setSeccionAbierta('POSTRE'), 300); }} disabled={sheetSelectedGuarnicion===null} className={`w-full py-4 rounded-xl font-black ${sheetSelectedGuarnicion===null ? 'bg-gray-100 text-gray-400' : 'bg-[#70a344] text-white shadow-md'}`}>Seleccionar</button>
-            <button onClick={() => setSheetOpen(false)} className="w-full py-3 font-bold text-gray-400">Cancelar</button>
+            <button 
+              onClick={(e) => { 
+                e.stopPropagation();
+                setPedido(prev => ({ 
+                  ...prev, 
+                  fondoId: sheetFondo?.id, 
+                  guarnicionId: sheetSelectedGuarnicion,
+                  isDoblePostre: false
+                })); 
+                setSheetOpen(false); 
+                setTimeout(() => setSeccionAbierta('POSTRE'), 300); 
+              }} 
+              disabled={sheetSelectedGuarnicion===null} 
+              className={`w-full py-4 rounded-xl font-black ${sheetSelectedGuarnicion===null ? 'bg-gray-100 text-gray-400' : 'bg-[#70a344] text-white shadow-md'}`}
+            >
+              Seleccionar
+            </button>
+            <button onClick={(e) => { e.stopPropagation(); setSheetOpen(false); }} className="w-full py-3 font-bold text-gray-400">Cancelar</button>
           </div>
         </div>
       </BottomSheet>
 
       {!(cargandoVerificacion || cargandoMenu) && !bloquearUI && (!pedidoExistente || modoEdicion) && (
-        <div className="fixed bottom-0 left-0 w-full p-6 bg-white/90 backdrop-blur-xl shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-40">
+        <div 
+          className="fixed bottom-0 left-0 w-full p-6 bg-white/90 backdrop-blur-xl shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-40"
+          onClick={(e) => e.stopPropagation()}
+        >
           <button onClick={manejarEnvio} disabled={!puedeEnviar || enviando} className={`w-full py-5 rounded-[24px] font-black text-lg transition-all flex items-center justify-center gap-3 ${puedeEnviar ? 'bg-[#70a344] shadow-xl text-white' : 'bg-gray-200 text-gray-500'}`}>
             {enviando ? 'Enviando...' : modoEdicion ? 'Guardar Cambios' : 'Confirmar Pedido'}
           </button>

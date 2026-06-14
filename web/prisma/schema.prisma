@@ -50,6 +50,7 @@ model Usuario {
   diasBloqueados Int[]    @default([])
   nombre         String?
   apellido       String?
+  fcmToken       String?  @db.Text
 
   @@index([empresaId, rol])
 }
@@ -171,11 +172,11 @@ model DetallePedido {
 }
 
 model ConfiguracionSistema {
-  id                        Int      @id @default(1)
-  horaLimite                String   @default("17:00") @db.VarChar(5)
-  diasAnticipacion          Int      @default(2)
+  id               Int      @id @default(1)
+  horaLimite       String   @default("17:00") @db.VarChar(5)
+  diasAnticipacion Int      @default(2)
+  actualizadoEn    DateTime @default(now())
   mensajePedidoTrabajadores String?
-  actualizadoEn             DateTime @default(now())
 }
 
 model ContactoEmpresa {
@@ -207,6 +208,7 @@ model ConvenioEmpresa {
   permiteJugo           Boolean          @default(true)
   permiteBebida         Boolean          @default(false)
   permiteAguaSaborizada Boolean          @default(false)
+  trabajaFinDeSemana    Boolean          @default(false)
   tipoEmpaquetado       TipoEmpaquetado?
   creado_en             DateTime         @default(now())
   actualizado_en        DateTime         @default(now())

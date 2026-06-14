@@ -16,6 +16,9 @@ type PedidoRequestBody = {
   guarnicionId?: number | null;
   fecha?: string | null;
   items?: DetallePedidoInput[];
+  // 🔥 NUEVO: Agregamos los tipos para el fin de semana
+  esFinDeSemana?: boolean;
+  tipoFinde?: string;
 };
 
 function toPositiveInteger(value: unknown): number | null {
@@ -124,12 +127,21 @@ export async function GET(request: Request) {
       guarnicionNombre: d.guarnicion?.nombre ?? null,
     }));
 
+    // 🔥 NUEVO: Inyectamos el tipoFinde si es que el pedido contiene un plato comodín
+    let tipoFinde = null;
+    const nombreFondo = resumen.find(r => r.categoria === 'FONDO')?.nombre;
+    if (nombreFondo === 'Menú del Día (Fin de Semana)') tipoFinde = 'MENU_DIA';
+    if (nombreFondo === 'Hipocalórico (Fin de Semana)') tipoFinde = 'HIPOCALORICO';
+    if (nombreFondo === 'Vegetariano (Fin de Semana)') tipoFinde = 'VEGETARIANO';
+    if (nombreFondo === 'Colación (Fin de Semana)') tipoFinde = 'COLACION';
+
     return NextResponse.json({
       existe: true,
       pedido: {
         id: pedidoExistente.id,
         fecha: pedidoExistente.fecha.toISOString(),
         resumen,
+        tipoFinde // Esto le servirá a la app para saber qué botón marcar al "modificar"
       },
     });
   } catch (error) {
@@ -142,23 +154,24 @@ export async function POST(request: Request) {
   try {
     const body = await request.json() as PedidoRequestBody;
     
-    // 🔥 CAMBIO: Ahora recibimos 'jugoId' también
-    const { usuarioId, entradaId, entradasIds, fondoId, postreId, jugoId, guarnicionId, fecha, items } = body;
+    // 🔥 NUEVO: Extraemos esFinDeSemana y tipoFinde
+    const { usuarioId, entradaId, entradasIds, fondoId, postreId, jugoId, guarnicionId, fecha, items, esFinDeSemana, tipoFinde } = body;
 
     if (!usuarioId) {
       return NextResponse.json({ error: 'Falta usuarioId' }, { status: 400 });
     }
 
-    // El flujo clásico solo requiere fondoId. El jugo es opcional (no aplica en menú del día).
     const fondoIdNormalizado = toPositiveInteger(fondoId);
     const postreIdNormalizado = toPositiveInteger(postreId);
     const jugoIdNormalizado = toPositiveInteger(jugoId);
     const entradasNormalizadas = normalizeEntradasIds(entradasIds, entradaId);
 
+    // 🔥 NUEVO: Definimos el tercer flujo
     const usingClassicFlow = Boolean(fondoIdNormalizado);
     const usingItemsFlow = Boolean(items && Array.isArray(items) && items.length > 0);
+    const usingFindeFlow = Boolean(esFinDeSemana && tipoFinde);
 
-    if (!usingClassicFlow && !usingItemsFlow) {
+    if (!usingClassicFlow && !usingItemsFlow && !usingFindeFlow) {
       return NextResponse.json({ error: 'Faltan datos obligatorios' }, { status: 400 });
     }
 
@@ -237,7 +250,25 @@ export async function POST(request: Request) {
     // 🔥 ARMAMOS EL ARREGLO DE DETALLES DINÁMICAMENTE según el flujo usado
     let detallesData: DetallePedidoInput[] = [];
 
-    if (usingClassicFlow) {
+    // 🔥 NUEVO: Lógica interceptora para el fin de semana
+    if (usingFindeFlow) {
+      let nombreComodin = '';
+      if (tipoFinde === 'MENU_DIA') nombreComodin = 'Menú del Día (Fin de Semana)';
+      if (tipoFinde === 'HIPOCALORICO') nombreComodin = 'Hipocalórico (Fin de Semana)';
+      if (tipoFinde === 'VEGETARIANO') nombreComodin = 'Vegetariano (Fin de Semana)';
+      if (tipoFinde === 'COLACION') nombreComodin = 'Colación (Fin de Semana)';
+
+      const platoComodin = await db.plato.findUnique({
+        where: { nombre: nombreComodin }
+      });
+
+      if (!platoComodin) {
+        return NextResponse.json({ error: `Falta crear el plato comodín en la base de datos: ${nombreComodin}` }, { status: 400 });
+      }
+
+      detallesData = [{ platoId: platoComodin.id, cantidad: 1 }];
+
+    } else if (usingClassicFlow) {
       // 1. Agregamos las entradas SOLO si existen y no están vacías
       if (entradasNormalizadas.ids.length > 0) {
         detallesData.push(...entradasNormalizadas.ids.map((id) => ({ platoId: id })));

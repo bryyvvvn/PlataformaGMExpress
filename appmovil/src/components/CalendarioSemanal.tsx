@@ -35,7 +35,23 @@ export const CalendarioSemanal: React.FC<CalendarioSemanalProps> = ({
           <ChevronRight size={20} />
         </button>
       </div>
-      <div className="flex justify-between items-center">
+
+      {/* Estilo para ocultar la barra de scroll nativa pero mantener la funcionalidad */}
+      <style>{`
+        .hide-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
+      `}</style>
+
+      {/* Contenedor con Scroll Horizontal Suave */}
+      <div 
+        className="flex items-center overflow-x-auto snap-x snap-mandatory hide-scrollbar pb-4 pt-2 -mx-2 px-2"
+        style={{ 
+          scrollbarWidth: 'none', 
+          msOverflowStyle: 'none', 
+          gap: 'calc(15% / 4)' // Mantiene el espaciado perfecto original de los 5 días
+        }} 
+      >
         {diasSemanaArray.map((dia, index) => {
           const tienePedido = fechasBloqueadas.has(dia.iso);
           const numDiaMenu = new Date(dia.iso + 'T12:00:00').getDay();
@@ -47,7 +63,8 @@ export const CalendarioSemanal: React.FC<CalendarioSemanalProps> = ({
             <button
               key={index}
               onClick={() => { if (!(visualmenteBloqueado && !tienePedido)) setDiaSeleccionadoIdx(index); }}
-              className={['flex flex-col items-center justify-center w-[17%] aspect-square rounded-[20px] transition-all', 
+              // 🔥 Restauramos w-[17%] y agregamos shrink-0 para evitar que se aplasten
+              className={['flex flex-col items-center justify-center shrink-0 w-[17%] aspect-square rounded-[20px] transition-all snap-center', 
                 isSelectedAndValid ? 'border-2 scale-110 shadow-md' : 'border shadow-sm', 
                 tienePedido ? 'bg-green-50 border-green-200' : (visualmenteBloqueado ? 'bg-gray-100 border-gray-200 text-gray-300' : 'bg-white border-gray-200'), 
                 (visualmenteBloqueado && !tienePedido) ? 'cursor-not-allowed' : 'cursor-pointer'
