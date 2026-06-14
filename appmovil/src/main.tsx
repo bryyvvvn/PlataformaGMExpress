@@ -3,7 +3,6 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import './index.css';
 import { ClerkProvider } from '@clerk/clerk-react';
-import { esES } from '@clerk/localizations';
 import { CLERK_CONFIG } from './constants/clerk';
 
 /**
