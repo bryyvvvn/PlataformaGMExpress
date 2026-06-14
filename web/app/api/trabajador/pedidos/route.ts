@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import db from '../../../../lib/db';
 import { chileStartOfDay, chileEndOfDay } from '../../../../lib/chile-time';
+import { getHorarioEmpresa } from '../../../../lib/horario-pedidos-server';
 
 export const dynamic = 'force-dynamic';
 
@@ -177,11 +178,24 @@ export async function POST(request: Request) {
 
     const usuario = await db.usuario.findUnique({
       where: { id: usuarioId },
-      select: { id: true, empresaId: true },
+      select: { id: true, empresaId: true, rol: true },
     });
 
     if (!usuario || !usuario.empresaId) {
       return NextResponse.json({ error: 'Usuario no válido o sin empresa' }, { status: 400 });
+    }
+
+    // Solo bloquear a TRABAJADORES
+    if (usuario.rol === 'TRABAJADOR') {
+      const estadoHorario = await getHorarioEmpresa(usuario.empresaId);
+      if (!estadoHorario.permitido) {
+        return NextResponse.json({
+          error: 'PEDIDO_FUERA_DE_HORARIO',
+          horaLimite: estadoHorario.horaLimite,
+          mensaje: estadoHorario.mensaje,
+          horaReapertura: estadoHorario.horaReapertura,
+        }, { status: 403 });
+      }
     }
 
     if (usingClassicFlow) {

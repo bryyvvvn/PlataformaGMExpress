@@ -25,6 +25,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { getHoraLimiteEfectiva } from "@/lib/horario-pedidos"
 
 type ConvenioEmpresa = {
   id: number
@@ -74,6 +75,7 @@ type EmpresaDetalle = {
   representanteLegal: string | null
   rutRepresentanteLegal: string | null
   estado: "ACTIVA" | "INACTIVA"
+  horaDespacho: string | null
   creado_en: string
   actualizado_en: string
   convenio: ConvenioEmpresa | null
@@ -88,6 +90,14 @@ type EmpresaDetalle = {
 type EmpresaDetalleResponse = {
   empresa: EmpresaDetalle
 }
+
+type ConfiguracionResponse = {
+  configuracion: {
+    horaLimite: string
+  }
+}
+
+const HORA_LIMITE_DEFAULT = "10:00"
 
 const PRODUCTOS_CONVENIO: Array<{
   campo: CampoConvenio
@@ -150,6 +160,7 @@ export default function EmpresaDetallePage() {
   const [empresa, setEmpresa] = useState<EmpresaDetalle | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [horaGlobal, setHoraGlobal] = useState(HORA_LIMITE_DEFAULT)
 
   const cargarDetalle = useCallback(async () => {
     if (!empresaId) {
@@ -185,6 +196,28 @@ export default function EmpresaDetallePage() {
       void cargarDetalle()
     })
   }, [cargarDetalle])
+
+  useEffect(() => {
+    let cancelado = false
+
+    void fetch("/api/admin/configuracion", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) return
+
+        const data = (await response.json()) as ConfiguracionResponse
+
+        if (!cancelado) {
+          setHoraGlobal(data.configuracion.horaLimite)
+        }
+      })
+      .catch((err) => {
+        console.error("[EmpresaDetallePage] Error cargando configuracion:", err)
+      })
+
+    return () => {
+      cancelado = true
+    }
+  }, [])
 
   if (loading) {
     return (
@@ -225,6 +258,11 @@ export default function EmpresaDetallePage() {
     empresa.razonSocial ??
     empresa.correo_contacto ??
     "Sin razon social o correo registrado"
+
+  const horarioEfectivo = getHoraLimiteEfectiva(empresa.horaDespacho, horaGlobal)
+  const horaLimiteEfectivaTexto = `${horarioEfectivo.horaLimite} (${
+    horarioEfectivo.fuenteHora === "empresa" ? "calculada desde despacho" : "hora global"
+  })`
 
   return (
     <div className="mx-auto w-full max-w-7xl space-y-4 p-4">
@@ -346,6 +384,7 @@ export default function EmpresaDetallePage() {
               value={empresa.estado === "ACTIVA" ? "Activa" : "Inactiva"}
             />
             <Dato label="Creada" value={formatearFecha(empresa.creado_en)} />
+            <Dato label="Hora límite de pedidos" value={horaLimiteEfectivaTexto} />
           </CardContent>
         </Card>
 

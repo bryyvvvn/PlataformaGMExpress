@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Clock, Menu, ChevronDown, ChevronUp, X, CalendarOff, Lock, Check } from 'lucide-react';
 import { THEME, DEADLINE_HOUR } from '../../constants/theme';
+import { API_BASE_URL } from '../../constants/api';
 import { useUser } from '@clerk/clerk-react';
 import { useLocation } from 'react-router-dom';
 import { TarjetaPlato } from '../../components/TarjetaPlato';
@@ -23,6 +24,7 @@ import { useConfigurarNotificaciones } from '../../hooks/useConfigurarNotificaci
 import { MenuSkeleton } from '../../components/MenuSkeleton';
 import { CalendarioSemanal } from '../../components/CalendarioSemanal';
 import { ResumenPedido } from '../../components/ResumenPedido';
+import { HorarioBloqueado, type EstadoHorarioResponse } from '../../components/HorarioBloqueado';
 import type { Plato } from '../../hooks/useMenuAPI';
 
 type Categoria = 'ENTRADA' | 'FONDO' | 'POSTRE' | 'JUGO' | null;
@@ -82,8 +84,33 @@ const HomePageTrabajador: React.FC = () => {
 
   const [autoSelected, setAutoSelected] = useState(false);
   useConfigurarNotificaciones(user?.id);
-  
+
   useEffect(() => { setAutoSelected(false); }, [location.pathname]);
+
+  const [estadoHorario, setEstadoHorario] = useState<EstadoHorarioResponse | null>(null);
+  const [cargandoHorario, setCargandoHorario] = useState(true);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    let cancelado = false;
+
+    const fetchHorario = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/trabajador/horario?usuarioId=${user.id}`, { cache: 'no-store' });
+        const data: EstadoHorarioResponse = await res.json();
+        if (!cancelado) setEstadoHorario(data);
+      } catch (e) {
+        console.error('[HomePageTrabajador] Error al verificar horario:', e);
+        if (!cancelado) setEstadoHorario({ permitido: true });
+      } finally {
+        if (!cancelado) setCargandoHorario(false);
+      }
+    };
+
+    fetchHorario();
+    return () => { cancelado = true; };
+  }, [user?.id]);
 
   const { diasBloqueadosAdmin, convenio } = usePerfilTrabajador(user?.id);
   const trabajaFinDeSemana = convenio?.trabajaFinDeSemana ?? false;
@@ -385,6 +412,26 @@ const HomePageTrabajador: React.FC = () => {
   };
 
   if (eliminando) return <LoadingView message="Eliminando pedido..." />;
+
+  if (cargandoHorario) return <LoadingView message="Verificando horario..." />;
+
+  if (estadoHorario && !estadoHorario.permitido) {
+    return (
+      <div className="min-h-screen relative flex flex-col" style={{ backgroundColor: THEME.colors.background }}>
+        <Sidebar isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} rolPropVisible="Trabajador" empresaNombre="Starco" />
+
+        <div className="pt-5 pb-3 flex justify-between items-center px-6" style={{ backgroundColor: THEME.colors.secondary }}>
+          <h1 className="text-[24px] font-black italic text-white m-0 leading-none">GM <span style={{ color: THEME.colors.primary }}>EXPRESS</span></h1>
+          <button onClick={() => setIsMenuOpen(true)} className="p-2 text-white"><Menu size={24} /></button>
+        </div>
+        <div className="h-1 w-full" style={{ backgroundColor: THEME.colors.primary }} />
+
+        <HorarioBloqueado horaLimite={estadoHorario.horaLimite} horaReapertura={estadoHorario.horaReapertura} mensaje={estadoHorario.mensaje} />
+
+        <VerificadorRut />
+      </div>
+    );
+  }
 
   const categoriasPersonalizado = ['ENTRADA', 'FONDO', 'POSTRE', 'JUGO'];
 

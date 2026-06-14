@@ -1,3 +1,5 @@
+import { auth } from "@clerk/nextjs/server"
+import { Rol } from "@prisma/client"
 import { NextRequest, NextResponse } from "next/server"
 
 import db from "@/lib/db"
@@ -21,6 +23,25 @@ type ConfiguracionUpdateData = {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
+async function requireAdmin() {
+  const { userId } = await auth()
+
+  if (!userId) {
+    return { error: "No autorizado", status: 401 as const }
+  }
+
+  const usuario = await db.usuario.findUnique({
+    where: { id: userId },
+    select: { rol: true },
+  })
+
+  if (usuario?.rol !== Rol.ADMIN) {
+    return { error: "Acceso denegado", status: 403 as const }
+  }
+
+  return { userId }
 }
 
 function validarHoraLimite(value: unknown): ValidationResult<string> {
@@ -105,6 +126,11 @@ async function asegurarConfiguracion() {
 
 export async function GET() {
   try {
+    const admin = await requireAdmin()
+    if ("error" in admin) {
+      return NextResponse.json({ error: admin.error }, { status: admin.status })
+    }
+
     const configuracion = await asegurarConfiguracion()
     return NextResponse.json({ configuracion })
   } catch (error) {
@@ -118,6 +144,11 @@ export async function GET() {
 
 export async function PATCH(req: NextRequest) {
   try {
+    const admin = await requireAdmin()
+    if ("error" in admin) {
+      return NextResponse.json({ error: admin.error }, { status: admin.status })
+    }
+
     let body: unknown
 
     try {

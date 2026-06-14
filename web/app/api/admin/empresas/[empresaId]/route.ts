@@ -26,6 +26,7 @@ type EmpresaEditData = {
   representanteLegal: string | null
   rutRepresentanteLegal: string | null
   estado: EstadoEmpresa
+  horaDespacho: string | null
 }
 
 type ContactoEditData = {
@@ -43,6 +44,10 @@ type EditarEmpresaData = {
   contactoTitular: ContactoEditData
   contactoSuplente: ContactoEditData | null
 }
+
+const HORA_REGEX = /^([01]\d|2[0-3]):[0-5]\d$/
+const HORA_DESPACHO_MINIMA = "06:00"
+const HORA_DESPACHO_MAXIMA = "23:00"
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
@@ -87,6 +92,24 @@ function validarEmail(value: string, campo: string): ValidationResult<string> {
 function validarEstadoEmpresa(value: unknown): ValidationResult<EstadoEmpresa> {
   if (value !== EstadoEmpresa.ACTIVA && value !== EstadoEmpresa.INACTIVA) {
     return { error: "El estado debe ser ACTIVA o INACTIVA" }
+  }
+
+  return { data: value }
+}
+
+function validarHoraDespacho(value: unknown): ValidationResult<string | null> {
+  if (value === undefined || value === null || value === "") {
+    return { data: null }
+  }
+
+  if (typeof value !== "string" || !HORA_REGEX.test(value)) {
+    return { error: "horaDespacho debe tener formato HH:MM valido" }
+  }
+
+  if (value < HORA_DESPACHO_MINIMA || value > HORA_DESPACHO_MAXIMA) {
+    return {
+      error: `horaDespacho debe estar entre las ${HORA_DESPACHO_MINIMA} y las ${HORA_DESPACHO_MAXIMA}`,
+    }
   }
 
   return { data: value }
@@ -255,6 +278,7 @@ function validarEditarEmpresaPayload(body: unknown): ValidationResult<EditarEmpr
     "representanteLegal",
     "rutRepresentanteLegal",
     "estado",
+    "horaDespacho",
     "contactoTitular",
     "contactoSuplente",
   ])
@@ -333,6 +357,9 @@ function validarEditarEmpresaPayload(body: unknown): ValidationResult<EditarEmpr
   const estado = validarEstadoEmpresa(body.estado)
   if ("error" in estado) return estado
 
+  const horaDespacho = validarHoraDespacho(body.horaDespacho)
+  if ("error" in horaDespacho) return horaDespacho
+
   const contactoTitular = validarContactoTitular(body.contactoTitular)
   if ("error" in contactoTitular) return contactoTitular
 
@@ -357,6 +384,7 @@ function validarEditarEmpresaPayload(body: unknown): ValidationResult<EditarEmpr
         representanteLegal: representanteLegal.data,
         rutRepresentanteLegal: rutRepresentanteLegal.data,
         estado: estado.data,
+        horaDespacho: horaDespacho.data,
       },
       contactoTitular: contactoTitular.data,
       contactoSuplente: contactoSuplente.data,
@@ -447,6 +475,7 @@ export async function GET(_req: Request, { params }: RouteContext) {
         representanteLegal: true,
         rutRepresentanteLegal: true,
         estado: true,
+        horaDespacho: true,
         creado_en: true,
         actualizado_en: true,
         ConvenioEmpresa: {
@@ -615,6 +644,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
           representanteLegal: true,
           rutRepresentanteLegal: true,
           estado: true,
+          horaDespacho: true,
           ContactoEmpresa: {
             orderBy: [{ activo: "desc" }, { tipo: "asc" }, { id: "asc" }],
             select: {
