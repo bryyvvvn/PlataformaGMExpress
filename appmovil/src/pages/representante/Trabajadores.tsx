@@ -9,7 +9,6 @@ import { useVincularTrabajador } from '../../hooks/useVincularTrabajador';
 import { useBloqueoDias } from '../../hooks/useBloqueoDias';
 
 // --- Componente TarjetaTrabajadorListado ---
-// (Podrías mover esto a src/components/ en el futuro si quieres el archivo aún más limpio)
 const TarjetaTrabajadorListado = ({ t }: { t: any }) => {
   const [diasBloqueados, setDiasBloqueados] = useState<number[]>(t.diasBloqueados || []);
   const { toggleDiaBloqueado, loadingDia } = useBloqueoDias();
@@ -29,11 +28,19 @@ const TarjetaTrabajadorListado = ({ t }: { t: any }) => {
         <div className="w-12 h-12 rounded-2xl bg-green-50 border border-green-100 flex items-center justify-center text-[#70a344] font-black text-lg shadow-inner shrink-0">
           {t.nombre ? t.nombre.charAt(0).toUpperCase() : 'U'}
         </div>
-        <div className="flex flex-col flex-1">
-          <span className="text-sm font-bold text-[#1d2d50] capitalize">{t.nombre.toLowerCase()}</span>
-          <span className="text-[10px] text-gray-400 font-black uppercase tracking-widest mt-0.5">
-            Trabajador Activo
-          </span>
+        <div className="flex flex-col flex-1 overflow-hidden">
+          <span className="text-sm font-bold text-[#1d2d50] capitalize truncate">{t.nombre?.toLowerCase()}</span>
+          <div className="flex items-center gap-2 mt-0.5">
+            <span className="text-[10px] text-gray-400 font-black uppercase tracking-widest">
+              Activo
+            </span>
+            {t.rut && (
+              <>
+                <span className="text-gray-300">•</span>
+                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{t.rut}</span>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -82,6 +89,9 @@ const Trabajadores: React.FC = () => {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [rutBusqueda, setRutBusqueda] = useState('');
+  
+  // 🔥 NUEVO ESTADO PARA EL FILTRO DE BÚSQUEDA
+  const [filtroBusqueda, setFiltroBusqueda] = useState('');
 
   const manejarCambioRut = (e: React.ChangeEvent<HTMLInputElement>) => {
     let valor = e.target.value.replace(/[^0-9kK]/g, '').toUpperCase();
@@ -99,9 +109,28 @@ const Trabajadores: React.FC = () => {
     limpiarBusqueda();
   };
 
+
+  // 🔥 LÓGICA DE FILTRADO (POR NOMBRE O RUT MEJORADO)
+  const trabajadoresFiltrados = trabajadores.filter((t: any) => {
+    const terminoBusqueda = filtroBusqueda.toLowerCase().trim();
+    if (!terminoBusqueda) return true;
+    
+    // Búsqueda por nombre
+    const coincideNombre = t.nombre?.toLowerCase().includes(terminoBusqueda);
+    
+    // Búsqueda por RUT (Limpiando puntos y guiones)
+    const rutBDLimpio = t.rut?.replace(/[\.\-]/g, '').toLowerCase() || '';
+    const busquedaLimpia = terminoBusqueda.replace(/[\.\-]/g, '');
+    
+    // Coincide si lo busca con formato (12.314...) o sin formato (12314...)
+    const coincideRut = t.rut?.toLowerCase().includes(terminoBusqueda) || (busquedaLimpia.length > 0 && rutBDLimpio.includes(busquedaLimpia));
+    
+    return coincideNombre || coincideRut;
+  });
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col animate-in fade-in duration-500 relative">
-      <header className="bg-white border-b border-gray-100 sticky top-0 z-10 px-6 py-5 flex items-center justify-between shadow-sm">
+      <header className="bg-white border-b border-gray-100 sticky top-0 z-20 px-6 py-5 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-4">
           <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 rounded-full transition-colors active:scale-90">
             <ArrowLeft size={24} className="text-gray-600" />
@@ -141,8 +170,41 @@ const Trabajadores: React.FC = () => {
           </div>
         ) : (
           <div className="space-y-4 max-w-md mx-auto">
-            {trabajadores.length > 0 ? (
-              trabajadores.map((t) => <TarjetaTrabajadorListado key={t.id} t={t} />)
+            
+            {/* 🔥 BARRA DE BÚSQUEDA */}
+            {trabajadores.length > 0 && (
+              <div className="relative mb-6">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <Search size={18} className="text-gray-400" />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Buscar por nombre o RUT..."
+                  value={filtroBusqueda}
+                  onChange={(e) => setFiltroBusqueda(e.target.value)}
+                  className="w-full pl-11 pr-10 py-3.5 bg-white border border-gray-100 shadow-sm rounded-2xl text-sm font-bold text-[#1d2d50] focus:outline-none focus:border-[#70a344] focus:ring-1 focus:ring-[#70a344] transition-all placeholder:text-gray-300 placeholder:font-medium"
+                />
+                {filtroBusqueda && (
+                  <button
+                    onClick={() => setFiltroBusqueda('')}
+                    className="absolute inset-y-0 right-0 pr-4 flex items-center active:scale-90 transition-transform"
+                  >
+                    <X size={16} className="text-gray-400 hover:text-[#1d2d50]" />
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* LISTA DE TRABAJADORES (FILTRADOS) */}
+            {trabajadoresFiltrados.length > 0 ? (
+              trabajadoresFiltrados.map((t) => <TarjetaTrabajadorListado key={t.id} t={t} />)
+            ) : trabajadores.length > 0 ? (
+              <div className="text-center bg-white p-8 rounded-3xl border border-gray-100 shadow-sm mt-4">
+                <p className="text-[#1d2d50] font-black text-lg mb-1">Sin resultados</p>
+                <p className="text-gray-400 text-sm font-medium">
+                  No se encontró ningún trabajador con "{filtroBusqueda}"
+                </p>
+              </div>
             ) : (
               <div className="text-center text-gray-400 mt-10 text-sm font-medium">
                 No hay trabajadores registrados en esta empresa.

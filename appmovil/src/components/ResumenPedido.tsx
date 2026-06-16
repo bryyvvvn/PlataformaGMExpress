@@ -36,25 +36,43 @@ export const ResumenPedido: React.FC<ResumenPedidoProps> = ({
       </div>
       
       <div className="space-y-4 mb-6 relative z-10 grow">
-        {pedidoExistente.resumen.map((r: any, idx: number) => {
-          let nombreGuarnicion = r.guarnicion || r.guarnicionNombre;
-          if (!nombreGuarnicion && r.categoria === 'FONDO' && r.guarnicionId && r.guarnicionId !== -1) {
-            const platoFondo = menuHoy.fondos?.find((f: any) => f.id === r.platoId);
-            const guarnicionObj = platoFondo?.guarniciones?.find((g: any) => g.id === r.guarnicionId);
-            if (guarnicionObj) nombreGuarnicion = guarnicionObj.nombre;
-          }
-          return (
-            <div key={idx} className="flex flex-col">
-              <span className="text-xs font-black text-[#70a344] uppercase tracking-widest mb-0.5">
-                {r.categoria === 'JUGO' ? 'BEBESTIBLE' : r.categoria}
-              </span>
-              <span className="font-bold text-[#1d2d50] leading-tight text-lg">
-                {r.nombre}
-                {nombreGuarnicion && <span> + {nombreGuarnicion}</span>}
-              </span>
-            </div>
-          );
-        })}
+        
+        {/* Lógica de agrupación de platos por categoría */}
+        {(() => {
+          const resumenAgrupado = pedidoExistente.resumen.reduce((acc: any, item: any) => {
+            const cat = item.categoria === 'JUGO' ? 'BEBESTIBLE' : item.categoria;
+            if (!acc[cat]) acc[cat] = [];
+            acc[cat].push(item);
+            return acc;
+          }, {});
+
+          return Object.entries(resumenAgrupado).map(([categoria, items]: [string, any], idx) => {
+            const textosPlatos = items.map((r: any) => {
+              let nombreGuarnicion = r.guarnicion || r.guarnicionNombre;
+              
+              if (!nombreGuarnicion && r.categoria === 'FONDO' && r.guarnicionId && r.guarnicionId !== -1) {
+                const platoFondo = menuHoy.fondos?.find((f: any) => f.id === r.platoId);
+                const guarnicionObj = platoFondo?.guarniciones?.find((g: any) => g.id === r.guarnicionId);
+                if (guarnicionObj) nombreGuarnicion = guarnicionObj.nombre;
+              }
+
+              return nombreGuarnicion ? `${r.nombre} + ${nombreGuarnicion}` : r.nombre;
+            });
+
+            const textoFinalCategoria = textosPlatos.join(' + ');
+
+            return (
+              <div key={idx} className="flex flex-col mb-4 last:mb-0">
+                <span className="text-xs font-black text-[#70a344] uppercase tracking-widest mb-0.5">
+                  {categoria}
+                </span>
+                <span className="font-bold text-[#1d2d50] leading-tight text-lg">
+                  {textoFinalCategoria}
+                </span>
+              </div>
+            );
+          });
+        })()}
 
         {convenio?.permitePan && (
           <div className="flex flex-col mt-2 pt-4 border-t border-dashed border-gray-200">

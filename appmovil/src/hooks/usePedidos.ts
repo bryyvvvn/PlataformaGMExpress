@@ -55,7 +55,6 @@ export const usePedidos = (usuarioId: string | undefined, fecha?: string) => {
 
     setEnviando(true);
     try {
-      // 🔥 NUEVO: Pasamos las variables directamente al payload sin "camuflajes"
       const payload = {
         usuarioId,
         entradasIds: pedido.entradasIds || [],
@@ -136,7 +135,8 @@ export const usePedidos = (usuarioId: string | undefined, fecha?: string) => {
     }
   };
 
-  const enviarItems = async (items: Array<{ platoId: number; guarnicionId?: number | null; cantidad?: number }>): Promise<boolean> => {
+  // 🔥 NUEVO: Recibimos observacion como parámetro y la enviamos en el payload
+  const enviarItems = async (items: Array<{ platoId: number; guarnicionId?: number | null; cantidad?: number }>, observacion?: string | null): Promise<boolean> => {
     if (!usuarioId) return false;
 
     setEnviando(true);
@@ -145,7 +145,7 @@ export const usePedidos = (usuarioId: string | undefined, fecha?: string) => {
         usuarioId,
         items,
         fecha: fecha ?? undefined,
-        observacion: null,
+        observacion: observacion?.trim() || null, // 🔥 Ahora se inyecta correctamente
       };
 
       const respuesta = await fetch(`${API_BASE_URL}/api/trabajador/pedidos`, {

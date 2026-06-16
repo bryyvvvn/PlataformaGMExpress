@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Menu, Send, ChevronLeft, ChevronRight, CheckCircle2, ClipboardList } from 'lucide-react';
+import { Menu, Send, ChevronLeft, ChevronRight, CheckCircle2, ClipboardList, CalendarOff } from 'lucide-react';
 import { THEME } from '../../constants/theme';
 import { Sidebar } from '../../components/Sidebar';
 import { TarjetaTrabajador } from '../../components/TarjetaTrabajador';
@@ -27,10 +27,37 @@ const HomePageRepresentante: React.FC<HomePageRepresentanteProps> = ({ empresaId
   const { enviarPlanilla, loading: enviandoTodo } = usePlanilla();
   const trabajaFinDeSemana = Boolean(convenio?.trabajaFinDeSemana);
   
-  const { setSemanaOffset, getSemanaTexto, fechaSeleccionadaISO, fechaTexto } = useCalendario(trabajaFinDeSemana);
+  // 🔥 Extraemos semanaOffset del hook para saber si estamos en el pasado
+  const { setSemanaOffset, getSemanaTexto, fechaSeleccionadaISO, fechaTexto, semanaOffset } = useCalendario(trabajaFinDeSemana);
   const { trabajadores, cargando, resumenEmpresa } = useTrabajadores(empresaId, fechaSeleccionadaISO);
 
+  // 🔥 LÓGICA PARA DETECTAR SEMANAS PASADAS
+  const esSemanaPasada = semanaOffset !== undefined 
+    ? semanaOffset < 0 
+    : (() => {
+        if (!fechaSeleccionadaISO) return false;
+        const viewedDate = new Date(fechaSeleccionadaISO + 'T12:00:00');
+        const today = new Date();
+        today.setHours(12, 0, 0, 0);
+        
+        const day = today.getDay() || 7; 
+        const monday = new Date(today);
+        monday.setDate(today.getDate() - day + 1);
+        
+        const viewedDay = viewedDate.getDay() || 7;
+        const viewedMonday = new Date(viewedDate);
+        viewedMonday.setDate(viewedDate.getDate() - viewedDay + 1);
+        
+        return viewedMonday.getTime() < monday.getTime();
+      })();
+
   const manejarEnviarTodo = async () => {
+    // Protección adicional por seguridad
+    if (esSemanaPasada) {
+      alert('No puedes enviar ni modificar planillas de semanas anteriores.');
+      return;
+    }
+    
     if (trabajadores.length === 0) return;
 
     const confirmar = window.confirm(
@@ -48,17 +75,13 @@ const HomePageRepresentante: React.FC<HomePageRepresentanteProps> = ({ empresaId
     }
   };
 
-  // 🔥 LÓGICA DE ESTADÍSTICAS CORREGIDA
   const totalPedidos = trabajadores.reduce((acc, t) => acc + (t.pedidos?.length || 0), 0);
   
   const pedidosConfirmados = trabajadores.reduce((acc, t) => 
     acc + (t.pedidos?.filter((p: any) => p.estado === 'CONFIRMADO').length || 0)
   , 0);
   
-  // En lugar de buscar la palabra "PENDIENTE", verificamos matemáticamente si faltan por confirmar
   const faltanConfirmar = totalPedidos > 0 && pedidosConfirmados < totalPedidos;
-  
-  // Solo está completado si hay pedidos y todos coinciden
   const estaCompletado = totalPedidos > 0 && pedidosConfirmados === totalPedidos;
   const tieneEmpresa = Boolean(empresaId);
 
@@ -187,7 +210,21 @@ const HomePageRepresentante: React.FC<HomePageRepresentanteProps> = ({ empresaId
       {tieneEmpresa && !cargando && trabajadores.length > 0 && (
         <div className="fixed bottom-0 left-0 w-full p-6 bg-white/90 backdrop-blur-xl shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-30">
           
-          {totalPedidos === 0 ? (
+          {/* 🔥 LÓGICA DE BOTÓN ACTUALIZADA */}
+          {estaCompletado ? (
+            <div className="w-full h-14 bg-gray-100 text-gray-400 rounded-[20px] font-black text-sm shadow-sm flex items-center justify-center gap-2 uppercase tracking-widest">
+              <CheckCircle2 size={18} className="text-gray-400" />
+                Planilla Confirmada
+            </div>
+          ) : esSemanaPasada ? (
+            <button 
+              disabled
+              className="w-full h-14 bg-gray-100 text-gray-400 rounded-[20px] font-black text-base shadow-sm flex items-center justify-center gap-2 uppercase tracking-wide"
+            >
+              <CalendarOff size={16} />
+              Semana Cerrada
+            </button>
+          ) : totalPedidos === 0 ? (
             <button 
               disabled
               className="w-full h-14 bg-gray-100 text-gray-400 rounded-[20px] font-black text-base shadow-sm flex items-center justify-center gap-2 uppercase tracking-wide"
@@ -195,7 +232,7 @@ const HomePageRepresentante: React.FC<HomePageRepresentanteProps> = ({ empresaId
               <Send size={16} />
               Esperando pedidos
             </button>
-          ) : faltanConfirmar ? ( // 🔥 AQUÍ USAMOS LA VARIABLE NUEVA
+          ) : ( 
             <button 
               onClick={manejarEnviarTodo}
               disabled={enviandoTodo}
@@ -204,11 +241,6 @@ const HomePageRepresentante: React.FC<HomePageRepresentanteProps> = ({ empresaId
               <Send size={16} />
               {enviandoTodo ? 'Enviando planilla...' : `Enviar planilla`}
             </button>
-          ) : (
-            <div className="w-full h-14 bg-gray-100 text-gray-400 rounded-[20px] font-black text-sm shadow-sm flex items-center justify-center gap-2 uppercase tracking-widest">
-              <CheckCircle2 size={18} className="text-gray-400" />
-                Planilla Confirmada
-            </div>
           )}
 
         </div>

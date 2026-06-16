@@ -102,7 +102,7 @@ const HomePageTrabajador: React.FC = () => {
         if (!cancelado) setEstadoHorario(data);
       } catch (e) {
         console.error('[HomePageTrabajador] Error al verificar horario:', e);
-        if (!cancelado) setEstadoHorario({ permitido: true });
+        if (!cancelado) setEstadoHorario({ permitido: true, fechaBloqueada: null });
       } finally {
         if (!cancelado) setCargandoHorario(false);
       }
@@ -377,7 +377,10 @@ const HomePageTrabajador: React.FC = () => {
       if (pedido.sandwichId) items.push({ platoId: pedido.sandwichId, cantidad: 1 });
       if (pedido.bebidaId) items.push({ platoId: pedido.bebidaId, cantidad: 1 });
       if (items.length === 0) { alert('Selecciona al menos un item.'); return; }
-      const exito = await enviarItems(items);
+      
+      // 🔥 FIX: Le pasamos la observación a enviarItems
+      const exito = await enviarItems(items, observacion); 
+      
       if (exito) { setModoEdicion(false); setTipoOtroSeleccionado(null); cargarHistorial(); }
       return;
     }
@@ -661,7 +664,7 @@ const HomePageTrabajador: React.FC = () => {
                 {activeTab === 'OTRO' && (
                   <div className="flex flex-col gap-2 relative grow mb-2">
                     <section className={`flex flex-col grow overflow-hidden rounded-3xl border transition-all duration-300 ${isPremiumSelected ? 'border-gray-100 bg-gray-50 opacity-60 grayscale pointer-events-none' : 'border-gray-100 bg-white shadow-sm'}`}>
-                      <button onClick={() => handleSeleccionarTipoOtro('CANJE')} disabled={isPremiumSelected} className="w-full grow flex items-center justify-between px-7 py-4 sm:px-8">
+                      <button onClick={() => handleSeleccionarTipoOtro('CANJE')} disabled={isPremiumSelected} className="w-full min-h-[100px] grow flex items-center justify-between px-7 py-4 sm:px-8">
                         <div className="flex items-center gap-4 sm:gap-5">
                           <div className={`shrink-0 w-7 h-7 rounded-lg border-2 flex items-center justify-center transition-all ${isCanjeSelected ? 'bg-[#70a344] border-[#70a344]' : 'bg-transparent border-gray-300'}`}>
                             {isCanjeSelected && <Check size={18} strokeWidth={4} className="text-white" />}
@@ -695,7 +698,7 @@ const HomePageTrabajador: React.FC = () => {
                     </section>
 
                     <section className={`flex flex-col grow overflow-hidden rounded-3xl border transition-all duration-300 ${isCanjeSelected ? 'border-gray-100 bg-gray-50 opacity-60 grayscale pointer-events-none' : 'border-gray-100 bg-white shadow-sm'}`}>
-                      <button onClick={() => handleSeleccionarTipoOtro('PREMIUM')} disabled={isCanjeSelected} className="w-full grow flex items-center justify-between px-7 py-4 sm:px-8">
+                      <button onClick={() => handleSeleccionarTipoOtro('PREMIUM')} disabled={isCanjeSelected} className="w-full min-h-[100px] grow flex items-center justify-between px-7 py-4 sm:px-8">
                         <div className="flex items-center gap-4 sm:gap-5">
                           <div className={`shrink-0 w-7 h-7 rounded-lg border-2 flex items-center justify-center transition-all ${isPremiumSelected ? 'bg-[#70a344] border-[#70a344]' : 'bg-transparent border-gray-300'}`}>
                             {isPremiumSelected && <Check size={18} strokeWidth={4} className="text-white" />}
