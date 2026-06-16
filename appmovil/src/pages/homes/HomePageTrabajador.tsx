@@ -132,7 +132,8 @@ const HomePageTrabajador: React.FC = () => {
   });
 
   const [activeTab, setActiveTab] = useState<TipoMenu>('MENU_DIA');
-  const [opcionFinde, setOpcionFinde] = useState<string | null>(null); // 🔥 ESTADO PARA EL FIN DE SEMANA
+  const [opcionFinde, setOpcionFinde] = useState<string | null>(null);
+  const [observacion, setObservacion] = useState('');
 
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetFondo, setSheetFondo] = useState<any | null>(null);
@@ -232,9 +233,10 @@ const HomePageTrabajador: React.FC = () => {
   useEffect(() => {
     setPedido({ entradasIds: [], fondoId: null, postreId: null, guarnicionId: null, canjeId: null, sandwichId: null, bebidaId: null, jugoId: null, isDoblePostre: false });
     setSeccionAbierta(null);
-    setModoEdicion(false); 
+    setModoEdicion(false);
     setTipoOtroSeleccionado(null);
     setOpcionFinde(null);
+    setObservacion('');
   }, [fechaSeleccionadaISO]);
 
   const isPedidoDelDiaSeleccionado = String(pedidoExistente?.fecha || '').startsWith(fechaSeleccionadaISO || '');
@@ -330,11 +332,10 @@ const HomePageTrabajador: React.FC = () => {
   };
 
   const manejarEnvio = async () => {
-    // 🔥 SI ES FIN DE SEMANA, ENVIAMOS LA OPCIÓN AL BACKEND
     if (esFinDeSemana) {
       if (!opcionFinde) return;
-      const exito = await enviarPedido({ esFinDeSemana: true, tipoFinde: opcionFinde } as any);
-      if (exito) { setModoEdicion(false); cargarHistorial(); }
+      const exito = await enviarPedido({ esFinDeSemana: true, tipoFinde: opcionFinde, observacion });
+      if (exito) { setModoEdicion(false); setObservacion(''); cargarHistorial(); }
       return;
     }
 
@@ -348,11 +349,12 @@ const HomePageTrabajador: React.FC = () => {
             postreId: menuHoy.menuDia.postre?.id ?? null,
             guarnicionId: menuHoy.menuDia.guarnicion?.id ?? null,
             jugoId: menuHoy.menuDia.bebida?.id ?? null,
-            isDoblePostre: false
+            isDoblePostre: false,
+            observacion,
           }
-        : pedido;
+        : { ...pedido, observacion };
       const exito = await enviarPedido(pedidoAEnviar as any);
-      if (exito) { setSeccionAbierta(null); setModoEdicion(false); cargarHistorial(); }
+      if (exito) { setSeccionAbierta(null); setModoEdicion(false); setObservacion(''); cargarHistorial(); }
       return;
     }
     if (activeTab === 'OTRO') {
@@ -480,10 +482,10 @@ const HomePageTrabajador: React.FC = () => {
         ) : (cargandoVerificacion || cargandoMenu) ? (
           <MenuSkeleton />
         ) : pedidoSeguro && !modoEdicion ? (
-          <ResumenPedido 
+          <ResumenPedido
             pedidoExistente={pedidoSeguro} menuHoy={menuHoy} manejarEliminar={manejarEliminar}
             onModificar={manejarModificarPedido} isDeadlinePassed={isDeadlinePassed} fechaBloqueada={fechaBloqueada}
-            convenio={convenio} 
+            convenio={convenio} observacion={pedidoSeguro.observacion}
           />
         ) : (
           <>
@@ -849,10 +851,25 @@ const HomePageTrabajador: React.FC = () => {
       </BottomSheet>
 
       {!(cargandoVerificacion || cargandoMenu) && !bloquearUI && (!pedidoExistente || modoEdicion) && (
-        <div 
-          className="fixed bottom-0 left-0 w-full p-6 bg-white/90 backdrop-blur-xl shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-40"
+        <div
+          className="fixed bottom-0 left-0 w-full px-6 pt-4 pb-6 bg-white/90 backdrop-blur-xl shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-40"
           onClick={(e) => e.stopPropagation()}
         >
+          <div className="mb-3">
+            <textarea
+              value={observacion}
+              onChange={e => setObservacion(e.target.value)}
+              placeholder="Observaciones o alergias (opcional)..."
+              maxLength={500}
+              rows={2}
+              className="w-full px-4 py-3 rounded-2xl border border-gray-200 bg-white text-sm font-medium text-[#1d2d50] placeholder-gray-300 resize-none focus:outline-none focus:border-[#70a344] transition-colors shadow-sm"
+            />
+            {observacion.length > 400 && (
+              <p className="text-right text-[10px] text-gray-400 mt-1 font-bold">
+                {500 - observacion.length} caracteres restantes
+              </p>
+            )}
+          </div>
           <button onClick={manejarEnvio} disabled={!puedeEnviar || enviando} className={`w-full py-5 rounded-[24px] font-black text-lg transition-all flex items-center justify-center gap-3 ${puedeEnviar ? 'bg-[#70a344] shadow-xl text-white' : 'bg-gray-200 text-gray-500'}`}>
             {enviando ? 'Enviando...' : modoEdicion ? 'Guardar Cambios' : 'Confirmar Pedido'}
           </button>

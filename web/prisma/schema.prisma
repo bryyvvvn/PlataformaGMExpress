@@ -139,6 +139,7 @@ model Pedido {
   estado    EstadoPedido    @default(PENDIENTE)
   empresaId Int
   usuarioId String
+  observacion String? @db.VarChar(500)
   detalles  DetallePedido[]
   empresa   Empresa         @relation(fields: [empresaId], references: [id])
   usuario   Usuario         @relation(fields: [usuarioId], references: [id])

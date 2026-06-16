@@ -9,9 +9,9 @@ export interface PedidoPayload {
   postreId?: number | null;
   jugoId?: number | null;
   guarnicionId?: number | null;
-  // 🔥 NUEVO: Ahora el hook entiende variables de fin de semana
   esFinDeSemana?: boolean;
   tipoFinde?: string | null;
+  observacion?: string | null;
 }
 
 // ─── HOOK ─────────────────────────────────────────────────────────────────────
@@ -66,6 +66,7 @@ export const usePedidos = (usuarioId: string | undefined, fecha?: string) => {
         fecha: fecha ?? undefined,
         esFinDeSemana: pedido.esFinDeSemana ?? false,
         tipoFinde: pedido.tipoFinde ?? null,
+        observacion: pedido.observacion?.trim() || null,
       };
       
       console.info('[usePedidos] Enviando pedido payload=', payload);
@@ -144,6 +145,7 @@ export const usePedidos = (usuarioId: string | undefined, fecha?: string) => {
         usuarioId,
         items,
         fecha: fecha ?? undefined,
+        observacion: null,
       };
 
       const respuesta = await fetch(`${API_BASE_URL}/api/trabajador/pedidos`, {
