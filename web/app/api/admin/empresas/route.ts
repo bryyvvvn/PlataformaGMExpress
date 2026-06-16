@@ -56,6 +56,7 @@ type EmpresaCreateData = {
   direccionFaena: string | null
   representanteLegal: string | null
   rutRepresentanteLegal: string | null
+  fechaNacimientoRepresentanteLegal: Date | null
   estado: EstadoEmpresa
 }
 
@@ -103,6 +104,21 @@ function normalizarStringOpcional(
   }
 
   return { data: normalized }
+}
+
+function normalizarStringObligatorio(
+  value: unknown,
+  campo: string,
+  maxLength: number
+): ValidationResult<string> {
+  const normalized = normalizarStringOpcional(value, campo, maxLength)
+  if ("error" in normalized) return normalized
+
+  if (!normalized.data) {
+    return { error: `El campo ${campo} es obligatorio` }
+  }
+
+  return { data: normalized.data }
 }
 
 function validarEmail(value: string, campo: string): ValidationResult<string> {
@@ -188,22 +204,29 @@ function validarConvenio(value: unknown): ValidationResult<ConvenioData> {
   }
 }
 
-function validarFechaNacimiento(value: unknown): ValidationResult<Date | null> {
+function validarFechaOpcional(
+  value: unknown,
+  campo = "fechaNacimiento"
+): ValidationResult<Date | null> {
   if (value === undefined || value === null || value === "") {
     return { data: null }
   }
 
   if (typeof value !== "string") {
-    return { error: "fechaNacimiento debe ser una fecha valida o null" }
+    return { error: `${campo} debe ser una fecha valida o null` }
   }
 
   const date = new Date(value)
 
   if (Number.isNaN(date.getTime())) {
-    return { error: "fechaNacimiento debe ser una fecha valida o null" }
+    return { error: `${campo} debe ser una fecha valida o null` }
   }
 
   return { data: date }
+}
+
+function validarFechaNacimiento(value: unknown): ValidationResult<Date | null> {
+  return validarFechaOpcional(value, "fechaNacimiento")
 }
 
 function contactoEstaVacio(value: Record<string, unknown>) {
@@ -291,6 +314,56 @@ function validarContacto(
   }
 }
 
+function validarContactoObligatorio(
+  value: unknown,
+  tipo: TipoContactoEmpresa,
+  nombreCampo: string
+): ValidationResult<ContactoCreateData> {
+  const contacto = validarContacto(value, tipo, nombreCampo)
+  if ("error" in contacto) return contacto
+
+  if (!contacto.data) {
+    return { error: `${nombreCampo} es obligatorio` }
+  }
+
+  if (
+    !contacto.data.nombresApellidos ||
+    !contacto.data.rolCargo ||
+    !contacto.data.telefono ||
+    !contacto.data.email ||
+    !contacto.data.fechaNacimiento
+  ) {
+    return { error: `Completa los datos obligatorios de ${nombreCampo}` }
+  }
+
+  return { data: contacto.data }
+}
+
+function validarContactoOpcionalCompleto(
+  value: unknown,
+  tipo: TipoContactoEmpresa,
+  nombreCampo: string
+): ValidationResult<ContactoCreateData | null> {
+  const contacto = validarContacto(value, tipo, nombreCampo)
+  if ("error" in contacto) return contacto
+
+  if (!contacto.data) {
+    return { data: null }
+  }
+
+  if (
+    !contacto.data.nombresApellidos ||
+    !contacto.data.rolCargo ||
+    !contacto.data.telefono ||
+    !contacto.data.email ||
+    !contacto.data.fechaNacimiento
+  ) {
+    return { error: `Completa los datos obligatorios de ${nombreCampo}` }
+  }
+
+  return { data: contacto.data }
+}
+
 function validarCrearEmpresaPayload(body: unknown): ValidationResult<CrearEmpresaData> {
   if (!isRecord(body)) {
     return { error: "El body debe ser un objeto JSON" }
@@ -311,10 +384,13 @@ function validarCrearEmpresaPayload(body: unknown): ValidationResult<CrearEmpres
     "direccionFaena",
     "representanteLegal",
     "rutRepresentanteLegal",
+    "fechaNacimientoRepresentanteLegal",
     "estado",
     "convenio",
     "contactoTitular",
     "contactoSuplente",
+    "contactoCobranza",
+    "usarTitularComoCobranza",
   ])
   const camposExtra = Object.keys(body).filter((key) => !camposPermitidos.has(key))
 
@@ -336,42 +412,40 @@ function validarCrearEmpresaPayload(body: unknown): ValidationResult<CrearEmpres
     return { error: "El nombre no puede superar 100 caracteres" }
   }
 
-  const razonSocial = normalizarStringOpcional(body.razonSocial, "razonSocial", 150)
+  const razonSocial = normalizarStringObligatorio(body.razonSocial, "razonSocial", 150)
   if ("error" in razonSocial) return razonSocial
 
-  const rut = normalizarStringOpcional(body.rut, "rut", 20)
+  const rut = normalizarStringObligatorio(body.rut, "rut", 20)
   if ("error" in rut) return rut
 
-  const nombreComercial = normalizarStringOpcional(body.nombreComercial, "nombreComercial", 100)
+  const nombreComercial = normalizarStringObligatorio(body.nombreComercial, "nombreComercial", 100)
   if ("error" in nombreComercial) return nombreComercial
 
-  const correoContacto = normalizarStringOpcional(body.correo_contacto, "correo_contacto", 100)
+  const correoContacto = normalizarStringObligatorio(body.correo_contacto, "correo_contacto", 100)
   if ("error" in correoContacto) return correoContacto
 
-  if (correoContacto.data) {
-    const emailValidado = validarEmail(correoContacto.data, "correo_contacto")
-    if ("error" in emailValidado) return emailValidado
-  }
+  const emailValidado = validarEmail(correoContacto.data, "correo_contacto")
+  if ("error" in emailValidado) return emailValidado
 
-  const telefono = normalizarStringOpcional(body.telefono, "telefono", 30)
+  const telefono = normalizarStringObligatorio(body.telefono, "telefono", 30)
   if ("error" in telefono) return telefono
 
-  const direccion = normalizarStringOpcional(body.direccion, "direccion", 150)
+  const direccion = normalizarStringObligatorio(body.direccion, "direccion", 150)
   if ("error" in direccion) return direccion
 
-  const comuna = normalizarStringOpcional(body.comuna, "comuna", 80)
+  const comuna = normalizarStringObligatorio(body.comuna, "comuna", 80)
   if ("error" in comuna) return comuna
 
-  const region = normalizarStringOpcional(body.region, "region", 80)
+  const region = normalizarStringObligatorio(body.region, "region", 80)
   if ("error" in region) return region
 
-  const sector = normalizarStringOpcional(body.sector, "sector", 80)
+  const sector = normalizarStringObligatorio(body.sector, "sector", 80)
   if ("error" in sector) return sector
 
-  const nombreFaena = normalizarStringOpcional(body.nombreFaena, "nombreFaena", 100)
+  const nombreFaena = normalizarStringObligatorio(body.nombreFaena, "nombreFaena", 100)
   if ("error" in nombreFaena) return nombreFaena
 
-  const direccionFaena = normalizarStringOpcional(body.direccionFaena, "direccionFaena", 150)
+  const direccionFaena = normalizarStringObligatorio(body.direccionFaena, "direccionFaena", 150)
   if ("error" in direccionFaena) return direccionFaena
 
   const representanteLegal = normalizarStringOpcional(
@@ -388,25 +462,57 @@ function validarCrearEmpresaPayload(body: unknown): ValidationResult<CrearEmpres
   )
   if ("error" in rutRepresentanteLegal) return rutRepresentanteLegal
 
+  const fechaNacimientoRepresentanteLegal = validarFechaOpcional(
+    body.fechaNacimientoRepresentanteLegal,
+    "fechaNacimientoRepresentanteLegal"
+  )
+  if ("error" in fechaNacimientoRepresentanteLegal) {
+    return fechaNacimientoRepresentanteLegal
+  }
+
   const estado = validarEstadoEmpresa(body.estado)
   if ("error" in estado) return estado
 
   const convenio = validarConvenio(body.convenio)
   if ("error" in convenio) return convenio
 
-  const contactoTitular = validarContacto(
+  const contactoTitular = validarContactoObligatorio(
     body.contactoTitular,
     TipoContactoEmpresa.TITULAR,
     "contactoTitular"
   )
   if ("error" in contactoTitular) return contactoTitular
 
-  const contactoSuplente = validarContacto(
+  const contactoSuplente = validarContactoOpcionalCompleto(
     body.contactoSuplente,
     TipoContactoEmpresa.SUPLENTE,
     "contactoSuplente"
   )
   if ("error" in contactoSuplente) return contactoSuplente
+
+  if (
+    body.usarTitularComoCobranza !== undefined &&
+    typeof body.usarTitularComoCobranza !== "boolean"
+  ) {
+    return { error: "usarTitularComoCobranza debe ser booleano" }
+  }
+
+  const usarTitularComoCobranza = body.usarTitularComoCobranza === true
+  const contactoCobranza = usarTitularComoCobranza
+    ? {
+        data: {
+          ...contactoTitular.data,
+          tipo: TipoContactoEmpresa.COBRANZA,
+          rut: null,
+        },
+      }
+    : validarContactoObligatorio(
+        body.contactoCobranza,
+        TipoContactoEmpresa.COBRANZA,
+        "contactoCobranza"
+      )
+
+  if ("error" in contactoCobranza) return contactoCobranza
 
   return {
     data: {
@@ -425,10 +531,16 @@ function validarCrearEmpresaPayload(body: unknown): ValidationResult<CrearEmpres
         direccionFaena: direccionFaena.data,
         representanteLegal: representanteLegal.data,
         rutRepresentanteLegal: rutRepresentanteLegal.data,
+        fechaNacimientoRepresentanteLegal:
+          fechaNacimientoRepresentanteLegal.data,
         estado: estado.data,
       },
       convenio: convenio.data,
-      contactos: [contactoTitular.data, contactoSuplente.data].filter(
+      contactos: [
+        contactoTitular.data,
+        contactoSuplente.data,
+        contactoCobranza.data,
+      ].filter(
         (contacto): contacto is ContactoCreateData => contacto !== null
       ),
     },
@@ -580,6 +692,7 @@ export async function POST(req: NextRequest) {
           direccionFaena: true,
           representanteLegal: true,
           rutRepresentanteLegal: true,
+          fechaNacimientoRepresentanteLegal: true,
           estado: true,
           ConvenioEmpresa: {
             select: {

@@ -7,6 +7,7 @@ import {
   ArrowRight,
   Building2,
   Check,
+  CircleDollarSign,
   FileText,
   User,
   Users,
@@ -57,6 +58,7 @@ type CrearEmpresaForm = {
   direccionFaena: string
   representanteLegal: string
   rutRepresentanteLegal: string
+  fechaNacimientoRepresentanteLegal: string
   estado: "ACTIVA" | "INACTIVA"
 }
 
@@ -69,7 +71,7 @@ type ContactoEmpresaForm = {
   fechaNacimiento: string
 }
 
-type PasoCrearEmpresa = 0 | 1 | 2 | 3
+type PasoCrearEmpresa = 0 | 1 | 2 | 3 | 4
 
 const CONVENIO_DEFAULTS: ConvenioForm = {
   permitePlato: true,
@@ -98,6 +100,7 @@ const CREAR_EMPRESA_DEFAULTS: CrearEmpresaForm = {
   direccionFaena: "",
   representanteLegal: "",
   rutRepresentanteLegal: "",
+  fechaNacimientoRepresentanteLegal: "",
   estado: "ACTIVA",
 }
 
@@ -150,8 +153,19 @@ const PASOS_CREAR_EMPRESA: Array<{
   { id: 0, label: "Datos Generales", icon: Building2 },
   { id: 1, label: "Titular", icon: User },
   { id: 2, label: "Suplente", icon: Users },
-  { id: 3, label: "Convenio", icon: FileText },
+  { id: 3, label: "Cobranza", icon: CircleDollarSign },
+  { id: 4, label: "Convenio", icon: FileText },
 ]
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+function esEmailValido(email: string) {
+  return EMAIL_REGEX.test(email.trim())
+}
+
+function normalizarMensajeError(mensaje: string) {
+  return mensaje.replace("email valido", "email válido")
+}
 
 export default function NuevaEmpresaPage() {
   const router = useRouter()
@@ -166,6 +180,9 @@ export default function NuevaEmpresaPage() {
     useState<ContactoEmpresaForm>(CONTACTO_DEFAULTS)
   const [contactoSuplenteForm, setContactoSuplenteForm] =
     useState<ContactoEmpresaForm>(CONTACTO_DEFAULTS)
+  const [contactoCobranzaForm, setContactoCobranzaForm] =
+    useState<ContactoEmpresaForm>(CONTACTO_DEFAULTS)
+  const [usarTitularComoCobranza, setUsarTitularComoCobranza] = useState(true)
 
   const pasoActual = PASOS_CREAR_EMPRESA[pasoCrearEmpresa]
   const PasoActualIcon = pasoActual.icon
@@ -199,13 +216,87 @@ export default function NuevaEmpresaPage() {
     }))
   }
 
+  const campoCompleto = (valor: string) => valor.trim().length > 0
+
+  const datosGeneralesCompletos = () =>
+    campoCompleto(crearEmpresaForm.nombre) &&
+    campoCompleto(crearEmpresaForm.razonSocial) &&
+    campoCompleto(crearEmpresaForm.rut) &&
+    campoCompleto(crearEmpresaForm.nombreComercial) &&
+    campoCompleto(crearEmpresaForm.correo_contacto) &&
+    campoCompleto(crearEmpresaForm.telefono) &&
+    campoCompleto(crearEmpresaForm.direccion) &&
+    campoCompleto(crearEmpresaForm.comuna) &&
+    campoCompleto(crearEmpresaForm.region) &&
+    campoCompleto(crearEmpresaForm.sector) &&
+    campoCompleto(crearEmpresaForm.nombreFaena) &&
+    campoCompleto(crearEmpresaForm.direccionFaena)
+
+  const contactoCompleto = (contacto: ContactoEmpresaForm) =>
+    campoCompleto(contacto.nombresApellidos) &&
+    campoCompleto(contacto.rolCargo) &&
+    campoCompleto(contacto.telefono) &&
+    campoCompleto(contacto.email) &&
+    campoCompleto(contacto.fechaNacimiento)
+
+  const contactoVacio = (contacto: ContactoEmpresaForm) =>
+    Object.values(contacto).every((valor) => !campoCompleto(valor))
+
+  const validarEmailContacto = (
+    contacto: ContactoEmpresaForm,
+    mensaje: string
+  ) => (esEmailValido(contacto.email) ? null : mensaje)
+
+  const validarEmailsFormulario = () => {
+    if (!esEmailValido(crearEmpresaForm.correo_contacto)) {
+      return {
+        paso: 0 as PasoCrearEmpresa,
+        mensaje: "El correo de contacto de la empresa debe tener un formato válido.",
+      }
+    }
+
+    const errorTitular = validarEmailContacto(
+      contactoTitularForm,
+      "El correo del interlocutor titular debe tener un formato válido."
+    )
+    if (errorTitular) {
+      return { paso: 1 as PasoCrearEmpresa, mensaje: errorTitular }
+    }
+
+    if (!contactoVacio(contactoSuplenteForm)) {
+      const errorSuplente = validarEmailContacto(
+        contactoSuplenteForm,
+        "El correo del interlocutor suplente debe tener un formato válido."
+      )
+      if (errorSuplente) {
+        return { paso: 2 as PasoCrearEmpresa, mensaje: errorSuplente }
+      }
+    }
+
+    if (!usarTitularComoCobranza) {
+      const errorCobranza = validarEmailContacto(
+        contactoCobranzaForm,
+        "El correo de cobranza debe tener un formato válido."
+      )
+      if (errorCobranza) {
+        return { paso: 3 as PasoCrearEmpresa, mensaje: errorCobranza }
+      }
+    }
+
+    return null
+  }
+
   const actualizarContacto = (
-    tipo: "titular" | "suplente",
+    tipo: "titular" | "suplente" | "cobranza",
     campo: keyof ContactoEmpresaForm,
     valor: string
   ) => {
     const setContacto =
-      tipo === "titular" ? setContactoTitularForm : setContactoSuplenteForm
+      tipo === "titular"
+        ? setContactoTitularForm
+        : tipo === "suplente"
+          ? setContactoSuplenteForm
+          : setContactoCobranzaForm
 
     setContacto((prev) => ({
       ...prev,
@@ -214,19 +305,61 @@ export default function NuevaEmpresaPage() {
   }
 
   const avanzarPasoCrearEmpresa = () => {
-    if (pasoCrearEmpresa === 0 && crearEmpresaForm.nombre.trim().length === 0) {
-      setErrorCrearEmpresa("El nombre de la empresa es obligatorio")
+    if (pasoCrearEmpresa === 0 && !datosGeneralesCompletos()) {
+      setErrorCrearEmpresa("Completa los datos generales obligatorios de la empresa")
       return
     }
 
-    const titularCompleto =
-      contactoTitularForm.nombresApellidos.trim().length > 0 &&
-      contactoTitularForm.rolCargo.trim().length > 0 &&
-      contactoTitularForm.telefono.trim().length > 0 &&
-      contactoTitularForm.email.trim().length > 0
-
-    if (pasoCrearEmpresa === 1 && !titularCompleto) {
+    if (pasoCrearEmpresa === 1 && !contactoCompleto(contactoTitularForm)) {
       setErrorCrearEmpresa("Completa los datos obligatorios del interlocutor titular")
+      return
+    }
+
+    if (
+      pasoCrearEmpresa === 1 &&
+      !esEmailValido(contactoTitularForm.email)
+    ) {
+      setErrorCrearEmpresa(
+        "El correo del interlocutor titular debe tener un formato válido."
+      )
+      return
+    }
+
+    if (
+      pasoCrearEmpresa === 2 &&
+      !contactoVacio(contactoSuplenteForm) &&
+      !contactoCompleto(contactoSuplenteForm)
+    ) {
+      setErrorCrearEmpresa("Completa los datos obligatorios del interlocutor suplente")
+      return
+    }
+
+    if (
+      pasoCrearEmpresa === 2 &&
+      !contactoVacio(contactoSuplenteForm) &&
+      !esEmailValido(contactoSuplenteForm.email)
+    ) {
+      setErrorCrearEmpresa(
+        "El correo del interlocutor suplente debe tener un formato válido."
+      )
+      return
+    }
+
+    if (
+      pasoCrearEmpresa === 3 &&
+      !usarTitularComoCobranza &&
+      !contactoCompleto(contactoCobranzaForm)
+    ) {
+      setErrorCrearEmpresa("Completa los datos obligatorios de cobranza")
+      return
+    }
+
+    if (
+      pasoCrearEmpresa === 3 &&
+      !usarTitularComoCobranza &&
+      !esEmailValido(contactoCobranzaForm.email)
+    ) {
+      setErrorCrearEmpresa("El correo de cobranza debe tener un formato válido.")
       return
     }
 
@@ -236,6 +369,7 @@ export default function NuevaEmpresaPage() {
       if (prev === 0) return 1
       if (prev === 1) return 2
       if (prev === 2) return 3
+      if (prev === 3) return 4
       return prev
     })
   }
@@ -244,17 +378,12 @@ export default function NuevaEmpresaPage() {
     setErrorCrearEmpresa(null)
 
     setPasoCrearEmpresa((prev) => {
+      if (prev === 4) return 3
       if (prev === 3) return 2
       if (prev === 2) return 1
       if (prev === 1) return 0
       return prev
     })
-  }
-
-  const saltarSuplente = () => {
-    setContactoSuplenteForm(CONTACTO_DEFAULTS)
-    setErrorCrearEmpresa(null)
-    setPasoCrearEmpresa(3)
   }
 
   const cancelar = () => {
@@ -263,9 +392,34 @@ export default function NuevaEmpresaPage() {
   }
 
   const crearEmpresa = async () => {
-    if (crearEmpresaForm.nombre.trim().length === 0) {
+    if (!datosGeneralesCompletos()) {
       setPasoCrearEmpresa(0)
-      setErrorCrearEmpresa("El nombre de la empresa es obligatorio")
+      setErrorCrearEmpresa("Completa los datos generales obligatorios de la empresa")
+      return
+    }
+
+    if (!contactoCompleto(contactoTitularForm)) {
+      setPasoCrearEmpresa(1)
+      setErrorCrearEmpresa("Completa los datos obligatorios del interlocutor titular")
+      return
+    }
+
+    if (!contactoVacio(contactoSuplenteForm) && !contactoCompleto(contactoSuplenteForm)) {
+      setPasoCrearEmpresa(2)
+      setErrorCrearEmpresa("Completa los datos obligatorios del interlocutor suplente")
+      return
+    }
+
+    if (!usarTitularComoCobranza && !contactoCompleto(contactoCobranzaForm)) {
+      setPasoCrearEmpresa(3)
+      setErrorCrearEmpresa("Completa los datos obligatorios de cobranza")
+      return
+    }
+
+    const errorEmail = validarEmailsFormulario()
+    if (errorEmail) {
+      setPasoCrearEmpresa(errorEmail.paso)
+      setErrorCrearEmpresa(errorEmail.mensaje)
       return
     }
 
@@ -278,6 +432,8 @@ export default function NuevaEmpresaPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...crearEmpresaForm,
+          fechaNacimientoRepresentanteLegal:
+            crearEmpresaForm.fechaNacimientoRepresentanteLegal || null,
           convenio: crearEmpresaConvenio,
           contactoTitular: {
             ...contactoTitularForm,
@@ -287,18 +443,32 @@ export default function NuevaEmpresaPage() {
             ...contactoSuplenteForm,
             fechaNacimiento: contactoSuplenteForm.fechaNacimiento || null,
           },
+          usarTitularComoCobranza,
+          contactoCobranza: usarTitularComoCobranza
+            ? null
+            : {
+                ...contactoCobranzaForm,
+                rut: "",
+                fechaNacimiento: contactoCobranzaForm.fechaNacimiento || null,
+              },
         }),
       })
 
       if (!response.ok) {
         const data = (await response.json().catch(() => null)) as { error?: string } | null
-        throw new Error(data?.error ?? "No se pudo crear la empresa")
+        setErrorCrearEmpresa(
+          normalizarMensajeError(data?.error ?? "No se pudo crear la empresa.")
+        )
+        return
       }
 
       router.push("/empresas")
     } catch (err) {
       console.error("[NuevaEmpresaPage] Error creando empresa:", err)
-      setErrorCrearEmpresa(err instanceof Error ? err.message : "No se pudo crear la empresa")
+      const mensaje =
+        err instanceof Error ? err.message : "No se pudo crear la empresa."
+
+      setErrorCrearEmpresa(normalizarMensajeError(mensaje))
     } finally {
       setGuardandoEmpresa(false)
     }
@@ -386,14 +556,16 @@ export default function NuevaEmpresaPage() {
             {pasoCrearEmpresa === 0 && "Datos Generales de la Empresa"}
             {pasoCrearEmpresa === 1 && "Interlocutor Titular"}
             {pasoCrearEmpresa === 2 && "Interlocutor Suplente"}
-            {pasoCrearEmpresa === 3 && "Convenio Inicial"}
+            {pasoCrearEmpresa === 3 && "Datos de cobranza"}
+            {pasoCrearEmpresa === 4 && "Convenio Inicial"}
           </CardTitle>
           <CardDescription>
             {pasoCrearEmpresa === 0 &&
               "Ingrese la información administrativa de la empresa"}
             {pasoCrearEmpresa === 1 && "Datos del contacto principal de la empresa"}
             {pasoCrearEmpresa === 2 && "Datos del contacto suplente, si corresponde"}
-            {pasoCrearEmpresa === 3 && "Seleccione los productos incluidos en el convenio"}
+            {pasoCrearEmpresa === 3 && "Datos obligatorios para gestion de cobranza"}
+            {pasoCrearEmpresa === 4 && "Seleccione los productos incluidos en el convenio"}
           </CardDescription>
         </CardHeader>
 
@@ -413,7 +585,7 @@ export default function NuevaEmpresaPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="razonSocial">Razón social</Label>
+                <Label htmlFor="razonSocial">Razón social *</Label>
                 <Input
                   id="razonSocial"
                   value={crearEmpresaForm.razonSocial}
@@ -425,7 +597,7 @@ export default function NuevaEmpresaPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="rut">RUT</Label>
+                <Label htmlFor="rut">RUT *</Label>
                 <Input
                   id="rut"
                   value={crearEmpresaForm.rut}
@@ -437,7 +609,7 @@ export default function NuevaEmpresaPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="nombreComercial">Nombre comercial</Label>
+                <Label htmlFor="nombreComercial">Nombre comercial *</Label>
                 <Input
                   id="nombreComercial"
                   value={crearEmpresaForm.nombreComercial}
@@ -449,7 +621,7 @@ export default function NuevaEmpresaPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="correoContacto">Correo de contacto</Label>
+                <Label htmlFor="correoContacto">Correo de contacto *</Label>
                 <Input
                   id="correoContacto"
                   type="email"
@@ -462,7 +634,7 @@ export default function NuevaEmpresaPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="telefono">Teléfono</Label>
+                <Label htmlFor="telefono">Teléfono *</Label>
                 <Input
                   id="telefono"
                   value={crearEmpresaForm.telefono}
@@ -493,7 +665,7 @@ export default function NuevaEmpresaPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="direccion">Dirección</Label>
+                <Label htmlFor="direccion">Dirección *</Label>
                 <Input
                   id="direccion"
                   value={crearEmpresaForm.direccion}
@@ -505,7 +677,7 @@ export default function NuevaEmpresaPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="comuna">Comuna</Label>
+                <Label htmlFor="comuna">Comuna *</Label>
                 <Input
                   id="comuna"
                   value={crearEmpresaForm.comuna}
@@ -517,7 +689,7 @@ export default function NuevaEmpresaPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="region">Región</Label>
+                <Label htmlFor="region">Región *</Label>
                 <Input
                   id="region"
                   value={crearEmpresaForm.region}
@@ -529,7 +701,7 @@ export default function NuevaEmpresaPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="sector">Sector</Label>
+                <Label htmlFor="sector">Sector *</Label>
                 <Input
                   id="sector"
                   value={crearEmpresaForm.sector}
@@ -541,7 +713,7 @@ export default function NuevaEmpresaPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="nombreFaena">Nombre faena</Label>
+                <Label htmlFor="nombreFaena">Nombre faena *</Label>
                 <Input
                   id="nombreFaena"
                   value={crearEmpresaForm.nombreFaena}
@@ -553,7 +725,7 @@ export default function NuevaEmpresaPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="direccionFaena">Dirección faena</Label>
+                <Label htmlFor="direccionFaena">Dirección faena *</Label>
                 <Input
                   id="direccionFaena"
                   value={crearEmpresaForm.direccionFaena}
@@ -592,13 +764,31 @@ export default function NuevaEmpresaPage() {
                   }
                 />
               </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="fechaNacimientoRepresentanteLegal">
+                  Fecha nacimiento representante legal
+                </Label>
+                <Input
+                  id="fechaNacimientoRepresentanteLegal"
+                  type="date"
+                  value={crearEmpresaForm.fechaNacimientoRepresentanteLegal}
+                  disabled={guardandoEmpresa}
+                  onChange={(event) =>
+                    actualizarCampoCrearEmpresa(
+                      "fechaNacimientoRepresentanteLegal",
+                      event.target.value
+                    )
+                  }
+                />
+              </div>
             </div>
           )}
 
           {pasoCrearEmpresa === 1 && (
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="titularNombres">Nombres y apellidos</Label>
+                <Label htmlFor="titularNombres">Nombres y apellidos *</Label>
                 <Input
                   id="titularNombres"
                   value={contactoTitularForm.nombresApellidos}
@@ -622,7 +812,7 @@ export default function NuevaEmpresaPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="titularRol">Rol/cargo</Label>
+                <Label htmlFor="titularRol">Rol/cargo *</Label>
                 <Input
                   id="titularRol"
                   value={contactoTitularForm.rolCargo}
@@ -634,7 +824,7 @@ export default function NuevaEmpresaPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="titularTelefono">Teléfono</Label>
+                <Label htmlFor="titularTelefono">Teléfono *</Label>
                 <Input
                   id="titularTelefono"
                   value={contactoTitularForm.telefono}
@@ -646,7 +836,7 @@ export default function NuevaEmpresaPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="titularEmail">Email</Label>
+                <Label htmlFor="titularEmail">Email *</Label>
                 <Input
                   id="titularEmail"
                   type="email"
@@ -659,7 +849,7 @@ export default function NuevaEmpresaPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="titularFecha">Fecha nacimiento</Label>
+                <Label htmlFor="titularFecha">Fecha nacimiento *</Label>
                 <Input
                   id="titularFecha"
                   type="date"
@@ -753,6 +943,107 @@ export default function NuevaEmpresaPage() {
 
           {pasoCrearEmpresa === 3 && (
             <div className="space-y-4">
+              <label className="flex items-start gap-3 rounded-md border border-slate-200 p-3 text-sm">
+                <input
+                  type="checkbox"
+                  checked={usarTitularComoCobranza}
+                  disabled={guardandoEmpresa}
+                  onChange={(event) =>
+                    setUsarTitularComoCobranza(event.target.checked)
+                  }
+                  className="mt-0.5 h-5 w-5 rounded border-slate-300 accent-[#75aa46]"
+                />
+                <span className="space-y-1">
+                  <span className="block font-medium text-[#1B2C56]">
+                    Usar interlocutor titular como dato de cobranza
+                  </span>
+                  <span className="block text-muted-foreground">
+                    Se guardará una copia de los datos del interlocutor titular como
+                    contacto de cobranza.
+                  </span>
+                </span>
+              </label>
+
+              {!usarTitularComoCobranza && (
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="cobranzaNombres">
+                      Dato cobranza / Nombre *
+                    </Label>
+                    <Input
+                      id="cobranzaNombres"
+                      value={contactoCobranzaForm.nombresApellidos}
+                      disabled={guardandoEmpresa}
+                      onChange={(event) =>
+                        actualizarContacto(
+                          "cobranza",
+                          "nombresApellidos",
+                          event.target.value
+                        )
+                      }
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="cobranzaRol">Rol/cargo *</Label>
+                    <Input
+                      id="cobranzaRol"
+                      value={contactoCobranzaForm.rolCargo}
+                      disabled={guardandoEmpresa}
+                      onChange={(event) =>
+                        actualizarContacto("cobranza", "rolCargo", event.target.value)
+                      }
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="cobranzaTelefono">Celular *</Label>
+                    <Input
+                      id="cobranzaTelefono"
+                      value={contactoCobranzaForm.telefono}
+                      disabled={guardandoEmpresa}
+                      onChange={(event) =>
+                        actualizarContacto("cobranza", "telefono", event.target.value)
+                      }
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="cobranzaEmail">Correo *</Label>
+                    <Input
+                      id="cobranzaEmail"
+                      type="email"
+                      value={contactoCobranzaForm.email}
+                      disabled={guardandoEmpresa}
+                      onChange={(event) =>
+                        actualizarContacto("cobranza", "email", event.target.value)
+                      }
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="cobranzaFecha">Fecha nacimiento *</Label>
+                    <Input
+                      id="cobranzaFecha"
+                      type="date"
+                      value={contactoCobranzaForm.fechaNacimiento}
+                      disabled={guardandoEmpresa}
+                      onChange={(event) =>
+                        actualizarContacto(
+                          "cobranza",
+                          "fechaNacimiento",
+                          event.target.value
+                        )
+                      }
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {pasoCrearEmpresa === 4 && (
+            <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
                 Seleccione los elementos incluidos en el convenio:
               </p>
@@ -817,9 +1108,9 @@ export default function NuevaEmpresaPage() {
       </Card>
 
       {errorCrearEmpresa && (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-destructive">
+        <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
           {errorCrearEmpresa}
-        </p>
+        </div>
       )}
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -839,19 +1130,8 @@ export default function NuevaEmpresaPage() {
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
-          {pasoCrearEmpresa === 2 && (
-            <Button
-              type="button"
-              variant="ghost"
-              disabled={guardandoEmpresa}
-              onClick={saltarSuplente}
-              className="text-slate-500 hover:text-slate-700"
-            >
-              Saltar este paso
-            </Button>
-          )}
 
-          {pasoCrearEmpresa < 3 ? (
+          {pasoCrearEmpresa < 4 ? (
             <Button
               type="button"
               disabled={guardandoEmpresa}

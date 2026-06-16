@@ -10,30 +10,31 @@ datasource db {
 }
 
 model Empresa {
-  id                    Int               @id @default(autoincrement())
-  nombre                String            @unique @db.VarChar(100)
-  correo_contacto       String?           @db.VarChar(100)
-  razonSocial           String?           @db.VarChar(150)
-  rut                   String?           @db.VarChar(20)
-  nombreComercial       String?           @db.VarChar(100)
-  telefono              String?           @db.VarChar(30)
-  direccion             String?           @db.VarChar(150)
-  comuna                String?           @db.VarChar(80)
-  region                String?           @db.VarChar(80)
-  sector                String?           @db.VarChar(80)
-  nombreFaena           String?           @db.VarChar(100)
-  direccionFaena        String?           @db.VarChar(150)
-  representanteLegal    String?           @db.VarChar(150)
-  rutRepresentanteLegal String?           @db.VarChar(20)
-  estado                EstadoEmpresa     @default(ACTIVA)
-  horaDespacho          String?           @db.VarChar(5)
-  creado_en             DateTime          @default(now())
-  actualizado_en        DateTime          @default(now())
-  ContactoEmpresa       ContactoEmpresa[]
-  ConvenioEmpresa       ConvenioEmpresa?
-  pedidosManuales       PedidoManual[]
-  pedidos               Pedido[]
-  usuarios              Usuario[]
+  id                                Int               @id @default(autoincrement())
+  nombre                            String            @unique @db.VarChar(100)
+  correo_contacto                   String?           @db.VarChar(100)
+  razonSocial                       String?           @db.VarChar(150)
+  rut                               String?           @db.VarChar(20)
+  nombreComercial                   String?           @db.VarChar(100)
+  telefono                          String?           @db.VarChar(30)
+  direccion                         String?           @db.VarChar(150)
+  comuna                            String?           @db.VarChar(80)
+  region                            String?           @db.VarChar(80)
+  sector                            String?           @db.VarChar(80)
+  nombreFaena                       String?           @db.VarChar(100)
+  direccionFaena                    String?           @db.VarChar(150)
+  representanteLegal                String?           @db.VarChar(150)
+  rutRepresentanteLegal             String?           @db.VarChar(20)
+  fechaNacimientoRepresentanteLegal DateTime?
+  estado                            EstadoEmpresa     @default(ACTIVA)
+  horaDespacho                      String?           @db.VarChar(5)
+  creado_en                         DateTime          @default(now())
+  actualizado_en                    DateTime          @default(now())
+  ContactoEmpresa                   ContactoEmpresa[]
+  ConvenioEmpresa                   ConvenioEmpresa?
+  pedidosManuales                   PedidoManual[]
+  pedidos                           Pedido[]
+  usuarios                          Usuario[]
 
   @@index([estado])
   @@index([rut])
@@ -173,10 +174,10 @@ model DetallePedido {
 }
 
 model ConfiguracionSistema {
-  id               Int      @id @default(1)
-  horaLimite       String   @default("10:00") @db.VarChar(5)
-  diasAnticipacion Int      @default(2)
-  actualizadoEn    DateTime @default(now())
+  id                        Int      @id @default(1)
+  horaLimite                String   @default("10:00") @db.VarChar(5)
+  diasAnticipacion          Int      @default(2)
+  actualizadoEn             DateTime @default(now())
   mensajePedidoTrabajadores String?
 }
 
@@ -271,6 +272,7 @@ enum EstadoEmpresa {
 enum TipoContactoEmpresa {
   TITULAR
   SUPLENTE
+  COBRANZA
 }
 
 enum TipoEmpaquetado {
