@@ -3,7 +3,15 @@
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import { useCallback, useEffect, useState } from "react"
-import { ArrowLeft, Building2, MapPin, Save, UserRound, Users } from "lucide-react"
+import {
+  ArrowLeft,
+  Building2,
+  CircleDollarSign,
+  MapPin,
+  Save,
+  UserRound,
+  Users,
+} from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
@@ -21,7 +29,7 @@ import { getHoraLimiteEfectiva } from "@/lib/horario-pedidos"
 
 type ContactoEmpresa = {
   id: number
-  tipo: "TITULAR" | "SUPLENTE"
+  tipo: "TITULAR" | "SUPLENTE" | "COBRANZA"
   nombresApellidos: string | null
   rut: string | null
   rolCargo: string | null
@@ -47,6 +55,7 @@ type EmpresaDetalle = {
   direccionFaena: string | null
   representanteLegal: string | null
   rutRepresentanteLegal: string | null
+  fechaNacimientoRepresentanteLegal: string | null
   estado: "ACTIVA" | "INACTIVA"
   horaDespacho: string | null
   contactos: ContactoEmpresa[]
@@ -71,6 +80,7 @@ type EmpresaEditForm = {
   direccionFaena: string
   representanteLegal: string
   rutRepresentanteLegal: string
+  fechaNacimientoRepresentanteLegal: string
   estado: "ACTIVA" | "INACTIVA"
   horaDespacho: string
 }
@@ -99,6 +109,7 @@ const EMPRESA_DEFAULTS: EmpresaEditForm = {
   direccionFaena: "",
   representanteLegal: "",
   rutRepresentanteLegal: "",
+  fechaNacimientoRepresentanteLegal: "",
   estado: "ACTIVA",
   horaDespacho: "",
 }
@@ -166,6 +177,8 @@ export default function EditarEmpresaPage() {
     useState<ContactoEmpresaForm>(CONTACTO_DEFAULTS)
   const [contactoSuplenteForm, setContactoSuplenteForm] =
     useState<ContactoEmpresaForm>(CONTACTO_DEFAULTS)
+  const [contactoCobranzaForm, setContactoCobranzaForm] =
+    useState<ContactoEmpresaForm>(CONTACTO_DEFAULTS)
 
   const detalleHref = empresaId ? `/empresas/${empresaId}` : "/empresas"
 
@@ -175,6 +188,9 @@ export default function EditarEmpresaPage() {
     )
     const contactoSuplente = empresa.contactos.find(
       (contacto) => contacto.tipo === "SUPLENTE" && contacto.activo
+    )
+    const contactoCobranza = empresa.contactos.find(
+      (contacto) => contacto.tipo === "COBRANZA" && contacto.activo
     )
 
     setEmpresaCargada(true)
@@ -195,11 +211,15 @@ export default function EditarEmpresaPage() {
       direccionFaena: textoFormulario(empresa.direccionFaena),
       representanteLegal: textoFormulario(empresa.representanteLegal),
       rutRepresentanteLegal: textoFormulario(empresa.rutRepresentanteLegal),
+      fechaNacimientoRepresentanteLegal: fechaParaInput(
+        empresa.fechaNacimientoRepresentanteLegal
+      ),
       estado: empresa.estado,
       horaDespacho: textoFormulario(empresa.horaDespacho),
     })
     setContactoTitularForm(contactoAFormulario(contactoTitular))
     setContactoSuplenteForm(contactoAFormulario(contactoSuplente))
+    setContactoCobranzaForm(contactoAFormulario(contactoCobranza))
   }, [])
 
   const cargarEmpresa = useCallback(async () => {
@@ -253,12 +273,16 @@ export default function EditarEmpresaPage() {
   }
 
   const actualizarContacto = (
-    tipo: "titular" | "suplente",
+    tipo: "titular" | "suplente" | "cobranza",
     campo: keyof ContactoEmpresaForm,
     valor: string
   ) => {
     const setContacto =
-      tipo === "titular" ? setContactoTitularForm : setContactoSuplenteForm
+      tipo === "titular"
+        ? setContactoTitularForm
+        : tipo === "suplente"
+          ? setContactoSuplenteForm
+          : setContactoCobranzaForm
 
     setContacto((prev) => ({
       ...prev,
@@ -266,23 +290,52 @@ export default function EditarEmpresaPage() {
     }))
   }
 
-  const titularCompleto = () =>
-    contactoTitularForm.nombresApellidos.trim().length > 0 &&
-    contactoTitularForm.rut.trim().length > 0 &&
-    contactoTitularForm.rolCargo.trim().length > 0 &&
-    contactoTitularForm.telefono.trim().length > 0 &&
-    contactoTitularForm.email.trim().length > 0
+  const campoCompleto = (valor: string) => valor.trim().length > 0
+
+  const datosGeneralesCompletos = () =>
+    campoCompleto(form.nombre) &&
+    campoCompleto(form.razonSocial) &&
+    campoCompleto(form.rut) &&
+    campoCompleto(form.nombreComercial) &&
+    campoCompleto(form.correo_contacto) &&
+    campoCompleto(form.telefono) &&
+    campoCompleto(form.direccion) &&
+    campoCompleto(form.comuna) &&
+    campoCompleto(form.region) &&
+    campoCompleto(form.sector) &&
+    campoCompleto(form.nombreFaena) &&
+    campoCompleto(form.direccionFaena)
+
+  const contactoCompleto = (contacto: ContactoEmpresaForm) =>
+    campoCompleto(contacto.nombresApellidos) &&
+    campoCompleto(contacto.rolCargo) &&
+    campoCompleto(contacto.telefono) &&
+    campoCompleto(contacto.email) &&
+    campoCompleto(contacto.fechaNacimiento)
+
+  const contactoVacio = (contacto: ContactoEmpresaForm) =>
+    Object.values(contacto).every((valor) => !campoCompleto(valor))
 
   const guardarCambios = async () => {
     if (!empresaId) return
 
-    if (form.nombre.trim().length === 0) {
-      setError("El nombre de la empresa es obligatorio")
+    if (!datosGeneralesCompletos()) {
+      setError("Completa los datos generales obligatorios de la empresa")
       return
     }
 
-    if (!titularCompleto()) {
+    if (!contactoCompleto(contactoTitularForm)) {
       setError("Completa los datos obligatorios del interlocutor titular")
+      return
+    }
+
+    if (!contactoVacio(contactoSuplenteForm) && !contactoCompleto(contactoSuplenteForm)) {
+      setError("Completa los datos obligatorios del interlocutor suplente")
+      return
+    }
+
+    if (!contactoCompleto(contactoCobranzaForm)) {
+      setError("Completa los datos obligatorios de cobranza")
       return
     }
 
@@ -296,6 +349,8 @@ export default function EditarEmpresaPage() {
         body: JSON.stringify({
           ...form,
           horaDespacho: form.horaDespacho || null,
+          fechaNacimientoRepresentanteLegal:
+            form.fechaNacimientoRepresentanteLegal || null,
           contactoTitular: {
             ...contactoTitularForm,
             fechaNacimiento: contactoTitularForm.fechaNacimiento || null,
@@ -303,6 +358,11 @@ export default function EditarEmpresaPage() {
           contactoSuplente: {
             ...contactoSuplenteForm,
             fechaNacimiento: contactoSuplenteForm.fechaNacimiento || null,
+          },
+          contactoCobranza: {
+            ...contactoCobranzaForm,
+            rut: "",
+            fechaNacimiento: contactoCobranzaForm.fechaNacimiento || null,
           },
         }),
       })
@@ -418,7 +478,7 @@ export default function EditarEmpresaPage() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="razonSocial">Razón social</Label>
+            <Label htmlFor="razonSocial">Razón social *</Label>
             <Input
               id="razonSocial"
               value={form.razonSocial}
@@ -430,7 +490,7 @@ export default function EditarEmpresaPage() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="rut">RUT</Label>
+            <Label htmlFor="rut">RUT *</Label>
             <Input
               id="rut"
               value={form.rut}
@@ -440,7 +500,7 @@ export default function EditarEmpresaPage() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="nombreComercial">Nombre comercial</Label>
+            <Label htmlFor="nombreComercial">Nombre comercial *</Label>
             <Input
               id="nombreComercial"
               value={form.nombreComercial}
@@ -452,7 +512,7 @@ export default function EditarEmpresaPage() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="correoContacto">Correo de contacto</Label>
+            <Label htmlFor="correoContacto">Correo de contacto *</Label>
             <Input
               id="correoContacto"
               type="email"
@@ -465,7 +525,7 @@ export default function EditarEmpresaPage() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="telefono">Teléfono</Label>
+            <Label htmlFor="telefono">Teléfono *</Label>
             <Input
               id="telefono"
               value={form.telefono}
@@ -505,7 +565,7 @@ export default function EditarEmpresaPage() {
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
-            <Label htmlFor="direccion">Dirección</Label>
+            <Label htmlFor="direccion">Dirección *</Label>
             <Input
               id="direccion"
               value={form.direccion}
@@ -515,7 +575,7 @@ export default function EditarEmpresaPage() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="comuna">Comuna</Label>
+            <Label htmlFor="comuna">Comuna *</Label>
             <Input
               id="comuna"
               value={form.comuna}
@@ -525,7 +585,7 @@ export default function EditarEmpresaPage() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="region">Región</Label>
+            <Label htmlFor="region">Región *</Label>
             <Input
               id="region"
               value={form.region}
@@ -535,7 +595,7 @@ export default function EditarEmpresaPage() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="sector">Sector</Label>
+            <Label htmlFor="sector">Sector *</Label>
             <Input
               id="sector"
               value={form.sector}
@@ -545,7 +605,7 @@ export default function EditarEmpresaPage() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="nombreFaena">Nombre faena</Label>
+            <Label htmlFor="nombreFaena">Nombre faena *</Label>
             <Input
               id="nombreFaena"
               value={form.nombreFaena}
@@ -557,7 +617,7 @@ export default function EditarEmpresaPage() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="direccionFaena">Dirección faena</Label>
+            <Label htmlFor="direccionFaena">Dirección faena *</Label>
             <Input
               id="direccionFaena"
               value={form.direccionFaena}
@@ -632,10 +692,28 @@ export default function EditarEmpresaPage() {
               }
             />
           </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="fechaNacimientoRepresentanteLegal">
+              Fecha nacimiento representante legal
+            </Label>
+            <Input
+              id="fechaNacimientoRepresentanteLegal"
+              type="date"
+              value={form.fechaNacimientoRepresentanteLegal}
+              disabled={guardando}
+              onChange={(event) =>
+                actualizarCampoEmpresa(
+                  "fechaNacimientoRepresentanteLegal",
+                  event.target.value
+                )
+              }
+            />
+          </div>
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-3">
         <Card className="rounded-md border-slate-200 bg-white shadow-sm">
           <CardHeader className="border-b border-slate-200 px-4 py-3">
             <CardTitle className="flex items-center gap-2 text-sm font-semibold text-[#1B2C56]">
@@ -661,7 +739,7 @@ export default function EditarEmpresaPage() {
 
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="titularRut">RUT *</Label>
+                <Label htmlFor="titularRut">RUT</Label>
                 <Input
                   id="titularRut"
                   value={contactoTitularForm.rut}
@@ -710,7 +788,7 @@ export default function EditarEmpresaPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="titularFecha">Fecha nacimiento</Label>
+                <Label htmlFor="titularFecha">Fecha nacimiento *</Label>
                 <Input
                   id="titularFecha"
                   type="date"
@@ -807,6 +885,83 @@ export default function EditarEmpresaPage() {
                   disabled={guardando}
                   onChange={(event) =>
                     actualizarContacto("suplente", "fechaNacimiento", event.target.value)
+                  }
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-md border-slate-200 bg-white shadow-sm">
+          <CardHeader className="border-b border-slate-200 px-4 py-3">
+            <CardTitle className="flex items-center gap-2 text-sm font-semibold text-[#1B2C56]">
+              <CircleDollarSign className="h-4 w-4" />
+              Datos de cobranza
+            </CardTitle>
+            <CardDescription>
+              Contacto obligatorio para gestion de cobranza
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="cobranzaNombres">Dato cobranza / Nombre *</Label>
+              <Input
+                id="cobranzaNombres"
+                value={contactoCobranzaForm.nombresApellidos}
+                disabled={guardando}
+                onChange={(event) =>
+                  actualizarContacto("cobranza", "nombresApellidos", event.target.value)
+                }
+              />
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="cobranzaRol">Rol/cargo *</Label>
+                <Input
+                  id="cobranzaRol"
+                  value={contactoCobranzaForm.rolCargo}
+                  disabled={guardando}
+                  onChange={(event) =>
+                    actualizarContacto("cobranza", "rolCargo", event.target.value)
+                  }
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="cobranzaTelefono">Celular *</Label>
+                <Input
+                  id="cobranzaTelefono"
+                  value={contactoCobranzaForm.telefono}
+                  disabled={guardando}
+                  onChange={(event) =>
+                    actualizarContacto("cobranza", "telefono", event.target.value)
+                  }
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="cobranzaEmail">Correo *</Label>
+                <Input
+                  id="cobranzaEmail"
+                  type="email"
+                  value={contactoCobranzaForm.email}
+                  disabled={guardando}
+                  onChange={(event) =>
+                    actualizarContacto("cobranza", "email", event.target.value)
+                  }
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="cobranzaFecha">Fecha nacimiento *</Label>
+                <Input
+                  id="cobranzaFecha"
+                  type="date"
+                  value={contactoCobranzaForm.fechaNacimiento}
+                  disabled={guardando}
+                  onChange={(event) =>
+                    actualizarContacto("cobranza", "fechaNacimiento", event.target.value)
                   }
                 />
               </div>

@@ -52,7 +52,7 @@ type CampoConvenio = Exclude<
 
 type ContactoEmpresa = {
   id: number
-  tipo: "TITULAR" | "SUPLENTE"
+  tipo: "TITULAR" | "SUPLENTE" | "COBRANZA"
   nombresApellidos: string | null
   rut: string | null
   rolCargo: string | null
@@ -78,6 +78,7 @@ type EmpresaDetalle = {
   direccionFaena: string | null
   representanteLegal: string | null
   rutRepresentanteLegal: string | null
+  fechaNacimientoRepresentanteLegal: string | null
   estado: "ACTIVA" | "INACTIVA"
   horaDespacho: string | null
   creado_en: string
@@ -120,6 +121,12 @@ const LABELS_TIPO_EMPAQUETADO: Record<TipoEmpaquetado, string> = {
   BOWL_CRAFT: "Bowl craft",
   C10_ALUMINIO: "C10 aluminio",
   SERVICIO_TRADICIONAL_PLATO: "Servicio tradicional en plato",
+}
+
+const LABELS_TIPO_CONTACTO: Record<ContactoEmpresa["tipo"], string> = {
+  TITULAR: "Interlocutor titular",
+  SUPLENTE: "Interlocutor suplente",
+  COBRANZA: "Datos de cobranza",
 }
 
 function mostrarTexto(value: string | null | undefined) {
@@ -432,6 +439,10 @@ export default function EmpresaDetallePage() {
               label="RUT representante legal"
               value={mostrarTexto(empresa.rutRepresentanteLegal)}
             />
+            <Dato
+              label="Fecha nacimiento representante legal"
+              value={formatearFecha(empresa.fechaNacimientoRepresentanteLegal)}
+            />
           </CardContent>
         </Card>
 
@@ -514,7 +525,9 @@ export default function EmpresaDetallePage() {
                   className="rounded-md border border-slate-200 p-4"
                 >
                   <div className="mb-4 flex flex-wrap items-center gap-2">
-                    <Badge variant="secondary">{contacto.tipo}</Badge>
+                    <Badge variant="secondary">
+                      {LABELS_TIPO_CONTACTO[contacto.tipo]}
+                    </Badge>
                     <Badge
                       variant={contacto.activo ? "default" : "secondary"}
                       className={contacto.activo ? "bg-[#75aa46] text-white" : ""}
@@ -528,7 +541,9 @@ export default function EmpresaDetallePage() {
                       label="Nombre"
                       value={mostrarTexto(contacto.nombresApellidos)}
                     />
-                    <Dato label="RUT" value={mostrarTexto(contacto.rut)} />
+                    {contacto.tipo !== "COBRANZA" && (
+                      <Dato label="RUT" value={mostrarTexto(contacto.rut)} />
+                    )}
                     <Dato
                       label="Rol/cargo"
                       value={mostrarTexto(contacto.rolCargo)}
