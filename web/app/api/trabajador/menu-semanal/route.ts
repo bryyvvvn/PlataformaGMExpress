@@ -6,6 +6,7 @@ import {
   chileEndOfDay,
   getChileDayName,
 } from "@/lib/chile-time";
+import { esPlatoUnicoPorLegumbre } from "@/lib/menu/es-plato-unico";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +33,14 @@ type PlatoBebida = {
   grasas: number | null;
 };
 
+function platoOmiteGuarnicion(plato: { nombre: string; tipo: string }) {
+  return (
+    plato.tipo === "PLATO_UNICO" ||
+    plato.tipo === "HIPOCALORICO" ||
+    esPlatoUnicoPorLegumbre(plato.nombre)
+  );
+}
+
 function formatearDetalle(d: {
   id: number;
   plato: {
@@ -45,7 +54,7 @@ function formatearDetalle(d: {
 }) {
   return {
     ...d.plato,
-    guarniciones: d.guarniciones,
+    guarniciones: platoOmiteGuarnicion(d.plato) ? [] : d.guarniciones,
     menuDetalleId: d.id,
   };
 }
@@ -120,7 +129,10 @@ function formatearSeleccion(seleccion: {
     entrada: entradasPermitidas[0] ?? null,
     fondo: permitePlato ? formatearDetalle(seleccion.fondoDetalle) : null,
     postre: permitePostre ? formatearDetalle(seleccion.postreDetalle) : null,
-    guarnicion: permitePlato ? seleccion.guarnicion : null,
+    guarnicion:
+      permitePlato && !platoOmiteGuarnicion(seleccion.fondoDetalle.plato)
+        ? seleccion.guarnicion
+        : null,
     entradasSeleccionadas: entradasPermitidas,
     entradaDisplay: permiteEntrada ? construirEntradaDisplay(entradasPermitidas) : null,
     bebida,

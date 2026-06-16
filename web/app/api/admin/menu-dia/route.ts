@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import db from "@/lib/db";
+import { esPlatoUnicoPorLegumbre } from "@/lib/menu/es-plato-unico";
 import { CategoriaPlato } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +25,17 @@ function isPositiveInteger(value: number): boolean {
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Error guardando el menú del día";
+}
+
+class MenuDiaValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "MenuDiaValidationError";
+  }
+}
+
+function crearErrorValidacion(message: string): never {
+  throw new MenuDiaValidationError(message);
 }
 
 function normalizarDia(dia: string): DiaHabil | string {
@@ -65,12 +77,20 @@ type EntradaSeleccionada = {
   menuDetalle: MenuDetalleConPlato;
 };
 
+function platoOmiteGuarnicion(plato: { nombre: string; tipo: string }) {
+  return (
+    plato.tipo === "PLATO_UNICO" ||
+    plato.tipo === "HIPOCALORICO" ||
+    esPlatoUnicoPorLegumbre(plato.nombre)
+  );
+}
+
 function formatearDetalle(detalle: MenuDetalleConPlato) {
   return {
     detalleId: detalle.id,
     fecha: formatIsoDate(detalle.fecha_dia ?? null),
     plato: detalle.plato,
-    guarniciones: detalle.guarniciones,
+    guarniciones: platoOmiteGuarnicion(detalle.plato) ? [] : detalle.guarniciones,
   };
 }
 
@@ -100,7 +120,7 @@ function formatearSeleccion(seleccion: {
     entrada: entradas[0] ?? formatearDetalle(seleccion.entradaDetalle),
     fondo: formatearDetalle(seleccion.fondoDetalle),
     postre: formatearDetalle(seleccion.postreDetalle),
-    guarnicion: seleccion.guarnicion,
+    guarnicion: platoOmiteGuarnicion(seleccion.fondoDetalle.plato) ? null : seleccion.guarnicion,
     bebida: seleccion.bebidaPlato,
     entradasSeleccionadas: entradas,
     entradaDisplay: construirEntradaDisplay(entradas),
@@ -115,41 +135,41 @@ function validarDetalle(
   nombreCampo: string
 ) {
   if (!detalle) {
-    throw new Error(`No se encontró ${nombreCampo}`);
+    crearErrorValidacion(`No se encontró ${nombreCampo}`);
   }
 
   if (detalle.menuSemanalId !== menuSemanalId || formatIsoDate(detalle.fecha_dia ?? null) !== fecha) {
-    throw new Error(`${nombreCampo} no pertenece a la minuta y fecha indicadas`);
+    crearErrorValidacion(`${nombreCampo} no pertenece a la minuta y fecha indicadas`);
   }
 
   if (detalle.plato.categoria !== categoria) {
-    throw new Error(`${nombreCampo} no corresponde a la categoría ${categoria}`);
+    crearErrorValidacion(`${nombreCampo} no corresponde a la categoría ${categoria}`);
   }
 }
 
 function normalizarEntradasIds(entradasIdsRaw: unknown, entradaId: number): number[] {
   if (entradasIdsRaw === undefined) {
     if (!isPositiveInteger(entradaId)) {
-      throw new Error("Debes seleccionar entrada, fondo y postre");
+      crearErrorValidacion("Debes seleccionar entrada, fondo y postre");
     }
     return [entradaId];
   }
 
   if (!Array.isArray(entradasIdsRaw)) {
-    throw new Error("entradasIds debe ser un arreglo");
+    crearErrorValidacion("entradasIds debe ser un arreglo");
   }
 
   if (entradasIdsRaw.length < 1 || entradasIdsRaw.length > 3) {
-    throw new Error("Debes seleccionar entre 1 y 3 entradas");
+    crearErrorValidacion("Debes seleccionar entre 1 y 3 entradas");
   }
 
   const entradasIds = entradasIdsRaw.map((value) => Number(value));
   if (entradasIds.some((value) => !isPositiveInteger(value))) {
-    throw new Error("Todas las entradas deben ser IDs numéricos válidos");
+    crearErrorValidacion("Todas las entradas deben ser IDs numéricos válidos");
   }
 
   if (new Set(entradasIds).size !== entradasIds.length) {
-    throw new Error("No puedes repetir entradas en el menú del día");
+    crearErrorValidacion("No puedes repetir entradas en el menú del día");
   }
 
   return entradasIds;
@@ -159,7 +179,7 @@ function normalizarBebidaPlatoId(value: unknown): number | null {
   if (value === undefined || value === null || value === "") return null;
   const bebidaPlatoId = Number(value);
   if (!isPositiveInteger(bebidaPlatoId)) {
-    throw new Error("bebidaPlatoId inválido");
+    crearErrorValidacion("bebidaPlatoId inválido");
   }
   return bebidaPlatoId;
 }
@@ -267,56 +287,55 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: "guarnicionId inválido" }, { status: 400 });
     }
 
+    const detalleIds = Array.from(new Set([...entradasIds, fondoId, postreId]));
+    const detalles = await db.menuDetalle.findMany({
+      where: { id: { in: detalleIds } },
+      include: { plato: true, guarniciones: true },
+    });
+
+    const entradas = entradasIds.map((id) => detalles.find((detalle) => detalle.id === id));
+    const fondo = detalles.find((detalle) => detalle.id === fondoId);
+    const postre = detalles.find((detalle) => detalle.id === postreId);
+
+    entradas.forEach((entrada, index) => {
+      validarDetalle(entrada, "ENTRADA", menuSemanalId, fecha, `La entrada ${index + 1}`);
+    });
+    validarDetalle(fondo, "FONDO", menuSemanalId, fecha, "El fondo");
+    validarDetalle(postre, "POSTRE", menuSemanalId, fecha, "El postre");
+
+    const bebida = bebidaPlatoId
+      ? await db.plato.findUnique({ where: { id: bebidaPlatoId } })
+      : null;
+
+    if (bebidaPlatoId && !bebida) {
+      crearErrorValidacion("No se encontró la bebida seleccionada");
+    }
+
+    if (bebida && !CATEGORIAS_BEBIDA.includes(bebida.categoria)) {
+      crearErrorValidacion("La bebida seleccionada no corresponde a una categoría válida");
+    }
+
+    const fondoSinGuarnicion = platoOmiteGuarnicion(fondo!.plato);
+    const guarnicionIdNormalizada = fondoSinGuarnicion ? null : guarnicionId;
+    const guarnicionesFondo = fondo?.guarniciones ?? [];
+    const guarnicion = guarnicionIdNormalizada
+      ? guarnicionesFondo.find((item) => item.id === guarnicionIdNormalizada)
+      : null;
+
+    if (!fondoSinGuarnicion && guarnicionesFondo.length > 0 && !guarnicion) {
+      crearErrorValidacion("Debes seleccionar una guarnición válida para el fondo");
+    }
+
+    if (!fondoSinGuarnicion && guarnicionesFondo.length === 0 && guarnicionIdNormalizada !== null) {
+      crearErrorValidacion("El fondo seleccionado no tiene guarniciones asociadas");
+    }
+
+    const fechaDia = fondo!.fecha_dia;
+    if (!fechaDia) {
+      crearErrorValidacion("El fondo seleccionado no tiene fecha asociada");
+    }
+
     const seleccion = await db.$transaction(async (tx) => {
-      const detalleIds = Array.from(new Set([...entradasIds, fondoId, postreId]));
-      const detalles = await tx.menuDetalle.findMany({
-        where: { id: { in: detalleIds } },
-        include: { plato: true, guarniciones: true },
-      });
-
-      const entradas = entradasIds.map((id) => detalles.find((detalle) => detalle.id === id));
-      const fondo = detalles.find((detalle) => detalle.id === fondoId);
-      const postre = detalles.find((detalle) => detalle.id === postreId);
-
-      entradas.forEach((entrada, index) => {
-        validarDetalle(entrada, "ENTRADA", menuSemanalId, fecha, `La entrada ${index + 1}`);
-      });
-      validarDetalle(fondo, "FONDO", menuSemanalId, fecha, "El fondo");
-      validarDetalle(postre, "POSTRE", menuSemanalId, fecha, "El postre");
-
-      const bebida = bebidaPlatoId
-        ? await tx.plato.findUnique({ where: { id: bebidaPlatoId } })
-        : null;
-
-      if (bebidaPlatoId && !bebida) {
-        throw new Error("No se encontró la bebida seleccionada");
-      }
-
-      if (bebida && !CATEGORIAS_BEBIDA.includes(bebida.categoria)) {
-        throw new Error("La bebida seleccionada no corresponde a una categoría válida");
-      }
-
-      const tipoFondo = fondo!.plato.tipo;
-      const fondoSinGuarnicion = tipoFondo === "PLATO_UNICO" || tipoFondo === "HIPOCALORICO";
-      const guarnicionIdNormalizada = fondoSinGuarnicion ? null : guarnicionId;
-      const guarnicionesFondo = fondo?.guarniciones ?? [];
-      const guarnicion = guarnicionIdNormalizada
-        ? guarnicionesFondo.find((item) => item.id === guarnicionIdNormalizada)
-        : null;
-
-      if (!fondoSinGuarnicion && guarnicionesFondo.length > 0 && !guarnicion) {
-        throw new Error("Debes seleccionar una guarnición válida para el fondo");
-      }
-
-      if (!fondoSinGuarnicion && guarnicionesFondo.length === 0 && guarnicionIdNormalizada !== null) {
-        throw new Error("El fondo seleccionado no tiene guarniciones asociadas");
-      }
-
-      const fechaDia = fondo!.fecha_dia;
-      if (!fechaDia) {
-        throw new Error("El fondo seleccionado no tiene fecha asociada");
-      }
-
       const seleccionGuardada = await tx.menuDiaSeleccion.upsert({
         where: {
           menuSemanalId_fecha_dia: {
@@ -354,27 +373,43 @@ export async function PATCH(req: NextRequest) {
         })),
       });
 
-      return tx.menuDiaSeleccion.findUniqueOrThrow({
-        where: { id: seleccionGuardada.id },
-        include: {
-          entradaDetalle: { include: { plato: true, guarniciones: true } },
-          fondoDetalle: { include: { plato: true, guarniciones: true } },
-          postreDetalle: { include: { plato: true, guarniciones: true } },
-          guarnicion: true,
-          bebidaPlato: true,
-          entradasSeleccionadas: {
-            orderBy: [{ orden: "asc" }, { id: "asc" }],
-            include: {
-              menuDetalle: { include: { plato: true, guarniciones: true } },
-            },
-          },
-        },
-      });
+      return seleccionGuardada;
+    }, {
+      maxWait: 10000,
+      timeout: 15000,
     });
 
-    return NextResponse.json({ seleccion: formatearSeleccion(seleccion) });
+    const seleccionCompleta = await db.menuDiaSeleccion.findUnique({
+      where: { id: seleccion.id },
+      include: {
+        entradaDetalle: { include: { plato: true, guarniciones: true } },
+        fondoDetalle: { include: { plato: true, guarniciones: true } },
+        postreDetalle: { include: { plato: true, guarniciones: true } },
+        guarnicion: true,
+        bebidaPlato: true,
+        entradasSeleccionadas: {
+          orderBy: [{ orden: "asc" }, { id: "asc" }],
+          include: {
+            menuDetalle: { include: { plato: true, guarniciones: true } },
+          },
+        },
+      },
+    });
+
+    if (!seleccionCompleta) {
+      throw new Error("No se pudo leer la selección guardada");
+    }
+
+    return NextResponse.json({ seleccion: formatearSeleccion(seleccionCompleta) });
   } catch (error) {
     console.error("[admin/menu-dia] Error guardando:", error);
-    return NextResponse.json({ error: getErrorMessage(error) }, { status: 400 });
+    if (error instanceof MenuDiaValidationError) {
+      return NextResponse.json({ error: getErrorMessage(error) }, { status: 400 });
+    }
+
+    return NextResponse.json(
+      { error: "No se pudo guardar el Menú del Día. Intenta nuevamente." },
+      { status: 500 }
+    );
   }
 }
