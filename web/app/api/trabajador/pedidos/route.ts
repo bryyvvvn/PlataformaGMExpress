@@ -20,6 +20,7 @@ type PedidoRequestBody = {
   // 🔥 NUEVO: Agregamos los tipos para el fin de semana
   esFinDeSemana?: boolean;
   tipoFinde?: string;
+  observacion?: string | null;
 };
 
 function toPositiveInteger(value: unknown): number | null {
@@ -142,7 +143,8 @@ export async function GET(request: Request) {
         id: pedidoExistente.id,
         fecha: pedidoExistente.fecha.toISOString(),
         resumen,
-        tipoFinde // Esto le servirá a la app para saber qué botón marcar al "modificar"
+        tipoFinde, // Esto le servirá a la app para saber qué botón marcar al "modificar"
+        observacion: pedidoExistente.observacion ?? null
       },
     });
   } catch (error) {
@@ -156,7 +158,7 @@ export async function POST(request: Request) {
     const body = await request.json() as PedidoRequestBody;
     
     // 🔥 NUEVO: Extraemos esFinDeSemana y tipoFinde
-    const { usuarioId, entradaId, entradasIds, fondoId, postreId, jugoId, guarnicionId, fecha, items, esFinDeSemana, tipoFinde } = body;
+    const { usuarioId, entradaId, entradasIds, fondoId, postreId, jugoId, guarnicionId, fecha, items, esFinDeSemana, tipoFinde, observacion } = body;
 
     if (!usuarioId) {
       return NextResponse.json({ error: 'Falta usuarioId' }, { status: 400 });
@@ -318,6 +320,11 @@ export async function POST(request: Request) {
             ...detalle
           })),
         });
+
+        await tx.pedido.update({
+          where: { id: pedidoExistente.id },
+          data: { observacion: observacion?.trim() || null }
+        });
       });
 
       return NextResponse.json({ mensaje: 'Pedido actualizado', pedidoId: pedidoExistente.id });
@@ -329,6 +336,7 @@ export async function POST(request: Request) {
         usuarioId: usuario.id,
         empresaId: usuario.empresaId,
         estado: 'PENDIENTE',
+        observacion: observacion?.trim() || null,
         detalles: {
           // Prisma usa 'create' con un arreglo directamente
           create: detallesData,

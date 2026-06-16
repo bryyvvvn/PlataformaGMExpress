@@ -70,6 +70,7 @@ export async function GET(request: Request) {
         id: true,
         fecha: true,
         estado: true,
+        observacion: true,
         empresa: {
           select: { nombre: true },
         },
@@ -104,13 +105,14 @@ export async function GET(request: Request) {
 
     const pedidosNormalizados = pedidos.map((pedido) => ({
       ...pedido,
+      observacion: pedido.observacion,
       usuario: {
         ...pedido.usuario,
         nombre: pedido.usuario.nombre ?? "Usuario sin nombre",
       },
     }))
 
-    const archivo = generarExcelHistorico(pedidosNormalizados)
+    const archivo = await generarExcelHistorico(pedidosNormalizados)
 
     return new Response(archivo, {
       headers: {

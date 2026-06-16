@@ -2,13 +2,14 @@ import React from 'react';
 import { Clock } from 'lucide-react';
 
 export type EstadoHorarioResponse =
-  | { permitido: true }
+  | { permitido: true; fechaBloqueada: null }
   | {
       permitido: false;
       horaLimite: string;
       fuenteHora: 'empresa' | 'global';
       mensaje: string;
       horaReapertura: string;
+      fechaBloqueada: string | null;
     };
 
 interface HorarioBloqueadoProps {

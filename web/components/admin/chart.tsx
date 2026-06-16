@@ -16,6 +16,7 @@ type PuntoDiario = {
 type ChartProps = {
   dataSemana: PuntoSemanal[];
   dataDia: PuntoDiario[];
+  dataMes: PuntoSemanal[];
   title: string;
 };
 
@@ -30,13 +31,15 @@ function marcasEje(max: number): number[] {
   return [...marcas].sort((a, b) => a - b);
 }
 
-export function PedidosSemanalChart({ dataSemana, dataDia, title }: ChartProps) {
-  const [vista, setVista] = useState<"semana" | "dia">("semana");
+export function PedidosSemanalChart({ dataSemana, dataDia, dataMes, title }: ChartProps) {
+  const [vista, setVista] = useState<"semana" | "dia" | "mes">("semana");
 
   const puntosBase =
     vista === "semana"
       ? dataSemana.map((d) => ({ label: d.day, pedidos: d.pedidos }))
-      : dataDia.map((d) => ({ label: d.time, pedidos: d.pedidos }));
+      : vista === "dia"
+      ? dataDia.map((d) => ({ label: d.time, pedidos: d.pedidos }))
+      : dataMes.map((d) => ({ label: d.day, pedidos: d.pedidos }));
 
   const max = Math.max(...puntosBase.map((d) => d.pedidos), 1);
   const marcas = marcasEje(max);
@@ -44,6 +47,8 @@ export function PedidosSemanalChart({ dataSemana, dataDia, title }: ChartProps) 
   const ancho = 600;
   const margen = 40;
   const area = alto - margen * 2;
+
+  const intervaloEje = vista === 'semana' ? 1 : vista === 'dia' ? 2 : 5;
 
   const puntos = puntosBase.map((d, i) => {
     const x =
@@ -80,6 +85,16 @@ export function PedidosSemanalChart({ dataSemana, dataDia, title }: ChartProps) 
             }`}
           >
             Hoy
+          </button>
+          <button
+            onClick={() => setVista("mes")}
+            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+              vista === "mes"
+                ? "bg-[#1b2c56] text-white shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Mes
           </button>
         </div>
       </CardHeader>
@@ -131,13 +146,14 @@ export function PedidosSemanalChart({ dataSemana, dataDia, title }: ChartProps) 
             <circle key={i} cx={p.x} cy={p.y} r="4" fill="currentColor" />
           ))}
 
-          {puntos.map((p, i) => (
+          {puntos.map((p, i) => i % intervaloEje === 0 && (
             <text
               key={`label-${i}`}
               x={p.x}
               y={alto - margen + 18}
               textAnchor="middle"
-              className="fill-muted-foreground text-[11px]"
+              fontSize={11}
+              className="fill-muted-foreground"
             >
               {p.label}
             </text>

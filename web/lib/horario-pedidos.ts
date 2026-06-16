@@ -12,6 +12,7 @@ export type EstadoHorario = {
   fuenteHora: 'empresa' | 'global'
   mensaje: string
   horaReapertura: string  // "mañana a las HH:MM" o "el lunes a las HH:MM"
+  fechaBloqueada: string | null  // ISO "YYYY-MM-DD" del día bloqueado, null si permitido
 }
 
 const DIAS_FIN_DE_SEMANA = ['Sábado', 'Domingo']
@@ -42,7 +43,7 @@ export function getHoraLimiteEfectiva(horaDespacho: string | null, horaGlobal: s
 
 export function getEstadoHorario(horaDespacho: string | null, horaGlobal: string): EstadoHorario {
   const { horaLimite, fuenteHora } = getHoraLimiteEfectiva(horaDespacho, horaGlobal)
-  const { hour, minute, dayName } = nowChile()
+  const { hour, minute, dayName, iso } = nowChile()
   const horaActual = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
 
   const esFinDeSemana = DIAS_FIN_DE_SEMANA.includes(dayName)
@@ -62,5 +63,7 @@ export function getEstadoHorario(horaDespacho: string | null, horaGlobal: string
     mensaje = `Puedes realizar tu pedido hasta las ${horaLimite}.`
   }
 
-  return { permitido, horaLimite, fuenteHora, mensaje, horaReapertura }
+  const fechaBloqueada = permitido ? null : iso
+
+  return { permitido, horaLimite, fuenteHora, mensaje, horaReapertura, fechaBloqueada }
 }

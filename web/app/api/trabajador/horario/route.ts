@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
 
     if (!usuario || usuario.rol !== Rol.TRABAJADOR || !usuario.empresaId) {
       return NextResponse.json(
-        { permitido: true },
+        { permitido: true, fechaBloqueada: null },
         { headers: { 'Cache-Control': 'no-store' } },
       )
     }

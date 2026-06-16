@@ -10,6 +10,7 @@ interface ResumenPedidoProps {
   isDeadlinePassed: boolean;
   fechaBloqueada: boolean;
   convenio: any;
+  observacion?: string | null;
 }
 
 export const ResumenPedido: React.FC<ResumenPedidoProps> = ({
@@ -19,7 +20,8 @@ export const ResumenPedido: React.FC<ResumenPedidoProps> = ({
   onModificar,
   isDeadlinePassed,
   fechaBloqueada,
-  convenio
+  convenio,
+  observacion,
 }) => {
   return (
     <div className="p-6 rounded-3xl bg-white border border-gray-100 shadow-sm relative overflow-hidden mt-4 grow flex flex-col">
@@ -60,6 +62,17 @@ export const ResumenPedido: React.FC<ResumenPedidoProps> = ({
             <div className="font-bold text-[#1d2d50] leading-tight flex items-center gap-2 mt-0.5 text-lg">
               Pan
             </div>
+          </div>
+        )}
+
+        {observacion && (
+          <div className="mt-3 pt-3 border-t border-dashed border-gray-200">
+            <span className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1 block">
+              Observaciones
+            </span>
+            <p className="text-sm font-medium text-[#1d2d50] leading-snug">
+              {observacion}
+            </p>
           </div>
         )}
       </div>
