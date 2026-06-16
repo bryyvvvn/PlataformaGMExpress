@@ -45,6 +45,7 @@ export default async function DashboardPage() {
             <PedidosSemanalChart
               dataSemana={stats.chartData}
               dataDia={stats.chartDataDia}
+              dataMes={stats.chartDataMes}
               title=""
             />
           </div>

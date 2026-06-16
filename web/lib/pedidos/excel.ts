@@ -1,4 +1,5 @@
 import { CategoriaPlato, type EstadoPedido } from "@prisma/client"
+import ExcelJS from "exceljs"
 import * as xlsx from "xlsx"
 import { formatFechaISOChile } from "@/lib/pedidos/fechas"
 
@@ -18,6 +19,7 @@ export type PedidoHistoricoExcel = {
   id: number
   fecha: Date
   estado: EstadoPedido
+  observacion?: string | null
   empresa: {
     nombre: string
   }
@@ -86,81 +88,81 @@ function unirPlatosPorCategorias(
     .join(" | ")
 }
 
-function crearFilaHistorica(pedido: PedidoHistoricoExcel): CeldaExcel[] {
-  const detalles = [...pedido.detalles].sort((a, b) => a.id - b.id)
-  const fondos = detalles.filter(
-    (detalle) => detalle.plato.categoria === CategoriaPlato.FONDO
-  )
-
-  if (fondos.length === 0) {
-    console.warn(`[exportar-historico] Pedido ${pedido.id} sin detalle FONDO`)
-  }
-
-  if (fondos.length > 1) {
-    console.warn(
-      `[exportar-historico] Pedido ${pedido.id} tiene múltiples fondos; se utilizará el primero`
-    )
-  }
-
-  const fondo = fondos[0]
-
-  return [
-    pedido.id,
-    formatFechaISOChile(pedido.fecha),
-    pedido.empresa.nombre,
-    pedido.usuario.id,
-    pedido.usuario.nombre,
-    pedido.estado,
-    unirPlatos(detalles, CategoriaPlato.ENTRADA),
-    fondo?.plato.nombre ?? "",
-    fondo?.guarnicion?.nombre ?? "",
-    unirPlatos(detalles, CategoriaPlato.POSTRE),
-    unirPlatosPorCategorias(detalles, CATEGORIAS_BEBESTIBLE),
-    fondo?.cantidad ?? 0,
-  ]
-}
-
-export function generarExcelHistorico(
+export async function generarExcelHistorico(
   pedidos: PedidoHistoricoExcel[]
-): ArrayBuffer {
-  const encabezados: CeldaExcel[] = [
-    "ID Pedido",
-    "Fecha",
-    "Empresa",
-    "ID Usuario",
-    "Nombre Usuario",
-    "Estado",
-    "Entradas",
-    "Fondo",
-    "Guarnición",
-    "Postres",
-    "Bebestibles",
-    "Cantidad Fondo",
+): Promise<ArrayBuffer> {
+  const workbook = new ExcelJS.Workbook()
+  workbook.creator = "GM Express"
+  workbook.created = new Date()
+
+  const sheet = workbook.addWorksheet("Histórico")
+
+  sheet.columns = [
+    { header: "Fecha",          key: "fecha",         width: 14 },
+    { header: "Empresa",        key: "empresa",       width: 26 },
+    { header: "Nombre Usuario", key: "usuario",       width: 26 },
+    { header: "Estado",         key: "estado",        width: 18 },
+    { header: "Entradas",       key: "entradas",      width: 36 },
+    { header: "Fondo",          key: "fondo",         width: 32 },
+    { header: "Guarnición",     key: "guarnicion",    width: 24 },
+    { header: "Postres",        key: "postres",       width: 28 },
+    { header: "Bebestibles",    key: "bebestibles",   width: 28 },
+    { header: "Observaciones",  key: "observaciones", width: 40 },
   ]
 
-  const hoja = xlsx.utils.aoa_to_sheet<CeldaExcel>([
-    encabezados,
-    ...pedidos.map(crearFilaHistorica),
-  ])
+  const headerRow = sheet.getRow(1)
+  headerRow.eachCell((cell) => {
+    cell.fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FF1B2C56" },
+    }
+    cell.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 11 }
+    cell.alignment = { vertical: "middle", horizontal: "center" }
+    cell.border = {
+      top:    { style: "thin", color: { argb: "FF1B2C56" } },
+      bottom: { style: "thin", color: { argb: "FF1B2C56" } },
+      left:   { style: "thin", color: { argb: "FF1B2C56" } },
+      right:  { style: "thin", color: { argb: "FF1B2C56" } },
+    }
+  })
+  headerRow.height = 22
 
-  hoja["!cols"] = [12, 14, 24, 28, 24, 18, 36, 32, 24, 28, 28, 16].map(
-    (wch) => ({ wch })
-  )
+  pedidos.forEach((pedido, index) => {
+    const detalles = [...pedido.detalles].sort((a, b) => a.id - b.id)
+    const fondo = detalles.find(
+      (d) => d.plato.categoria === CategoriaPlato.FONDO
+    )
 
-  const libro = xlsx.utils.book_new()
-  xlsx.utils.book_append_sheet(libro, hoja, "Histórico")
+    const row = sheet.addRow({
+      fecha:         formatFechaISOChile(pedido.fecha),
+      empresa:       pedido.empresa.nombre,
+      usuario:       pedido.usuario.nombre,
+      estado:        pedido.estado,
+      entradas:      unirPlatos(detalles, CategoriaPlato.ENTRADA),
+      fondo:         fondo?.plato.nombre ?? "",
+      guarnicion:    fondo?.guarnicion?.nombre ?? "",
+      postres:       unirPlatos(detalles, CategoriaPlato.POSTRE),
+      bebestibles:   unirPlatosPorCategorias(detalles, CATEGORIAS_BEBESTIBLE),
+      observaciones: pedido.observacion ?? "",
+    })
 
-  const archivo: unknown = xlsx.write(libro, {
-    bookType: "xlsx",
-    type: "array",
-    compression: true,
+    const bgColor = index % 2 === 0 ? "FFFFFFFF" : "FFF3F4F6"
+    row.eachCell({ includeEmpty: true }, (cell) => {
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: bgColor } }
+      cell.border = {
+        top:    { style: "thin", color: { argb: "FFE5E7EB" } },
+        bottom: { style: "thin", color: { argb: "FFE5E7EB" } },
+        left:   { style: "thin", color: { argb: "FFE5E7EB" } },
+        right:  { style: "thin", color: { argb: "FFE5E7EB" } },
+      }
+      cell.alignment = { vertical: "middle", wrapText: true }
+      cell.font = { size: 10 }
+    })
+    row.height = 18
   })
 
-  if (!(archivo instanceof ArrayBuffer)) {
-    throw new Error("No se pudo generar el archivo Excel")
-  }
-
-  return archivo
+  return workbook.xlsx.writeBuffer() as Promise<ArrayBuffer>
 }
 
 export function generarExcelProduccion(

@@ -27,6 +27,7 @@ export type DashboardStats = {
   totalEmpresas: number;
   chartData: Array<{ day: string; pedidos: number }>;
   chartDataDia: Array<{ time: string; pedidos: number }>;
+  chartDataMes: Array<{ day: string; pedidos: number }>;
   ultimosPedidos: PedidoReciente[];
   zonaCalienteCount: number;
   zonaFriaCount: number;
@@ -48,6 +49,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   const finSemana = endOfDay(addDays(lunes, 6));
   const inicioHoyChile = chileStartOfDay();
   const finHoyChile = chileEndOfDay();
+  const inicioMes = chileStartOfDay(format(addDays(ahora, -29), "yyyy-MM-dd"));
 
   const [
     pedidosDelDia,
@@ -59,6 +61,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     ultimosPedidos,
     consolidado,
     empaqueCount,
+    pedidosMes,
   ] = await Promise.all([
     db.pedido.count({
       where: { fecha: { gte: inicioHoy, lte: finHoy } },
@@ -89,6 +92,10 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     getConsolidadoDia(),
     db.pedido.count({
       where: { estado: EstadoPedido.EN_PRODUCCION },
+    }),
+    db.pedido.findMany({
+      where: { fecha: { gte: inicioMes, lt: finHoyChile } },
+      select: { fecha: true },
     }),
   ]);
 
@@ -127,6 +134,19 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     pedidos,
   }));
 
+  const inicioVentana = startOfDay(addDays(ahora, -29));
+  const conteoPorDia30 = Array.from({ length: 30 }, () => 0);
+  for (const { fecha } of pedidosMes) {
+    const offset = Math.floor(
+      (startOfDay(fecha).getTime() - inicioVentana.getTime()) / 86_400_000
+    );
+    if (offset >= 0 && offset < 30) conteoPorDia30[offset]++;
+  }
+  const chartDataMes = conteoPorDia30.map((pedidos, i) => ({
+    day: format(addDays(inicioVentana, i), "dd/MM", { locale: es }),
+    pedidos,
+  }));
+
   const ultimosFormateados: PedidoReciente[] = ultimosPedidos.map((pedido) => ({
     id: pedido.id,
     empresa: pedido.empresa.nombre,
@@ -142,6 +162,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     totalEmpresas,
     chartData,
     chartDataDia,
+    chartDataMes,
     ultimosPedidos: ultimosFormateados,
     zonaCalienteCount,
     zonaFriaCount,

@@ -1,11 +1,11 @@
 "use client"
 
 import { useState } from "react"
-import { Snowflake, Flame, Package, LayoutDashboard, Loader2 } from "lucide-react"
+import { Snowflake, Flame, Package, Loader2 } from "lucide-react"
 import type { jsPDF } from "jspdf"
 import type { ConsolidadoDia } from "@/lib/admin/generar-consolidado"
 
-type ZonaExportacion = "fria" | "caliente" | "packing" | "general"
+type ZonaExportacion = "fria" | "caliente" | "packing"
 
 type DocConAutoTable = jsPDF & {
   lastAutoTable: { finalY: number }
@@ -148,42 +148,6 @@ export default function ExportarConsolidados() {
     }
   }
 
-  async function generarPDF_general() {
-    setLoading("general")
-    try {
-      const data = await fetchConsolidado()
-      const { default: JsPDF } = await import("jspdf")
-      const { default: autoTable } = await import("jspdf-autotable")
-      const doc = new JsPDF({ orientation: "portrait", unit: "mm", format: "a4" })
-
-      dibujarHeaderCorporativo(doc, "CONSOLIDADO GENERAL DEL DÍA", data.fecha)
-
-      autoTable(doc, {
-        startY: 35,
-        head: [["Métrica", "Valor"]],
-        body: [
-          ["Total pedidos del día", data.resumenGeneral.totalPedidos],
-          ["Raciones manuales adicionales", data.resumenGeneral.totalRacionesManuales],
-          ["Raciones totales globales", data.resumenGeneral.totalRacionesGlobal],
-          ["Empresa con más pedidos", data.resumenGeneral.empresaTopNombre ?? "N/A"],
-          ["Raciones empresa top", data.resumenGeneral.empresaTopCantidad],
-          ["Items Zona Fría", data.zonaFria.reduce((s, i) => s + i.cantidad, 0)],
-          ["Items Zona Caliente", data.zonaCaliente.reduce((s, i) => s + i.cantidad, 0)],
-        ],
-        headStyles: { fillColor: COLOR_SECUNDARIO },
-        columnStyles: { 0: { fontStyle: "bold" } },
-      })
-
-      dibujarFooter(doc)
-      doc.save(`Reporte_Consolidado_General_${data.fecha.replace(/\//g, "-")}.pdf`)
-    } catch (err) {
-      console.error(err)
-      alert("Error al generar el PDF. Intente nuevamente.")
-    } finally {
-      setLoading(null)
-    }
-  }
-
   return (
     <div className="rounded-xl border border-border bg-card p-5">
       <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-4">
@@ -229,18 +193,6 @@ export default function ExportarConsolidados() {
           <span>Packing</span>
         </button>
 
-        <button
-          onClick={generarPDF_general}
-          disabled={loading !== null}
-          className="flex flex-col items-center gap-2 rounded-lg border border-[#1b2c56] bg-[#1b2c56] p-4 text-sm font-medium text-white transition-colors hover:bg-[#1b2c56]/90 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {loading === "general" ? (
-            <Loader2 className="h-6 w-6 animate-spin" />
-          ) : (
-            <LayoutDashboard className="h-6 w-6" />
-          )}
-          <span>Consolidado General</span>
-        </button>
       </div>
     </div>
   )

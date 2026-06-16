@@ -158,14 +158,28 @@ const HomePageTrabajador: React.FC = () => {
   useEffect(() => { if (user?.id) cargarHistorial(); }, [user?.id, cargarHistorial]);
 
   const fechasBloqueadas = useMemo(() => new Set((historial || []).map((p: any) => String(p?.fecha || '').split('T')[0])), [historial]);
-  
+
+  const fechaBloqueadaPorHorario: string | null =
+    estadoHorario && !estadoHorario.permitido
+      ? estadoHorario.fechaBloqueada ?? null
+      : null;
+
+  const fechasVisualmenteBloqueadas = useMemo(() => {
+    const set = new Set<string>();
+    if (fechaBloqueadaPorHorario) set.add(fechaBloqueadaPorHorario);
+    return set;
+  }, [fechaBloqueadaPorHorario]);
+
   const isSelectedDateToday = diasSemanaArray?.[diaSeleccionadoIdx]?.esHoy ?? false;
-  const isDeadlinePassed = false; 
+  const isDeadlinePassed = false;
   const numDiaSeleccionado = new Date((fechaSeleccionadaISO || '') + 'T12:00:00').getDay();
   const esBloqueadoPermanente = (diasBloqueadosAdmin || []).includes(numDiaSeleccionado);
   const fechaBloqueada = (diasSemanaArray?.[diaSeleccionadoIdx]?.bloqueado ?? false) || esBloqueadoPermanente;
   const fechaSeleccionadaTienePedido = fechasBloqueadas.has(fechaSeleccionadaISO || '');
-  const bloquearUI = (isSelectedDateToday && isDeadlinePassed) || (fechaBloqueada && !fechaSeleccionadaTienePedido);
+  const bloquearUI =
+    (isSelectedDateToday && isDeadlinePassed) ||
+    (fechaBloqueada && !fechaSeleccionadaTienePedido) ||
+    (fechaBloqueadaPorHorario === fechaSeleccionadaISO && !fechaSeleccionadaTienePedido);
 
   // 🔥 DETECTOR DE FIN DE SEMANA
   const esFinDeSemana = numDiaSeleccionado === 0 || numDiaSeleccionado === 6;
@@ -417,24 +431,6 @@ const HomePageTrabajador: React.FC = () => {
 
   if (cargandoHorario) return <LoadingView message="Verificando horario..." />;
 
-  if (estadoHorario && !estadoHorario.permitido) {
-    return (
-      <div className="min-h-screen relative flex flex-col" style={{ backgroundColor: THEME.colors.background }}>
-        <Sidebar isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} rolPropVisible="Trabajador" empresaNombre="Starco" />
-
-        <div className="pt-5 pb-3 flex justify-between items-center px-6" style={{ backgroundColor: THEME.colors.secondary }}>
-          <h1 className="text-[24px] font-black italic text-white m-0 leading-none">GM <span style={{ color: THEME.colors.primary }}>EXPRESS</span></h1>
-          <button onClick={() => setIsMenuOpen(true)} className="p-2 text-white"><Menu size={24} /></button>
-        </div>
-        <div className="h-1 w-full" style={{ backgroundColor: THEME.colors.primary }} />
-
-        <HorarioBloqueado horaLimite={estadoHorario.horaLimite} horaReapertura={estadoHorario.horaReapertura} mensaje={estadoHorario.mensaje} />
-
-        <VerificadorRut />
-      </div>
-    );
-  }
-
   const categoriasPersonalizado = ['ENTRADA', 'FONDO', 'POSTRE', 'JUGO'];
 
   return (
@@ -462,7 +458,7 @@ const HomePageTrabajador: React.FC = () => {
         </div>
       </div>
 
-      <CalendarioSemanal 
+      <CalendarioSemanal
         getSemanaTexto={getSemanaTexto}
         setSemanaOffset={setSemanaOffset}
         diasSemanaArray={diasSemanaArray || []}
@@ -470,9 +466,23 @@ const HomePageTrabajador: React.FC = () => {
         diasBloqueadosAdmin={diasBloqueadosAdmin || []}
         todosBloqueados={todosBloqueados}
         setDiaSeleccionadoIdx={setDiaSeleccionadoIdx}
+        fechasHorarioBloqueado={fechasVisualmenteBloqueadas}
       />
 
       <div className="mt-8 px-6 flex flex-col grow pb-6">
+        {fechaBloqueadaPorHorario === fechaSeleccionadaISO && (
+          <div className="mx-4 mb-4 flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3">
+            <Clock size={16} className="text-amber-500 shrink-0" />
+            <div>
+              <p className="text-xs font-black text-amber-700 uppercase tracking-widest">
+                Pedidos cerrados para hoy
+              </p>
+              <p className="text-xs text-amber-600 mt-0.5">
+                {estadoHorario && !estadoHorario.permitido ? estadoHorario.horaReapertura : ''}
+              </p>
+            </div>
+          </div>
+        )}
         {todosBloqueados ? (
           <div className="bg-white rounded-[2rem] p-8 border border-gray-100 shadow-sm text-center mt-4 flex flex-col items-center justify-center grow mb-4">
             <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4"><CalendarOff size={32} className="text-gray-400" /></div>
