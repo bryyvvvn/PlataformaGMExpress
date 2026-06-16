@@ -153,7 +153,7 @@ export default function ExportarConsolidados() {
       <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-4">
         Exportación Operativa
       </h3>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-3 gap-3">
         <button
           onClick={generarPDF_fria}
           disabled={loading !== null}

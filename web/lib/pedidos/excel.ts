@@ -88,14 +88,19 @@ function unirPlatosPorCategorias(
     .join(" | ")
 }
 
-export async function generarExcelHistorico(
-  pedidos: PedidoHistoricoExcel[]
-): Promise<ArrayBuffer> {
-  const workbook = new ExcelJS.Workbook()
-  workbook.creator = "GM Express"
-  workbook.created = new Date()
+function sanitizarNombreHoja(nombre: string): string {
+  return nombre
+    .replace(/[\[\]:*?/\\]/g, "")
+    .substring(0, 31)
+    .trim()
+}
 
-  const sheet = workbook.addWorksheet("Histórico")
+function agregarHojaHistorico(
+  workbook: ExcelJS.Workbook,
+  nombreHoja: string,
+  pedidos: PedidoHistoricoExcel[]
+): void {
+  const sheet = workbook.addWorksheet(nombreHoja)
 
   sheet.columns = [
     { header: "Fecha",          key: "fecha",         width: 14 },
@@ -161,6 +166,34 @@ export async function generarExcelHistorico(
     })
     row.height = 18
   })
+}
+
+export async function generarExcelHistorico(
+  pedidos: PedidoHistoricoExcel[]
+): Promise<ArrayBuffer> {
+  const workbook = new ExcelJS.Workbook()
+  workbook.creator = "GM Express"
+  workbook.created = new Date()
+
+  agregarHojaHistorico(workbook, "Resumen General", pedidos)
+
+  const pedidosPorEmpresa = new Map<string, PedidoHistoricoExcel[]>()
+  for (const pedido of pedidos) {
+    const nombre = pedido.empresa.nombre
+    if (!pedidosPorEmpresa.has(nombre)) {
+      pedidosPorEmpresa.set(nombre, [])
+    }
+    pedidosPorEmpresa.get(nombre)!.push(pedido)
+  }
+
+  const empresasOrdenadas = Array.from(pedidosPorEmpresa.keys()).sort()
+  for (const empresa of empresasOrdenadas) {
+    agregarHojaHistorico(
+      workbook,
+      sanitizarNombreHoja(empresa),
+      pedidosPorEmpresa.get(empresa)!
+    )
+  }
 
   return workbook.xlsx.writeBuffer() as Promise<ArrayBuffer>
 }
