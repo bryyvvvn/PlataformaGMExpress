@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { esPlatoUnicoPorLegumbre } from "@/lib/menu/es-plato-unico";
 
 export type Guarnicion = {
   id: number;
@@ -141,7 +142,10 @@ export function esEntradaSopa(entrada: PlatoMenuDia) {
 }
 
 export function esFondoPlatoUnico(fondo: PlatoMenuDia | null | undefined) {
-  return fondo?.plato.tipo === "PLATO_UNICO";
+  return (
+    fondo?.plato.tipo === "PLATO_UNICO" ||
+    Boolean(fondo && esPlatoUnicoPorLegumbre(fondo.plato.nombre))
+  );
 }
 
 export function esFondoHipocalorico(fondo: PlatoMenuDia | null | undefined) {
