@@ -1,92 +1,26 @@
 import { useState, useCallback, useEffect } from "react"
+import { CONVENIO_DEFAULTS } from "@/lib/empresas/constantes"
+import type {
+  CampoBooleanoConvenio,
+  ConvenioForm,
+  EmpresaCliente,
+  EmpresasResponse,
+  TipoEmpaquetado,
+} from "@/lib/empresas/tipos"
 
-export type TipoEmpaquetado =
-  | "BOWL_CRAFT"
-  | "C10_ALUMINIO"
-  | "SERVICIO_TRADICIONAL_PLATO"
-
-export type ConvenioEmpresa = {
-  id: number
-  permitePlato: boolean
-  permiteEntrada: boolean
-  permitePostre: boolean
-  permitePan: boolean
-  permiteJugo: boolean
-  permiteBebida: boolean
-  permiteAguaSaborizada: boolean
-  trabajaFinDeSemana: boolean
-  tipoEmpaquetado: TipoEmpaquetado | null
-}
-
-export type EmpresaCliente = {
-  id: number
-  nombre: string
-  razonSocial: string | null
-  rut: string | null
-  nombreComercial: string | null
-  correo_contacto: string | null
-  telefono: string | null
-  direccion: string | null
-  comuna: string | null
-  region: string | null
-  sector: string | null
-  estado: "ACTIVA" | "INACTIVA"
-  trabajadores: number
-  representantes: number
-  pedidos: number
-  convenio: ConvenioEmpresa | null
-}
-
-export type EmpresasResponse = {
-  empresas: EmpresaCliente[]
-}
-
-export type ConvenioForm = Omit<ConvenioEmpresa, "id">
-type CampoBooleanoConvenio = Exclude<keyof ConvenioForm, "tipoEmpaquetado">
-
-export const CONVENIO_DEFAULTS: ConvenioForm = {
-  permitePlato: true,
-  permiteEntrada: true,
-  permitePostre: true,
-  permitePan: true,
-  permiteJugo: true,
-  permiteBebida: false,
-  permiteAguaSaborizada: false,
-  trabajaFinDeSemana: false,
-  tipoEmpaquetado: null,
-}
-
-export const OPCIONES_CONVENIO: Array<{
-  campo: CampoBooleanoConvenio
-  label: string
-  ayuda?: string
-}> = [
-  { campo: "permitePlato", label: "Plato" },
-  { campo: "permiteEntrada", label: "Entrada" },
-  { campo: "permitePostre", label: "Postre" },
-  { campo: "permitePan", label: "Pan" },
-  { campo: "permiteJugo", label: "Jugo" },
-  { campo: "permiteBebida", label: "Bebida" },
-  { campo: "permiteAguaSaborizada", label: "Agua saborizada" },
-  {
-    campo: "trabajaFinDeSemana",
-    label: "¿Trabaja fin de semana?",
-    ayuda:
-      "Si está activado, la empresa podrá operar y visualizar pedidos de lunes a domingo.",
-  },
-]
-
-export const OPCIONES_TIPO_EMPAQUETADO: Array<{
-  value: TipoEmpaquetado
-  label: string
-}> = [
-  { value: "BOWL_CRAFT", label: "Bowl craft" },
-  { value: "C10_ALUMINIO", label: "C10 aluminio" },
-  {
-    value: "SERVICIO_TRADICIONAL_PLATO",
-    label: "Servicio tradicional en plato",
-  },
-]
+export type {
+  CampoBooleanoConvenio,
+  ConvenioEmpresa,
+  ConvenioForm,
+  EmpresaCliente,
+  EmpresasResponse,
+  TipoEmpaquetado,
+} from "@/lib/empresas/tipos"
+export {
+  CONVENIO_DEFAULTS,
+  OPCIONES_CONVENIO,
+  OPCIONES_TIPO_EMPAQUETADO,
+} from "@/lib/empresas/constantes"
 
 export function useEmpresas() {
   const [empresas, setEmpresas] = useState<EmpresaCliente[]>([])
