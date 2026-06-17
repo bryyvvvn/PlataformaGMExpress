@@ -11,6 +11,7 @@ export type ItemConsolidado = {
 export type FilaPacking = {
   empresa: string
   totalRaciones: number
+  tipoEmpaquetado: string | null
   detalles: { plato: string; cantidad: number }[]
 }
 
@@ -31,6 +32,7 @@ export type ConsolidadoDia = {
 type PackingAcumulador = {
   empresa: string
   totalRaciones: number
+  tipoEmpaquetado: string | null
   detalles: Map<string, number>
 }
 
@@ -115,7 +117,13 @@ export async function getConsolidadoDia(fecha?: Date): Promise<ConsolidadoDia> {
             guarnicion: true,
           },
         },
-        empresa: true,
+        empresa: {
+          include: {
+            ConvenioEmpresa: {
+              select: { tipoEmpaquetado: true },
+            },
+          },
+        },
       },
     }),
     db.pedidoManual.findMany({
@@ -138,6 +146,7 @@ export async function getConsolidadoDia(fecha?: Date): Promise<ConsolidadoDia> {
       packingEmpresa = {
         empresa: pedido.empresa.nombre,
         totalRaciones: 0,
+        tipoEmpaquetado: pedido.empresa.ConvenioEmpresa?.tipoEmpaquetado ?? null,
         detalles: new Map<string, number>(),
       }
       packingMap.set(pedido.empresaId, packingEmpresa)
@@ -180,6 +189,7 @@ export async function getConsolidadoDia(fecha?: Date): Promise<ConsolidadoDia> {
       packingEmpresa = {
         empresa: pedidoManual.empresa.nombre,
         totalRaciones: 0,
+        tipoEmpaquetado: null,
         detalles: new Map<string, number>(),
       }
       packingMap.set(pedidoManual.empresaId, packingEmpresa)
@@ -196,6 +206,7 @@ export async function getConsolidadoDia(fecha?: Date): Promise<ConsolidadoDia> {
   const packing: FilaPacking[] = Array.from(packingMap.values()).map((fila) => ({
     empresa: fila.empresa,
     totalRaciones: fila.totalRaciones,
+    tipoEmpaquetado: fila.tipoEmpaquetado,
     detalles: Array.from(fila.detalles.entries()).map(([plato, cantidad]) => ({
       plato,
       cantidad,

@@ -72,7 +72,12 @@ export async function GET(request: Request) {
         estado: true,
         observacion: true,
         empresa: {
-          select: { nombre: true },
+          select: {
+            nombre: true,
+            ConvenioEmpresa: {
+              select: { tipoEmpaquetado: true },
+            },
+          },
         },
         usuario: {
           select: { id: true, nombre: true },
@@ -106,6 +111,7 @@ export async function GET(request: Request) {
     const pedidosNormalizados = pedidos.map((pedido) => ({
       ...pedido,
       observacion: pedido.observacion,
+      tipoEmpaquetado: pedido.empresa.ConvenioEmpresa?.tipoEmpaquetado ?? null,
       usuario: {
         ...pedido.usuario,
         nombre: pedido.usuario.nombre ?? "Usuario sin nombre",
