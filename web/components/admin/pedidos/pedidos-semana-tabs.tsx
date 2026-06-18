@@ -10,7 +10,7 @@ import {
 } from "lucide-react"
 import {
   obtenerDisponibilidadHistorico,
-  obtenerDisponibilidadProduccion,
+  obtenerDisponibilidadPlanillaProduccion,
 } from "@/lib/pedidos/cierre-pedidos"
 import {
   Accordion,
@@ -42,6 +42,7 @@ export function PedidosSemanaTabs({
   semana,
   activeTab,
   ahora,
+  horaLimitePedidos,
   pedidosManuales,
   loadingManuales,
   errorExportacion,
@@ -54,6 +55,7 @@ export function PedidosSemanaTabs({
   semana: SemanaConsolidada
   activeTab: string
   ahora: Date | null
+  horaLimitePedidos: string
   pedidosManuales: PedidoManual[]
   loadingManuales: boolean
   errorExportacion: string | null
@@ -105,10 +107,13 @@ export function PedidosSemanaTabs({
               mensaje: "Verificando conexión...",
             }
         const disponibilidadProduccion = ahora
-          ? obtenerDisponibilidadProduccion(dia.fechaISO, ahora)
+          ? obtenerDisponibilidadPlanillaProduccion(dia.fechaISO, {
+              referencia: ahora,
+              horaCierre: horaLimitePedidos,
+            })
           : {
               permitido: false,
-              motivo: "DESPUES_DEL_CIERRE" as const,
+              motivo: "FECHA_INVALIDA" as const,
               mensaje: "Verificando conexión...",
             }
 
@@ -375,7 +380,7 @@ function PedidosExportacionCard({
 }: {
   activeTab: string
   dia: DiaData
-  disponibilidadProduccion: ReturnType<typeof obtenerDisponibilidadProduccion>
+  disponibilidadProduccion: ReturnType<typeof obtenerDisponibilidadPlanillaProduccion>
   disponibilidadHistorico: ReturnType<typeof obtenerDisponibilidadHistorico>
   descargandoProduccion: boolean
   descargandoHistorico: boolean
@@ -383,6 +388,13 @@ function PedidosExportacionCard({
   onExportarProduccion: (fechaISO: string) => void
   onExportarHistorico: (fechaISO: string) => void
 }) {
+  const produccionPermitida =
+    disponibilidadProduccion.permitido && dia.confirmadas > 0
+  const mensajeProduccion =
+    dia.confirmadas === 0
+      ? "No hay pedidos confirmados para producción."
+      : disponibilidadProduccion.mensaje
+
   return (
     <Card className="rounded-md border border-slate-200 bg-white shadow-sm mt-6">
       <CardContent className="flex flex-col lg:flex-row items-start lg:items-center justify-between p-5 gap-5">
@@ -393,12 +405,12 @@ function PedidosExportacionCard({
           </div>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
-             <div className={`p-3 rounded border text-xs ${disponibilidadProduccion.permitido ? "bg-green-50 border-green-200 text-green-800" : "bg-slate-50 border-slate-200 text-slate-600"}`}>
+             <div className={`p-3 rounded border text-xs ${produccionPermitida ? "bg-green-50 border-green-200 text-green-800" : "bg-slate-50 border-slate-200 text-slate-600"}`}>
                 <p className="font-bold uppercase tracking-wider mb-0.5 flex items-center gap-1">
-                   {disponibilidadProduccion.permitido ? <CheckCircle2 className="size-3" /> : <AlertCircle className="size-3" />} 
+                   {produccionPermitida ? <CheckCircle2 className="size-3" /> : <AlertCircle className="size-3" />}
                    Corte de Producción
                 </p>
-                <p>{disponibilidadProduccion.mensaje}</p>
+                <p>{mensajeProduccion}</p>
              </div>
              <div className={`p-3 rounded border text-xs ${disponibilidadHistorico.permitido ? "bg-green-50 border-green-200 text-green-800" : "bg-slate-50 border-slate-200 text-slate-600"}`}>
                 <p className="font-bold uppercase tracking-wider mb-0.5 flex items-center gap-1">
@@ -419,7 +431,7 @@ function PedidosExportacionCard({
         <div className="flex flex-col gap-3 w-full lg:w-auto border-t lg:border-t-0 lg:border-l border-slate-100 pt-4 lg:pt-0 lg:pl-6 shrink-0">
           <Button
             onClick={() => onExportarProduccion(dia.fechaISO)}
-            disabled={!activeTab || !disponibilidadProduccion.permitido || descargandoProduccion || dia.confirmadas === 0}
+            disabled={!activeTab || !produccionPermitida || descargandoProduccion}
             className="bg-[#75AA46] text-white hover:bg-[#5d8a38] shadow-sm font-semibold h-10 w-full"
           >
             {descargandoProduccion ? (

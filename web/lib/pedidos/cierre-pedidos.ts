@@ -14,6 +14,9 @@ export const ERROR_HISTORICO_FECHA_FUTURA =
 export const MENSAJE_PRODUCCION_DISPONIBLE =
   "Pedidos confirmados listos para adelantar producción."
 
+export const MENSAJE_PLANILLA_PRODUCCION_DISPONIBLE =
+  "Planilla de producción disponible para pedidos confirmados."
+
 export const ERROR_PRODUCCION_DESPUES_CIERRE =
   "Producción actual solo está disponible antes del cierre de pedidos."
 
@@ -47,6 +50,20 @@ type MotivoDisponibilidadProduccion =
 export type DisponibilidadProduccion = {
   permitido: boolean
   motivo: MotivoDisponibilidadProduccion
+  mensaje: string
+}
+
+type MotivoDisponibilidadPlanillaProduccion =
+  | "DISPONIBLE"
+  | "FECHA_INVALIDA"
+  | "FIN_DE_SEMANA"
+  | "FECHA_PASADA"
+  | "FECHA_FUTURA"
+  | "DESPUES_DEL_CIERRE"
+
+export type DisponibilidadPlanillaProduccion = {
+  permitido: boolean
+  motivo: MotivoDisponibilidadPlanillaProduccion
   mensaje: string
 }
 
@@ -95,8 +112,8 @@ function obtenerFechaHoraChile(referencia: Date) {
   }
 }
 
-function obtenerMinutosCierre(): number {
-  const [hour, minute] = HORA_CIERRE_PEDIDOS.split(":").map(Number)
+function obtenerMinutosCierre(horaCierre = HORA_CIERRE_PEDIDOS): number {
+  const [hour, minute] = horaCierre.split(":").map(Number)
   return hour * 60 + minute
 }
 
@@ -166,7 +183,8 @@ export function obtenerDisponibilidadHistorico(
 
 export function obtenerDisponibilidadProduccion(
   fechaISO: string,
-  referencia = new Date()
+  referencia = new Date(),
+  horaCierre = HORA_CIERRE_PEDIDOS
 ): DisponibilidadProduccion {
   if (!esFechaISOValida(fechaISO)) {
     return {
@@ -202,7 +220,7 @@ export function obtenerDisponibilidadProduccion(
     }
   }
 
-  if (ahoraChile.minutosDelDia >= obtenerMinutosCierre()) {
+  if (ahoraChile.minutosDelDia > obtenerMinutosCierre(horaCierre)) {
     return {
       permitido: false,
       motivo: "DESPUES_DEL_CIERRE",
@@ -214,6 +232,66 @@ export function obtenerDisponibilidadProduccion(
     permitido: true,
     motivo: "DISPONIBLE",
     mensaje: MENSAJE_PRODUCCION_DISPONIBLE,
+  }
+}
+
+export function obtenerDisponibilidadPlanillaProduccion(
+  fechaISO: string,
+  {
+    referencia = new Date(),
+    horaCierre = HORA_CIERRE_PEDIDOS,
+  }: {
+    referencia?: Date
+    horaCierre?: string
+  } = {}
+): DisponibilidadPlanillaProduccion {
+  if (!esFechaISOValida(fechaISO)) {
+    return {
+      permitido: false,
+      motivo: "FECHA_INVALIDA",
+      mensaje: "La fecha seleccionada no es válida",
+    }
+  }
+
+  if (!esDiaLaboral(fechaISO)) {
+    return {
+      permitido: false,
+      motivo: "FIN_DE_SEMANA",
+      mensaje: "La planilla de producción solo está disponible para días laborales.",
+    }
+  }
+
+  const ahoraChile = obtenerFechaHoraChile(referencia)
+
+  if (fechaISO < ahoraChile.fechaISO) {
+    return {
+      permitido: false,
+      motivo: "FECHA_PASADA",
+      mensaje: "La planilla de producción solo puede generarse para el día actual.",
+    }
+  }
+
+  if (fechaISO > ahoraChile.fechaISO) {
+    return {
+      permitido: false,
+      motivo: "FECHA_FUTURA",
+      mensaje: "La planilla de producción solo puede generarse para el día actual.",
+    }
+  }
+
+  if (ahoraChile.minutosDelDia > obtenerMinutosCierre(horaCierre)) {
+    return {
+      permitido: false,
+      motivo: "DESPUES_DEL_CIERRE",
+      mensaje:
+        "La planilla de producción ya no está disponible porque pasó la hora límite.",
+    }
+  }
+
+  return {
+    permitido: true,
+    motivo: "DISPONIBLE",
+    mensaje: MENSAJE_PLANILLA_PRODUCCION_DISPONIBLE,
   }
 }
 

@@ -1,6 +1,5 @@
 import { CategoriaPlato, type EstadoPedido } from "@prisma/client"
 import ExcelJS from "exceljs"
-import * as xlsx from "xlsx"
 import { formatFechaISOChile } from "@/lib/pedidos/fechas"
 
 type DetallePedidoExcel = {
@@ -53,13 +52,18 @@ export type ResultadoExcelProduccion = {
   pedidoIdsIncluidos: number[]
 }
 
-type CeldaExcel = string | number
-
 type GrupoProduccion = {
+  empresaId: number
   empresa: string
   fondo: string
   guarnicion: string
   cantidad: number
+}
+
+type ObservacionProduccion = {
+  pedidoId: number
+  empresa: string
+  observacion: string
 }
 
 const CATEGORIAS_BEBESTIBLE: CategoriaPlato[] = [
@@ -198,24 +202,112 @@ export async function generarExcelHistorico(
   return workbook.xlsx.writeBuffer() as Promise<ArrayBuffer>
 }
 
-export function generarExcelProduccion(
+function aplicarEstiloEncabezado(sheet: ExcelJS.Worksheet): void {
+  const headerRow = sheet.getRow(1)
+  headerRow.eachCell((cell) => {
+    cell.fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FF1B2C56" },
+    }
+    cell.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 11 }
+    cell.alignment = { vertical: "middle", horizontal: "center" }
+    cell.border = {
+      top:    { style: "thin", color: { argb: "FF1B2C56" } },
+      bottom: { style: "thin", color: { argb: "FF1B2C56" } },
+      left:   { style: "thin", color: { argb: "FF1B2C56" } },
+      right:  { style: "thin", color: { argb: "FF1B2C56" } },
+    }
+  })
+  headerRow.height = 22
+}
+
+function aplicarEstiloFilaProduccion(
+  row: ExcelJS.Row,
+  index: number
+): void {
+  const bgColor = index % 2 === 0 ? "FFFFFFFF" : "FFF3F4F6"
+
+  row.eachCell({ includeEmpty: true }, (cell) => {
+    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: bgColor } }
+    cell.border = {
+      top:    { style: "thin", color: { argb: "FFE5E7EB" } },
+      bottom: { style: "thin", color: { argb: "FFE5E7EB" } },
+      left:   { style: "thin", color: { argb: "FFE5E7EB" } },
+      right:  { style: "thin", color: { argb: "FFE5E7EB" } },
+    }
+    cell.alignment = { vertical: "middle", wrapText: true }
+    cell.font = { size: 10 }
+  })
+  row.height = 18
+}
+
+function agregarHojaProduccion(
+  workbook: ExcelJS.Workbook,
+  nombreHoja: string,
+  grupos: GrupoProduccion[],
+  incluirEmpresa: boolean
+): void {
+  const sheet = workbook.addWorksheet(nombreHoja)
+
+  sheet.columns = incluirEmpresa
+    ? [
+        { header: "Empresa",    key: "empresa",    width: 26 },
+        { header: "Fondo",      key: "fondo",      width: 32 },
+        { header: "Guarnición", key: "guarnicion", width: 24 },
+        { header: "Cantidad",   key: "cantidad",   width: 14 },
+      ]
+    : [
+        { header: "Fondo",      key: "fondo",      width: 32 },
+        { header: "Guarnición", key: "guarnicion", width: 24 },
+        { header: "Cantidad",   key: "cantidad",   width: 14 },
+      ]
+
+  aplicarEstiloEncabezado(sheet)
+
+  grupos.forEach((grupo, index) => {
+    const row = incluirEmpresa
+      ? sheet.addRow({
+          empresa: grupo.empresa,
+          fondo: grupo.fondo,
+          guarnicion: grupo.guarnicion,
+          cantidad: grupo.cantidad,
+        })
+      : sheet.addRow({
+          fondo: grupo.fondo,
+          guarnicion: grupo.guarnicion,
+          cantidad: grupo.cantidad,
+        })
+
+    aplicarEstiloFilaProduccion(row, index)
+  })
+}
+
+function agregarHojaObservacionesProduccion(
+  workbook: ExcelJS.Workbook,
+  observaciones: ObservacionProduccion[]
+): void {
+  const sheet = workbook.addWorksheet("Observaciones")
+
+  sheet.columns = [
+    { header: "ID Pedido",   key: "pedidoId",    width: 12 },
+    { header: "Empresa",     key: "empresa",     width: 26 },
+    { header: "Observación", key: "observacion", width: 72 },
+  ]
+
+  aplicarEstiloEncabezado(sheet)
+
+  observaciones.forEach((observacion, index) => {
+    const row = sheet.addRow(observacion)
+    aplicarEstiloFilaProduccion(row, index)
+  })
+}
+
+export async function generarExcelProduccion(
   pedidos: PedidoProduccionExcel[]
-): ResultadoExcelProduccion {
+): Promise<ResultadoExcelProduccion> {
   const grupos = new Map<string, GrupoProduccion>()
-  const detalle: CeldaExcel[][] = [
-    [
-      "ID Pedido",
-      "Empresa",
-      "ID Usuario",
-      "Nombre Usuario",
-      "Fondo",
-      "Guarnición",
-      "Cantidad Fondo",
-    ],
-  ]
-  const observaciones: CeldaExcel[][] = [
-    ["ID Pedido", "Empresa", "Observación"],
-  ]
+  const observaciones: ObservacionProduccion[] = []
   const pedidoIdsIncluidos: number[] = []
 
   for (const pedido of pedidos) {
@@ -224,28 +316,24 @@ export function generarExcelProduccion(
       .sort((a, b) => a.id - b.id)
 
     if (fondos.length === 0) {
-      console.warn(
-        `[exportar-produccion] Pedido ${pedido.id} sin detalle FONDO; omitido`
-      )
-      observaciones.push([
-        pedido.id,
-        pedido.empresa.nombre,
-        "Pedido omitido: no contiene detalle de categoría FONDO.",
-      ])
+      observaciones.push({
+        pedidoId: pedido.id,
+        empresa: pedido.empresa.nombre,
+        observacion:
+          "Pedido omitido: no contiene detalle de categoría FONDO.",
+      })
       continue
     }
 
     const fondo = fondos[0]
 
     if (fondos.length > 1) {
-      console.warn(
-        `[exportar-produccion] Pedido ${pedido.id} tiene múltiples fondos; se utilizará el primero`
-      )
-      observaciones.push([
-        pedido.id,
-        pedido.empresa.nombre,
-        `Contiene múltiples fondos. Se utilizó el detalle ${fondo.id}.`,
-      ])
+      observaciones.push({
+        pedidoId: pedido.id,
+        empresa: pedido.empresa.nombre,
+        observacion:
+          `Contiene múltiples fondos. Se utilizó el detalle ${fondo.id}.`,
+      })
     }
 
     const guarnicion = fondo.guarnicion?.nombre ?? ""
@@ -260,6 +348,7 @@ export function generarExcelProduccion(
       grupo.cantidad += fondo.cantidad
     } else {
       grupos.set(key, {
+        empresaId: pedido.empresa.id,
         empresa: pedido.empresa.nombre,
         fondo: fondo.plato.nombre,
         guarnicion,
@@ -268,20 +357,8 @@ export function generarExcelProduccion(
     }
 
     pedidoIdsIncluidos.push(pedido.id)
-    detalle.push([
-      pedido.id,
-      pedido.empresa.nombre,
-      pedido.usuario.id,
-      pedido.usuario.nombre,
-      fondo.plato.nombre,
-      guarnicion,
-      fondo.cantidad,
-    ])
   }
 
-  const produccion: CeldaExcel[][] = [
-    ["Empresa", "Fondo", "Guarnición", "Cantidad"],
-  ]
   const gruposOrdenados = Array.from(grupos.values()).sort((a, b) => {
     return (
       a.empresa.localeCompare(b.empresa, "es") ||
@@ -290,44 +367,42 @@ export function generarExcelProduccion(
     )
   })
 
+  const workbook = new ExcelJS.Workbook()
+  workbook.creator = "GM Express"
+  workbook.created = new Date()
+
+  agregarHojaProduccion(workbook, "Resumen General", gruposOrdenados, true)
+
+  const gruposPorEmpresa = new Map<string, GrupoProduccion[]>()
   for (const grupo of gruposOrdenados) {
-    produccion.push([
-      grupo.empresa,
-      grupo.fondo,
-      grupo.guarnicion,
-      grupo.cantidad,
-    ])
+    const empresaKey = `${grupo.empresaId}:${grupo.empresa}`
+    if (!gruposPorEmpresa.has(empresaKey)) {
+      gruposPorEmpresa.set(empresaKey, [])
+    }
+    gruposPorEmpresa.get(empresaKey)!.push(grupo)
   }
 
-  const hojaProduccion = xlsx.utils.aoa_to_sheet<CeldaExcel>(produccion)
-  hojaProduccion["!cols"] = [24, 32, 24, 12].map((wch) => ({ wch }))
-
-  const hojaDetalle = xlsx.utils.aoa_to_sheet<CeldaExcel>(detalle)
-  hojaDetalle["!cols"] = [12, 24, 28, 24, 32, 24, 16].map((wch) => ({ wch }))
-
-  const libro = xlsx.utils.book_new()
-  xlsx.utils.book_append_sheet(libro, hojaProduccion, "Producción")
-  xlsx.utils.book_append_sheet(libro, hojaDetalle, "Detalle")
-
-  if (observaciones.length > 1) {
-    const hojaObservaciones =
-      xlsx.utils.aoa_to_sheet<CeldaExcel>(observaciones)
-    hojaObservaciones["!cols"] = [12, 24, 72].map((wch) => ({ wch }))
-    xlsx.utils.book_append_sheet(libro, hojaObservaciones, "Observaciones")
+  const empresasOrdenadas = Array.from(gruposPorEmpresa.entries()).sort(
+    ([, gruposA], [, gruposB]) =>
+      gruposA[0].empresa.localeCompare(gruposB[0].empresa, "es")
+  )
+  for (const [, gruposEmpresa] of empresasOrdenadas) {
+    agregarHojaProduccion(
+      workbook,
+      sanitizarNombreHoja(gruposEmpresa[0].empresa),
+      gruposEmpresa,
+      false
+    )
   }
 
-  const archivo: unknown = xlsx.write(libro, {
-    bookType: "xlsx",
-    type: "array",
-    compression: true,
-  })
-
-  if (!(archivo instanceof ArrayBuffer)) {
-    throw new Error("No se pudo generar el archivo Excel de producción")
+  if (observaciones.length > 0) {
+    agregarHojaObservacionesProduccion(workbook, observaciones)
   }
+
+  const archivo = await workbook.xlsx.writeBuffer()
 
   return {
-    archivo,
+    archivo: archivo as unknown as ArrayBuffer,
     pedidoIdsIncluidos,
   }
 }

@@ -16,9 +16,13 @@ import { PedidosSemanaTabs } from "@/components/admin/pedidos/pedidos-semana-tab
 
 type GestionPedidosClientProps = {
   semana: SemanaConsolidada
+  horaLimitePedidos: string
 }
 
-export function GestionPedidosClient({ semana }: GestionPedidosClientProps) {
+export function GestionPedidosClient({
+  semana,
+  horaLimitePedidos,
+}: GestionPedidosClientProps) {
   const {
     activeTab,
     ahora,
@@ -74,6 +78,7 @@ export function GestionPedidosClient({ semana }: GestionPedidosClientProps) {
         semana={semana}
         activeTab={activeTab}
         ahora={ahora}
+        horaLimitePedidos={horaLimitePedidos}
         pedidosManuales={pedidosManuales}
         loadingManuales={loadingManuales}
         errorExportacion={errorExportacion}

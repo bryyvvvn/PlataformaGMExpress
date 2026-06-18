@@ -3,9 +3,10 @@ import { NextResponse } from "next/server"
 import db from "@/lib/db"
 import { chileStartOfDay } from "@/lib/chile-time"
 import {
+  HORA_CIERRE_PEDIDOS,
   esDiaLaboral,
   esFechaISOValida,
-  obtenerDisponibilidadProduccion,
+  obtenerDisponibilidadPlanillaProduccion,
 } from "@/lib/pedidos/cierre-pedidos"
 import { generarExcelProduccion } from "@/lib/pedidos/excel"
 
@@ -63,16 +64,22 @@ export async function POST(request: Request) {
     )
   }
 
-  const disponibilidad = obtenerDisponibilidadProduccion(fecha)
-
-  if (!disponibilidad.permitido) {
-    return NextResponse.json(
-      { error: disponibilidad.mensaje },
-      { status: 409 }
-    )
-  }
-
   try {
+    const configuracion = await db.configuracionSistema.findUnique({
+      where: { id: 1 },
+      select: { horaLimite: true },
+    })
+    const disponibilidad = obtenerDisponibilidadPlanillaProduccion(fecha, {
+      horaCierre: configuracion?.horaLimite ?? HORA_CIERRE_PEDIDOS,
+    })
+
+    if (!disponibilidad.permitido) {
+      return NextResponse.json(
+        { error: disponibilidad.mensaje },
+        { status: 409 }
+      )
+    }
+
     const pedidos = await db.pedido.findMany({
       where: {
         estado: EstadoPedido.CONFIRMADO,
@@ -136,7 +143,7 @@ export async function POST(request: Request) {
     }))
 
     const { archivo, pedidoIdsIncluidos } =
-      generarExcelProduccion(pedidosNormalizados)
+      await generarExcelProduccion(pedidosNormalizados)
 
     if (pedidoIdsIncluidos.length === 0) {
       return NextResponse.json(
