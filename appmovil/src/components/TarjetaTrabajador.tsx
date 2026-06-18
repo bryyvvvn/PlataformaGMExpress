@@ -35,19 +35,22 @@ export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({ trabajador
 
   const pedidoSeleccionado = pedidos.find(p => p.id === pedidoActivoId);
 
-  // 🔥 LÓGICA DE ESTADO GLOBAL DEL TRABAJADOR
+  // 🔥 LÓGICA DE ESTADO GLOBAL DEL TRABAJADOR ACTUALIZADA
   const cantidadPedidos = pedidos.length;
   const cantidadConfirmados = pedidos.filter(p => p.estado === 'CONFIRMADO').length;
-  const estaTotalmenteConfirmado = cantidadPedidos > 0 && cantidadConfirmados === cantidadPedidos;
+  const cantidadPendientes = cantidadPedidos - cantidadConfirmados;
+
+  const estaTotalmenteConfirmado = cantidadPedidos > 0 && cantidadPendientes === 0;
+  const tieneParciales = cantidadConfirmados > 0 && cantidadPendientes > 0;
 
   return (
-    <div className={`bg-white rounded-3xl border shadow-sm overflow-hidden transition-all mb-4 ${estaTotalmenteConfirmado ? 'border-green-100' : 'border-gray-100'}`}>
+    <div className={`bg-white rounded-3xl border shadow-sm overflow-hidden transition-all mb-4 ${estaTotalmenteConfirmado ? 'border-green-100' : tieneParciales ? 'border-amber-100' : 'border-gray-100'}`}>
       <button 
         onClick={() => setIsExpanded(!isExpanded)}
-        className={`w-full flex items-center justify-between p-5 active:bg-gray-50/70 transition-colors ${estaTotalmenteConfirmado ? 'bg-green-50/20' : 'bg-white'}`}
+        className={`w-full flex items-center justify-between p-5 active:bg-gray-50/70 transition-colors ${estaTotalmenteConfirmado ? 'bg-green-50/20' : tieneParciales ? 'bg-amber-50/30' : 'bg-white'}`}
       >
         <div className="flex items-center gap-4">
-          <div className={`w-12 h-12 rounded-full border flex items-center justify-center font-black text-lg shadow-inner ${estaTotalmenteConfirmado ? 'bg-green-50 border-green-100 text-[#70a344]' : 'bg-gray-50 border-gray-100 text-[#1d2d50]'}`}>
+          <div className={`w-12 h-12 rounded-full border flex items-center justify-center font-black text-lg shadow-inner ${estaTotalmenteConfirmado ? 'bg-green-50 border-green-100 text-[#70a344]' : tieneParciales ? 'bg-amber-50 border-amber-100 text-amber-500' : 'bg-gray-50 border-gray-100 text-[#1d2d50]'}`}>
             {nombreTrabajador.charAt(0).toUpperCase()}
           </div>
           
@@ -68,15 +71,15 @@ export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({ trabajador
                  {cantidadPedidos} {cantidadPedidos === 1 ? 'DÍA CONFIRMADO' : 'DÍAS CONFIRMADOS'}
                </span>
             ) : (
-               <span className="text-[10px] font-black uppercase tracking-widest flex items-center gap-1 mt-1 text-gray-500">
-                 <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
-                 {cantidadPedidos} {cantidadPedidos === 1 ? 'DÍA PENDIENTE' : 'DÍAS PENDIENTES'}
+               <span className={`text-[10px] font-black uppercase tracking-widest flex items-center gap-1 mt-1 ${tieneParciales ? 'text-amber-500' : 'text-gray-500'}`}>
+                 <span className={`w-1.5 h-1.5 rounded-full ${tieneParciales ? 'bg-amber-400' : 'bg-gray-400'}`}></span>
+                 {cantidadPendientes} {cantidadPendientes === 1 ? 'DÍA PENDIENTE' : 'DÍAS PENDIENTES'}
                </span>
             )}
           </div>
         </div>
         
-        {isExpanded ? <ChevronUp size={20} className={estaTotalmenteConfirmado ? 'text-[#70a344]' : 'text-gray-400'} /> : <ChevronDown size={20} className={estaTotalmenteConfirmado ? 'text-[#70a344]' : 'text-gray-400'} />}
+        {isExpanded ? <ChevronUp size={20} className={estaTotalmenteConfirmado ? 'text-[#70a344]' : tieneParciales ? 'text-amber-500' : 'text-gray-400'} /> : <ChevronDown size={20} className={estaTotalmenteConfirmado ? 'text-[#70a344]' : tieneParciales ? 'text-amber-500' : 'text-gray-400'} />}
       </button>
 
       {isExpanded && (
@@ -157,7 +160,7 @@ export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({ trabajador
               </div>
               <span className="text-xs font-black text-[#1d2d50] uppercase tracking-widest mb-1">Sin Solicitudes</span>
               <span className="text-[11px] text-gray-400 leading-tight px-4">
-                El trabajador no ha registrado ningún menú para esta semana.
+                El trabajador no ha registrado ningún menú para los días de esta semana.
               </span>
             </div>
           )}
