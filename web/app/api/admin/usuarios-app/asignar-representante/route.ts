@@ -1,75 +1,12 @@
 import { EstadoEmpresa, Rol } from "@prisma/client"
-import { auth } from "@clerk/nextjs/server"
 import { NextRequest, NextResponse } from "next/server"
 
 import db from "@/lib/db"
+import { validarAdministrador } from "@/lib/usuarios/admin"
+import { obtenerNombreVisible } from "@/lib/usuarios/formatos"
+import { validarAsignarRepresentantePayload } from "@/lib/usuarios/validaciones"
 
 export const dynamic = "force-dynamic"
-
-function obtenerNombreVisible(usuario: {
-  nombre: string | null
-  apellido: string | null
-  nombreUsuario: string | null
-  correo: string | null
-}) {
-  const nombreCompleto = [usuario.nombre, usuario.apellido]
-    .filter(Boolean)
-    .join(" ")
-    .trim()
-
-  return (
-    nombreCompleto ||
-    usuario.nombreUsuario?.trim() ||
-    usuario.correo?.trim() ||
-    "Usuario sin nombre"
-  )
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
-
-function validarPayload(body: unknown) {
-  if (!isRecord(body)) {
-    return { error: "Body JSON invalido" }
-  }
-
-  if (typeof body.usuarioId !== "string" || body.usuarioId.trim().length === 0) {
-    return { error: "usuarioId es obligatorio" }
-  }
-
-  const empresaId = Number(body.empresaId)
-
-  if (!Number.isInteger(empresaId) || empresaId <= 0) {
-    return { error: "empresaId es obligatorio" }
-  }
-
-  return {
-    data: {
-      usuarioId: body.usuarioId.trim(),
-      empresaId,
-    },
-  }
-}
-
-async function validarAdministrador() {
-  const { userId } = await auth()
-
-  if (!userId) {
-    return { error: "No autorizado", status: 401 as const }
-  }
-
-  const administrador = await db.usuario.findUnique({
-    where: { id: userId },
-    select: { rol: true },
-  })
-
-  if (administrador?.rol !== Rol.ADMIN) {
-    return { error: "Acceso denegado", status: 403 as const }
-  }
-
-  return { userId }
-}
 
 export async function POST(req: NextRequest) {
   try {
@@ -90,7 +27,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Body JSON invalido" }, { status: 400 })
     }
 
-    const payload = validarPayload(body)
+    const payload = validarAsignarRepresentantePayload(body)
 
     if ("error" in payload) {
       return NextResponse.json({ error: payload.error }, { status: 400 })

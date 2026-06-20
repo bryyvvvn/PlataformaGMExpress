@@ -2,29 +2,13 @@
 
 import { useCallback, useEffect, useState } from "react"
 
-export type PerfilUsuarioApp = "TRABAJADOR" | "REPRESENTANTE"
-export type EstadoVinculacionUsuario = "ASOCIADO" | "SIN_EMPRESA"
-
-export type UsuarioApp = {
-  id: string
-  nombre: string
-  nombreUsuario: string | null
-  rut: string | null
-  correo: string | null
-  empresa: {
-    id: number
-    nombre: string
-  } | null
-  perfil: PerfilUsuarioApp
-  estado: EstadoVinculacionUsuario
-}
-
-export type ResumenUsuariosApp = {
-  total: number
-  trabajadores: number
-  representantes: number
-  sinEmpresa: number
-}
+import type { ResumenUsuariosApp, UsuarioApp } from "@/lib/usuarios/tipos"
+export type {
+  EstadoVinculacionUsuario,
+  PerfilUsuarioApp,
+  ResumenUsuariosApp,
+  UsuarioApp,
+} from "@/lib/usuarios/tipos"
 
 type UsuariosAppResponse = {
   usuarios: UsuarioApp[]

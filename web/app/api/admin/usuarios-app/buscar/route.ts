@@ -1,80 +1,12 @@
 import { Rol } from "@prisma/client"
-import { auth } from "@clerk/nextjs/server"
 import { NextRequest, NextResponse } from "next/server"
 
 import db from "@/lib/db"
+import { validarAdministrador } from "@/lib/usuarios/admin"
+import { obtenerNombreVisible } from "@/lib/usuarios/formatos"
+import { obtenerTerminosRut } from "@/lib/usuarios/validaciones"
 
 export const dynamic = "force-dynamic"
-
-function obtenerNombreVisible(usuario: {
-  nombre: string | null
-  apellido: string | null
-  nombreUsuario: string | null
-  correo: string | null
-}) {
-  const nombreCompleto = [usuario.nombre, usuario.apellido]
-    .filter(Boolean)
-    .join(" ")
-    .trim()
-
-  return (
-    nombreCompleto ||
-    usuario.nombreUsuario?.trim() ||
-    usuario.correo?.trim() ||
-    "Usuario sin nombre"
-  )
-}
-
-function normalizarRutBusqueda(value: string) {
-  return value.replace(/[.\-\s]/g, "")
-}
-
-function formatearRutConPuntos(value: string) {
-  if (value.length < 2) return null
-
-  const cuerpo = value.slice(0, -1)
-  const digito = value.slice(-1)
-  const cuerpoConPuntos = cuerpo.replace(/\B(?=(\d{3})+(?!\d))/g, ".")
-
-  return `${cuerpoConPuntos}-${digito}`
-}
-
-function obtenerTerminosRut(query: string) {
-  const terminos = new Set<string>([query])
-  const rutLimpio = normalizarRutBusqueda(query)
-
-  if (rutLimpio.length >= 2) {
-    terminos.add(rutLimpio)
-
-    const rutConPuntos = formatearRutConPuntos(rutLimpio)
-    if (rutConPuntos) terminos.add(rutConPuntos)
-
-    if (rutLimpio.length > 1) {
-      terminos.add(`${rutLimpio.slice(0, -1)}-${rutLimpio.slice(-1)}`)
-    }
-  }
-
-  return Array.from(terminos).filter((termino) => termino.trim().length >= 2)
-}
-
-async function validarAdministrador() {
-  const { userId } = await auth()
-
-  if (!userId) {
-    return { error: "No autorizado", status: 401 as const }
-  }
-
-  const administrador = await db.usuario.findUnique({
-    where: { id: userId },
-    select: { rol: true },
-  })
-
-  if (administrador?.rol !== Rol.ADMIN) {
-    return { error: "Acceso denegado", status: 403 as const }
-  }
-
-  return { userId }
-}
 
 export async function GET(req: NextRequest) {
   try {
