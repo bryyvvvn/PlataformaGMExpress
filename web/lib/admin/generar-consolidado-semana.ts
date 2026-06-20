@@ -29,7 +29,7 @@ type PackingAcumuladorSemana = {
   empresa: string
   totalRaciones: number
   tipoEmpaquetado: string | null
-  detalles: Map<string, number>
+  detalles: Map<string, { cantidad: number; categoria: string }>
 }
 
 function toChileISODate(fecha: Date): string {
@@ -87,7 +87,7 @@ function fusionarPacking(filas: FilaPacking[]): FilaPacking[] {
         empresa: fila.empresa,
         totalRaciones: 0,
         tipoEmpaquetado: fila.tipoEmpaquetado,
-        detalles: new Map<string, number>(),
+        detalles: new Map<string, { cantidad: number; categoria: string }>(),
       }
       mapa.set(fila.empresa, acumulador)
     }
@@ -95,10 +95,15 @@ function fusionarPacking(filas: FilaPacking[]): FilaPacking[] {
     acumulador.totalRaciones += fila.totalRaciones
 
     for (const detalle of fila.detalles) {
-      acumulador.detalles.set(
-        detalle.plato,
-        (acumulador.detalles.get(detalle.plato) ?? 0) + detalle.cantidad
-      )
+      const actual = acumulador.detalles.get(detalle.plato)
+      if (actual) {
+        actual.cantidad += detalle.cantidad
+      } else {
+        acumulador.detalles.set(detalle.plato, {
+          cantidad: detalle.cantidad,
+          categoria: detalle.categoria,
+        })
+      }
     }
   }
 
@@ -106,10 +111,9 @@ function fusionarPacking(filas: FilaPacking[]): FilaPacking[] {
     empresa: acumulador.empresa,
     totalRaciones: acumulador.totalRaciones,
     tipoEmpaquetado: acumulador.tipoEmpaquetado,
-    detalles: Array.from(acumulador.detalles.entries()).map(([plato, cantidad]) => ({
-      plato,
-      cantidad,
-    })),
+    detalles: Array.from(acumulador.detalles.entries()).map(
+      ([plato, { cantidad, categoria }]) => ({ plato, cantidad, categoria })
+    ),
   }))
 }
 

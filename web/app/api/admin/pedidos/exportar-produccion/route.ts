@@ -171,6 +171,14 @@ export async function POST(request: Request) {
       }
     })
 
+    await db.exportacionProduccion.create({
+      data: {
+        fecha,
+        pedidosIncluidos: pedidoIdsIncluidos.length,
+        creadoPor: null,
+      },
+    })
+
     return new Response(archivo, {
       headers: {
         "Content-Type":

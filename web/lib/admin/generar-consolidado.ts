@@ -12,7 +12,7 @@ export type FilaPacking = {
   empresa: string
   totalRaciones: number
   tipoEmpaquetado: string | null
-  detalles: { plato: string; cantidad: number }[]
+  detalles: { plato: string; cantidad: number; categoria: string }[]
 }
 
 export type ConsolidadoDia = {
@@ -33,7 +33,7 @@ type PackingAcumulador = {
   empresa: string
   totalRaciones: number
   tipoEmpaquetado: string | null
-  detalles: Map<string, number>
+  detalles: Map<string, { cantidad: number; categoria: string }>
 }
 
 function toChileISODate(fecha: Date): string {
@@ -147,7 +147,7 @@ export async function getConsolidadoDia(fecha?: Date): Promise<ConsolidadoDia> {
         empresa: pedido.empresa.nombre,
         totalRaciones: 0,
         tipoEmpaquetado: pedido.empresa.ConvenioEmpresa?.tipoEmpaquetado ?? null,
-        detalles: new Map<string, number>(),
+        detalles: new Map<string, { cantidad: number; categoria: string }>(),
       }
       packingMap.set(pedido.empresaId, packingEmpresa)
     }
@@ -175,10 +175,12 @@ export async function getConsolidadoDia(fecha?: Date): Promise<ConsolidadoDia> {
       }
 
       packingEmpresa.totalRaciones += cantidad
-      packingEmpresa.detalles.set(
-        plato.nombre,
-        (packingEmpresa.detalles.get(plato.nombre) ?? 0) + cantidad
-      )
+      const actual = packingEmpresa.detalles.get(plato.nombre)
+      if (actual) {
+        actual.cantidad += cantidad
+      } else {
+        packingEmpresa.detalles.set(plato.nombre, { cantidad, categoria: plato.categoria })
+      }
     }
   }
 
@@ -190,7 +192,7 @@ export async function getConsolidadoDia(fecha?: Date): Promise<ConsolidadoDia> {
         empresa: pedidoManual.empresa.nombre,
         totalRaciones: 0,
         tipoEmpaquetado: null,
-        detalles: new Map<string, number>(),
+        detalles: new Map<string, { cantidad: number; categoria: string }>(),
       }
       packingMap.set(pedidoManual.empresaId, packingEmpresa)
     }
@@ -207,10 +209,9 @@ export async function getConsolidadoDia(fecha?: Date): Promise<ConsolidadoDia> {
     empresa: fila.empresa,
     totalRaciones: fila.totalRaciones,
     tipoEmpaquetado: fila.tipoEmpaquetado,
-    detalles: Array.from(fila.detalles.entries()).map(([plato, cantidad]) => ({
-      plato,
-      cantidad,
-    })),
+    detalles: Array.from(fila.detalles.entries()).map(
+      ([plato, { cantidad, categoria }]) => ({ plato, cantidad, categoria })
+    ),
   }))
 
   const totalRacionesPedidos = pedidos.reduce(

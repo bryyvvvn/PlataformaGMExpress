@@ -37,6 +37,7 @@ import {
 import type { DiaData, SemanaConsolidada } from "@/lib/pedidos/consolidado"
 import { formatearFechaCreacionPedidoManual } from "@/lib/pedidos/formatos"
 import type { PedidoManual } from "@/lib/pedidos/tipos"
+import { HistorialExportaciones } from "@/components/admin/pedidos/historial-exportaciones"
 
 export function PedidosSemanaTabs({
   semana,
@@ -66,6 +67,7 @@ export function PedidosSemanaTabs({
   onExportarHistorico: (fechaISO: string) => void
 }) {
   return (
+    <>
     <Tabs
       value={activeTab}
       onValueChange={(value) => {
@@ -148,6 +150,8 @@ export function PedidosSemanaTabs({
         )
       })}
     </Tabs>
+    <HistorialExportaciones />
+    </>
   )
 }
 
