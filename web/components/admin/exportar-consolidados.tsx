@@ -63,11 +63,15 @@ export default function ExportarConsolidados() {
 
       dibujarHeaderCorporativo(doc, "ZONA FRÍA — Entradas y Postres", data.fecha)
 
+      const zonaFriaOrdenada = [...data.zonaFria].sort((a, b) =>
+        a.nombre.localeCompare(b.nombre, "es")
+      )
+
       autoTable(doc, {
         startY: 35,
         head: [["Plato / Item", "Variante", "Cantidad"]],
-        body: data.zonaFria.map((i) => [i.nombre, i.variante ?? "NORMAL", i.cantidad]),
-        foot: [["TOTAL", "", data.zonaFria.reduce((s, i) => s + i.cantidad, 0)]],
+        body: zonaFriaOrdenada.map((i) => [i.nombre, i.variante ?? "NORMAL", i.cantidad]),
+        foot: [["TOTAL", "", zonaFriaOrdenada.reduce((s, i) => s + i.cantidad, 0)]],
         headStyles: { fillColor: COLOR_SECUNDARIO },
         footStyles: { fillColor: COLOR_PRIMARIO, textColor: 255, fontStyle: "bold" },
       })
@@ -92,11 +96,15 @@ export default function ExportarConsolidados() {
 
       dibujarHeaderCorporativo(doc, "ZONA CALIENTE — Fondos y Guarniciones", data.fecha)
 
+      const zonaCalienteOrdenada = [...data.zonaCaliente].sort((a, b) =>
+        a.nombre.localeCompare(b.nombre, "es")
+      )
+
       autoTable(doc, {
         startY: 35,
         head: [["Plato / Item", "Variante", "Cantidad"]],
-        body: data.zonaCaliente.map((i) => [i.nombre, i.variante ?? "NORMAL", i.cantidad]),
-        foot: [["TOTAL", "", data.zonaCaliente.reduce((s, i) => s + i.cantidad, 0)]],
+        body: zonaCalienteOrdenada.map((i) => [i.nombre, i.variante ?? "NORMAL", i.cantidad]),
+        foot: [["TOTAL", "", zonaCalienteOrdenada.reduce((s, i) => s + i.cantidad, 0)]],
         headStyles: { fillColor: COLOR_SECUNDARIO },
         footStyles: { fillColor: COLOR_PRIMARIO, textColor: 255, fontStyle: "bold" },
       })
@@ -156,28 +164,77 @@ export default function ExportarConsolidados() {
 
       currentY += 12
 
+      const ORDEN_CATEGORIA: Record<string, number> = {
+        FONDO: 0,
+        ENTRADA: 1,
+        JUGO: 2,
+        BEBIDA: 2,
+        AGUA_SABORIZADA: 2,
+        POSTRE: 3,
+        SANDWICH: 4,
+        SNACK: 5,
+      }
+
+      const NOMBRE_GRUPO: Record<number, string> = {
+        0: "Fondos",
+        1: "Entradas",
+        2: "Bebestibles",
+        3: "Postres",
+        4: "Sándwiches",
+        5: "Snacks",
+      }
+
       for (const empresa of data.packing) {
-        doc.setFontSize(11)
-        doc.setFont("helvetica", "bold")
-        doc.setTextColor(...COLOR_SECUNDARIO)
-        doc.text(`${empresa.empresa} — ${empresa.totalRaciones} raciones`, 14, currentY)
-
-        autoTable(doc, {
-          startY: currentY + 4,
-          head: [["Plato", "Cantidad"]],
-          body: empresa.detalles.map((d) => [d.plato, d.cantidad]),
-          foot: [["TOTAL RACIONES (incl. manuales)", empresa.totalRaciones]],
-          headStyles: { fillColor: COLOR_SECUNDARIO },
-          footStyles: { fillColor: COLOR_PRIMARIO, textColor: 255, fontStyle: "bold" },
-          margin: { left: 14, right: 14 },
-        })
-
-        currentY = (doc as DocConAutoTable).lastAutoTable.finalY + 10
-
         if (currentY > 260) {
           doc.addPage()
           currentY = 20
         }
+
+        doc.setFontSize(11)
+        doc.setFont("helvetica", "bold")
+        doc.setTextColor(...COLOR_SECUNDARIO)
+        doc.text(`${empresa.empresa} — ${empresa.totalRaciones} raciones`, 14, currentY)
+        currentY += 6
+
+        const detallesOrdenados = [...empresa.detalles].sort((a, b) => {
+          const ordenA = ORDEN_CATEGORIA[a.categoria] ?? 99
+          const ordenB = ORDEN_CATEGORIA[b.categoria] ?? 99
+          if (ordenA !== ordenB) return ordenA - ordenB
+          return a.plato.localeCompare(b.plato, "es")
+        })
+
+        const grupos = new Map<number, typeof detallesOrdenados>()
+        for (const d of detallesOrdenados) {
+          const orden = ORDEN_CATEGORIA[d.categoria] ?? 99
+          const grupo = grupos.get(orden) ?? []
+          grupo.push(d)
+          grupos.set(orden, grupo)
+        }
+
+        for (const [orden, items] of grupos) {
+          if (currentY > 260) {
+            doc.addPage()
+            currentY = 20
+          }
+
+          const subtitulo = NOMBRE_GRUPO[orden] ?? "Otros"
+          doc.setFontSize(9)
+          doc.setFont("helvetica", "normal")
+          doc.setTextColor(117, 170, 70)
+          doc.text(subtitulo, 14, currentY)
+
+          autoTable(doc, {
+            startY: currentY + 3,
+            head: [["Plato", "Cantidad"]],
+            body: items.map((d) => [d.plato, d.cantidad]),
+            headStyles: { fillColor: COLOR_SECUNDARIO },
+            margin: { left: 14, right: 14 },
+          })
+
+          currentY = (doc as DocConAutoTable).lastAutoTable.finalY + 6
+        }
+
+        currentY += 4
       }
 
       dibujarFooter(doc)

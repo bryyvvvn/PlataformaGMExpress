@@ -25,8 +25,6 @@ type ErrorResponse = {
 }
 
 const HORA_REGEX = /^([01]\d|2[0-3]):[0-5]\d$/
-const HORA_MINIMA = "06:00"
-const HORA_MAXIMA = "20:00"
 
 export function HoraLimiteGlobal() {
   const [horaLimite, setHoraLimite] = useState("10:00")
@@ -80,14 +78,6 @@ export function HoraLimiteGlobal() {
 
     if (!HORA_REGEX.test(horaLimite)) {
       setMensaje({ tipo: "error", texto: "La hora debe tener formato HH:MM valido" })
-      return
-    }
-
-    if (horaLimite < HORA_MINIMA || horaLimite > HORA_MAXIMA) {
-      setMensaje({
-        tipo: "error",
-        texto: `La hora debe estar entre las ${HORA_MINIMA} y las ${HORA_MAXIMA}`,
-      })
       return
     }
 
@@ -151,8 +141,6 @@ export function HoraLimiteGlobal() {
           <TimePickerBlock
             value={horaLimite}
             onChange={setHoraLimite}
-            min={HORA_MINIMA}
-            max={HORA_MAXIMA}
             disabled={loading || guardando}
           />
         </div>
