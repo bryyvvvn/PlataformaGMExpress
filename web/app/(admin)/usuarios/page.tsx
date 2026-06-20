@@ -5,13 +5,7 @@ import { Plus, Search, Users, Building2, UserCheck, UserX, Briefcase, CheckCircl
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import {
   Table,
@@ -26,6 +20,7 @@ import {
   type PerfilUsuarioApp,
   useUsuariosApp,
 } from "@/hooks/useUsuariosApp"
+import { AsignarRepresentanteModal } from "@/components/admin/usuarios/asignar-representante-modal"
 
 function etiquetaPerfil(perfil: PerfilUsuarioApp) {
   return perfil === "REPRESENTANTE" ? "Representante" : "Trabajador"
@@ -38,13 +33,21 @@ function etiquetaEstado(estado: EstadoVinculacionUsuario) {
 export default function UsuariosAppPage() {
   const { usuarios, resumen, loading, error, cargarUsuarios } = useUsuariosApp()
   const [searchTerm, setSearchTerm] = useState("")
+  const [vistaActiva, setVistaActiva] = useState<PerfilUsuarioApp>("TRABAJADOR")
+  const [modalAbierto, setModalAbierto] = useState(false)
+  const [mensajeExito, setMensajeExito] = useState<string | null>(null)
+
+  const usuariosPorVista = useMemo(
+    () => usuarios.filter((usuario) => usuario.perfil === vistaActiva),
+    [usuarios, vistaActiva]
+  )
 
   const usuariosFiltrados = useMemo(() => {
     const criterio = searchTerm.trim().toLocaleLowerCase("es")
 
-    if (!criterio) return usuarios
+    if (!criterio) return usuariosPorVista
 
-    return usuarios.filter((usuario) =>
+    return usuariosPorVista.filter((usuario) =>
       [
         usuario.nombre,
         usuario.nombreUsuario,
@@ -53,7 +56,20 @@ export default function UsuariosAppPage() {
         usuario.empresa?.nombre,
       ].some((valor) => valor?.toLocaleLowerCase("es").includes(criterio))
     )
-  }, [searchTerm, usuarios])
+  }, [searchTerm, usuariosPorVista])
+
+  const cambiarVista = (vista: PerfilUsuarioApp) => {
+    setVistaActiva(vista)
+    setSearchTerm("")
+    setMensajeExito(null)
+  }
+
+  const confirmarAsignacion = async () => {
+    setVistaActiva("REPRESENTANTE")
+    setSearchTerm("")
+    setMensajeExito("Representante asignado correctamente.")
+    await cargarUsuarios()
+  }
 
   return (
     <div className="mx-auto max-w-[1600px] space-y-6 p-6 bg-slate-50 min-h-screen">
@@ -129,7 +145,7 @@ export default function UsuariosAppPage() {
       {/* Tabla de Directorio */}
       <Card className="overflow-hidden rounded-md border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-200 bg-white px-5 py-4">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div className="flex items-center gap-3">
               <div className="flex size-8 items-center justify-center rounded bg-slate-100 text-slate-500">
                  <Search className="h-4 w-4" />
@@ -141,20 +157,67 @@ export default function UsuariosAppPage() {
                 </p>
               </div>
             </div>
-            <div className="relative w-full sm:w-[350px]">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <Input
-                type="search"
-                placeholder="Escribe para buscar..."
-                value={searchTerm}
-                onChange={(event) => setSearchTerm(event.target.value)}
-                className="pl-9 h-10 bg-slate-50 border-slate-200 focus:bg-white text-sm"
-              />
+            <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center xl:w-auto">
+              <div className="inline-flex rounded-md border border-slate-200 bg-slate-100 p-1">
+                <button
+                  type="button"
+                  onClick={() => cambiarVista("TRABAJADOR")}
+                  className={
+                    vistaActiva === "TRABAJADOR"
+                      ? "rounded bg-[#1B2C56] px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-white shadow-sm"
+                      : "rounded px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-slate-500 transition hover:text-[#1B2C56]"
+                  }
+                >
+                  Trabajadores ({resumen.trabajadores})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => cambiarVista("REPRESENTANTE")}
+                  className={
+                    vistaActiva === "REPRESENTANTE"
+                      ? "rounded bg-[#75aa46] px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-white shadow-sm"
+                      : "rounded px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-slate-500 transition hover:text-[#1B2C56]"
+                  }
+                >
+                  Representantes ({resumen.representantes})
+                </button>
+              </div>
+
+              {vistaActiva === "REPRESENTANTE" && (
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setMensajeExito(null)
+                    setModalAbierto(true)
+                  }}
+                  className="h-10 bg-[#75aa46] px-3 text-white hover:bg-[#5d8a38]"
+                >
+                  <Plus className="size-4" />
+                  Asignar representante
+                </Button>
+              )}
+
+              <div className="relative w-full sm:w-[300px]">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Input
+                  type="search"
+                  placeholder="Escribe para buscar..."
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  className="pl-9 h-10 bg-slate-50 border-slate-200 focus:bg-white text-sm"
+                />
+              </div>
             </div>
           </div>
         </div>
         
         <CardContent className="p-0">
+          {mensajeExito && (
+            <div className="border-b border-[#75aa46]/20 bg-[#75aa46]/10 px-5 py-3 text-sm font-semibold text-[#5d8a38]">
+              {mensajeExito}
+            </div>
+          )}
+
           {loading ? (
             <div className="px-5 py-8 text-center text-sm font-medium text-slate-500 animate-pulse">
               Cargando directorio de usuarios...
@@ -170,9 +233,13 @@ export default function UsuariosAppPage() {
             <div className="px-5 py-8 text-center text-sm font-medium text-slate-500 bg-slate-50/50">
               El registro de usuarios está vacío.
             </div>
+          ) : usuariosPorVista.length === 0 ? (
+            <div className="px-5 py-8 text-center text-sm font-medium text-slate-500 bg-slate-50/50">
+              No hay {vistaActiva === "TRABAJADOR" ? "trabajadores" : "representantes"} registrados.
+            </div>
           ) : usuariosFiltrados.length === 0 ? (
             <div className="px-5 py-8 text-center text-sm font-medium text-slate-500 bg-slate-50/50">
-              No se encontraron coincidencias para "{searchTerm}".
+              No se encontraron coincidencias para {searchTerm}.
             </div>
           ) : (
             <div className="w-full overflow-x-auto">
@@ -249,6 +316,12 @@ export default function UsuariosAppPage() {
           )}
         </CardContent>
       </Card>
+
+      <AsignarRepresentanteModal
+        abierto={modalAbierto}
+        onCerrar={() => setModalAbierto(false)}
+        onAsignado={confirmarAsignacion}
+      />
     </div>
   )
 }
