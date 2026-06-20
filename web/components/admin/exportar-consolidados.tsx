@@ -14,6 +14,15 @@ type DocConAutoTable = jsPDF & {
 const COLOR_SECUNDARIO: [number, number, number] = [27, 44, 86] // #1b2c56
 const COLOR_PRIMARIO: [number, number, number] = [117, 170, 70] // #75aa46
 
+function formatearEmpaquetado(tipo: string | null | undefined): string {
+  switch (tipo) {
+    case "BOWL_CRAFT": return "Bowl Craft"
+    case "C10_ALUMINIO": return "C10 Aluminio"
+    case "SERVICIO_TRADICIONAL_PLATO": return "Servicio Tradicional"
+    default: return "Sin definir"
+  }
+}
+
 function dibujarHeaderCorporativo(doc: jsPDF, titulo: string, fecha: string): void {
   doc.setFillColor(...COLOR_SECUNDARIO)
   doc.rect(0, 0, 210, 28, "F")
@@ -112,7 +121,40 @@ export default function ExportarConsolidados() {
 
       dibujarHeaderCorporativo(doc, "PACKING — Consolidado por Empresa", data.fecha)
 
-      let currentY = 35
+      const resumenEmpaquetado = new Map<string, number>()
+      for (const empresa of data.packing) {
+        const tipo = formatearEmpaquetado(empresa.tipoEmpaquetado)
+        resumenEmpaquetado.set(tipo, (resumenEmpaquetado.get(tipo) ?? 0) + empresa.totalRaciones)
+      }
+
+      doc.setFontSize(10)
+      doc.setFont("helvetica", "bold")
+      doc.setTextColor(...COLOR_SECUNDARIO)
+      doc.text("RESUMEN POR TIPO DE EMPAQUETADO", 14, 35)
+
+      autoTable(doc, {
+        startY: 39,
+        head: [["Tipo de Empaquetado", "Raciones"]],
+        body: Array.from(resumenEmpaquetado.entries()).map(([tipo, raciones]) => [tipo, raciones]),
+        foot: [["TOTAL", data.packing.reduce((s, e) => s + e.totalRaciones, 0)]],
+        headStyles: { fillColor: COLOR_SECUNDARIO },
+        footStyles: { fillColor: COLOR_PRIMARIO, textColor: 255, fontStyle: "bold" },
+        margin: { left: 14, right: 14 },
+        tableWidth: 100,
+      })
+
+      let currentY = (doc as DocConAutoTable).lastAutoTable.finalY + 15
+
+      doc.setDrawColor(...COLOR_SECUNDARIO)
+      doc.setLineWidth(0.5)
+      doc.line(14, currentY - 8, 196, currentY - 8)
+
+      doc.setFontSize(10)
+      doc.setFont("helvetica", "bold")
+      doc.setTextColor(...COLOR_SECUNDARIO)
+      doc.text("DETALLE POR EMPRESA", 14, currentY + 2)
+
+      currentY += 12
 
       for (const empresa of data.packing) {
         doc.setFontSize(11)

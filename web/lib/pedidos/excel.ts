@@ -19,6 +19,7 @@ export type PedidoHistoricoExcel = {
   fecha: Date
   estado: EstadoPedido
   observacion?: string | null
+  tipoEmpaquetado?: string | null
   empresa: {
     nombre: string
   }
@@ -92,6 +93,15 @@ function unirPlatosPorCategorias(
     .join(" | ")
 }
 
+function formatearTipoEmpaquetado(tipo: string | null | undefined): string {
+  switch (tipo) {
+    case 'BOWL_CRAFT': return 'Bowl Craft'
+    case 'C10_ALUMINIO': return 'C10 Aluminio'
+    case 'SERVICIO_TRADICIONAL_PLATO': return 'Servicio Tradicional'
+    default: return 'Sin definir'
+  }
+}
+
 function sanitizarNombreHoja(nombre: string): string {
   return nombre
     .replace(/[\[\]:*?/\\]/g, "")
@@ -116,6 +126,7 @@ function agregarHojaHistorico(
     { header: "Guarnición",     key: "guarnicion",    width: 24 },
     { header: "Postres",        key: "postres",       width: 28 },
     { header: "Bebestibles",    key: "bebestibles",   width: 28 },
+    { header: "Tipo Empaquetado", key: "empaquetado", width: 22 },
     { header: "Observaciones",  key: "observaciones", width: 40 },
   ]
 
@@ -153,6 +164,7 @@ function agregarHojaHistorico(
       guarnicion:    fondo?.guarnicion?.nombre ?? "",
       postres:       unirPlatos(detalles, CategoriaPlato.POSTRE),
       bebestibles:   unirPlatosPorCategorias(detalles, CATEGORIAS_BEBESTIBLE),
+      empaquetado:   formatearTipoEmpaquetado(pedido.tipoEmpaquetado),
       observaciones: pedido.observacion ?? "",
     })
 

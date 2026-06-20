@@ -28,6 +28,7 @@ export type ConsolidadoSemana = {
 type PackingAcumuladorSemana = {
   empresa: string
   totalRaciones: number
+  tipoEmpaquetado: string | null
   detalles: Map<string, number>
 }
 
@@ -85,6 +86,7 @@ function fusionarPacking(filas: FilaPacking[]): FilaPacking[] {
       acumulador = {
         empresa: fila.empresa,
         totalRaciones: 0,
+        tipoEmpaquetado: fila.tipoEmpaquetado,
         detalles: new Map<string, number>(),
       }
       mapa.set(fila.empresa, acumulador)
@@ -103,6 +105,7 @@ function fusionarPacking(filas: FilaPacking[]): FilaPacking[] {
   return Array.from(mapa.values()).map((acumulador) => ({
     empresa: acumulador.empresa,
     totalRaciones: acumulador.totalRaciones,
+    tipoEmpaquetado: acumulador.tipoEmpaquetado,
     detalles: Array.from(acumulador.detalles.entries()).map(([plato, cantidad]) => ({
       plato,
       cantidad,
