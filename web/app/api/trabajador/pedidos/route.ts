@@ -19,7 +19,6 @@ type PedidoRequestBody = {
   items?: DetallePedidoInput[];
   esFinDeSemana?: boolean;
   tipoFinde?: string;
-  // 🔥 NUEVOS CAMPOS DE CENA
   esCena?: boolean;
   tipoCena?: string;
   observacion?: string | null;
@@ -106,10 +105,10 @@ export async function GET(request: Request) {
 
     let tipoFinde = null;
     const nombreFondo = resumen.find(r => r.categoria === 'FONDO')?.nombre;
-    if (nombreFondo === 'Menú del Día (Fin de Semana)') tipoFinde = 'MENU_DIA';
-    if (nombreFondo === 'Hipocalórico (Fin de Semana)') tipoFinde = 'HIPOCALORICO';
-    if (nombreFondo === 'Vegetariano (Fin de Semana)') tipoFinde = 'VEGETARIANO';
-    if (nombreFondo === 'Colación (Fin de Semana)') tipoFinde = 'COLACION';
+    if (nombreFondo === 'Menú del Día') tipoFinde = 'MENU_DIA';
+    if (nombreFondo === 'Hipocalórico') tipoFinde = 'HIPOCALORICO';
+    if (nombreFondo === 'Vegetariano') tipoFinde = 'VEGETARIANO';
+    if (nombreFondo === 'Colación') tipoFinde = 'COLACION';
 
     return NextResponse.json({
       existe: true,
@@ -206,10 +205,10 @@ export async function POST(request: Request) {
       let nombreComodin = '';
       const tipo = isCenaFlow ? tipoCena : tipoFinde; // Usamos el tipo que corresponda
       
-      if (tipo === 'MENU_DIA') nombreComodin = 'Menú del Día (Fin de Semana)';
-      if (tipo === 'HIPOCALORICO') nombreComodin = 'Hipocalórico (Fin de Semana)';
-      if (tipo === 'VEGETARIANO') nombreComodin = 'Vegetariano (Fin de Semana)';
-      if (tipo === 'COLACION') nombreComodin = 'Colación (Fin de Semana)';
+      if (tipo === 'MENU_DIA') nombreComodin = 'Menú del Día';
+      if (tipo === 'HIPOCALORICO') nombreComodin = 'Hipocalórico';
+      if (tipo === 'VEGETARIANO') nombreComodin = 'Vegetariano';
+      if (tipo === 'COLACION') nombreComodin = 'Colación';
 
       const platoComodin = await db.plato.findUnique({ where: { nombre: nombreComodin } });
       if (!platoComodin) return NextResponse.json({ error: `Falta crear plato comodín: ${nombreComodin}` }, { status: 400 });
