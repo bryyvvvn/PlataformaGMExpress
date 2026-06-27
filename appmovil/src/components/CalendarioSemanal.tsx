@@ -12,6 +12,7 @@ interface CalendarioSemanalProps {
   todosBloqueados: boolean;
   setDiaSeleccionadoIdx: (idx: number) => void;
   fechasHorarioBloqueado?: Set<string>;
+  estadoFechas?: Record<string, { almuerzo: boolean; cena: boolean }>;
 }
 
 export const CalendarioSemanal: React.FC<CalendarioSemanalProps> = ({
@@ -23,6 +24,7 @@ export const CalendarioSemanal: React.FC<CalendarioSemanalProps> = ({
   todosBloqueados,
   setDiaSeleccionadoIdx,
   fechasHorarioBloqueado,
+  estadoFechas = {},
 }) => {
   return (
     <div className="mt-10 px-6 shrink-0">
@@ -38,21 +40,15 @@ export const CalendarioSemanal: React.FC<CalendarioSemanalProps> = ({
         </button>
       </div>
 
-      {/* Estilo para ocultar la barra de scroll nativa pero mantener la funcionalidad */}
       <style>{`
         .hide-scrollbar::-webkit-scrollbar {
           display: none;
         }
       `}</style>
 
-      {/* Contenedor con Scroll Horizontal Suave */}
       <div 
         className="flex items-center overflow-x-auto snap-x snap-mandatory hide-scrollbar pb-4 pt-2 -mx-2 px-2"
-        style={{ 
-          scrollbarWidth: 'none', 
-          msOverflowStyle: 'none', 
-          gap: 'calc(15% / 4)' // Mantiene el espaciado perfecto original de los 5 días
-        }} 
+        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', gap: 'calc(15% / 4)' }} 
       >
         {diasSemanaArray.map((dia, index) => {
           const tienePedido = fechasBloqueadas.has(dia.iso);
@@ -63,24 +59,60 @@ export const CalendarioSemanal: React.FC<CalendarioSemanalProps> = ({
           const isSelectedAndValid = dia.esSeleccionado && !todosBloqueados;
           const noSeleccionable = (visualmenteBloqueado && !tienePedido) || esBloqueadoPorHorario;
 
+          // 🔥 LÓGICA DE ESTADOS DE COMIDA
+          const estadoComida = estadoFechas[dia.iso] || { almuerzo: false, cena: false };
+          const soloAlmuerzo = estadoComida.almuerzo && !estadoComida.cena;
+          const soloCena = estadoComida.cena && !estadoComida.almuerzo;
+          const ambasComidas = estadoComida.almuerzo && estadoComida.cena;
+
+          // 🔥 VARIABLES DE DISEÑO DINÁMICO
+          let bgClass = 'bg-white border-gray-200';
+          let textClass = 'text-[#1d2d50]';
+          let subTextClass = 'text-gray-400';
+
+          if (ambasComidas) {
+            // 🔥 CORTE EXACTO DIAGONAL: 50% Verde (Almuerzo) y 50% Azul Oscuro (Cena)
+            bgClass = 'bg-[linear-gradient(135deg,#70a344_50%,#1d2d50_50%)] border-transparent shadow-md';
+            textClass = 'text-white';
+            subTextClass = 'text-white/90';
+          } else if (soloCena) {
+            // 🌙 SOLO CENA: Azul Oscuro Sólido
+            bgClass = 'bg-[#1d2d50] border-transparent shadow-md';
+            textClass = 'text-white';
+            subTextClass = 'text-white/80';
+          } else if (soloAlmuerzo) {
+            // ☀️ SOLO ALMUERZO: Verde Sólido
+            bgClass = 'bg-[#70a344] border-transparent shadow-md';
+            textClass = 'text-white';
+            subTextClass = 'text-white/90';
+          } else if (visualmenteBloqueado || esBloqueadoPorHorario) {
+            bgClass = 'bg-gray-100 border-gray-200';
+            textClass = 'text-gray-300';
+            subTextClass = 'text-gray-400';
+          }
+
+          // Efecto de selección flotante (Outline externo)
+          const selectionEffect = isSelectedAndValid 
+            ? 'scale-110 shadow-md ring-2 ring-[#70a344] ring-offset-2' 
+            : 'border shadow-sm';
+
           return (
             <button
               key={index}
               onClick={() => { if (!noSeleccionable) setDiaSeleccionadoIdx(index); }}
               className={['flex flex-col items-center justify-center shrink-0 w-[17%] aspect-square rounded-[20px] transition-all snap-center',
-                isSelectedAndValid ? 'border-2 scale-110 shadow-md' : 'border shadow-sm',
-                tienePedido ? 'bg-green-50 border-green-200' : (visualmenteBloqueado || esBloqueadoPorHorario ? 'bg-gray-100 border-gray-200 text-gray-300' : 'bg-white border-gray-200'),
+                selectionEffect,
+                bgClass,
                 noSeleccionable ? 'cursor-not-allowed' : 'cursor-pointer'
               ].join(' ')}
-              style={isSelectedAndValid ? { borderColor: THEME.colors.primary } : {}}
             >
-              <span className={`text-[10px] font-black mb-1 uppercase ${tienePedido ? 'text-[#70a344]' : 'text-gray-400'}`}>
+              <span className={`text-[10px] font-black mb-1 uppercase ${subTextClass}`}>
                 {dia.letra}
               </span>
               {esBloqueadoPorHorario ? (
                 <Lock size={16} className="text-gray-400" />
               ) : (
-                <span className="text-lg font-black" style={{ color: tienePedido || isSelectedAndValid ? THEME.colors.primary : (visualmenteBloqueado ? '#a0a0a0' : '#1d2d50') }}>
+                <span className={`text-lg font-black ${textClass}`}>
                   {dia.numero}
                 </span>
               )}

@@ -11,12 +11,15 @@ export interface PedidoPayload {
   guarnicionId?: number | null;
   esFinDeSemana?: boolean;
   tipoFinde?: string | null;
+  esCena?: boolean; // 🔥 Agregado
+  tipoCena?: string | null; // 🔥 Agregado
   observacion?: string | null;
 }
 
 // ─── HOOK ─────────────────────────────────────────────────────────────────────
 
-export const usePedidos = (usuarioId: string | undefined, fecha?: string) => {
+// 🔥 NUEVO: Ahora el hook recibe 'esCena' como tercer parámetro (por defecto false)
+export const usePedidos = (usuarioId: string | undefined, fecha?: string, esCena: boolean = false) => {
   const [yaPedioHoy,            setYaPedioHoy]            = useState(false);
   const [cargandoVerificacion,  setCargandoVerificacion]  = useState(true);
   const [enviando,              setEnviando]              = useState(false);
@@ -34,7 +37,8 @@ export const usePedidos = (usuarioId: string | undefined, fecha?: string) => {
     setYaPedioHoy(false);
     
     try {
-      const url = `${API_BASE_URL}/api/trabajador/pedidos?usuarioId=${usuarioId}${fecha ? `&fecha=${fecha}` : ''}`;
+      // 🔥 Le pasamos el parámetro &esCena=true o false a la URL de búsqueda
+      const url = `${API_BASE_URL}/api/trabajador/pedidos?usuarioId=${usuarioId}${fecha ? `&fecha=${fecha}` : ''}&esCena=${esCena}`;
       const res  = await fetch(url);
       const data = await res.json();
       setYaPedioHoy(data.existe);
@@ -44,7 +48,7 @@ export const usePedidos = (usuarioId: string | undefined, fecha?: string) => {
     } finally {
       setCargandoVerificacion(false);
     }
-  }, [usuarioId, fecha]);
+  }, [usuarioId, fecha, esCena]); // 🔥 Agregamos esCena a las dependencias
 
   useEffect(() => {
     refrescarVerificacion();
@@ -65,6 +69,8 @@ export const usePedidos = (usuarioId: string | undefined, fecha?: string) => {
         fecha: fecha ?? undefined,
         esFinDeSemana: pedido.esFinDeSemana ?? false,
         tipoFinde: pedido.tipoFinde ?? null,
+        esCena: pedido.esCena ?? false, 
+        tipoCena: pedido.tipoCena ?? null, 
         observacion: pedido.observacion?.trim() || null,
       };
       
@@ -79,7 +85,8 @@ export const usePedidos = (usuarioId: string | undefined, fecha?: string) => {
       if (respuesta.ok) {
         setYaPedioHoy(true);
         try {
-          const check = await fetch(`${API_BASE_URL}/api/trabajador/pedidos?usuarioId=${usuarioId}${fecha ? `&fecha=${fecha}` : ''}`);
+          // 🔥 Actualizamos la URL aquí también
+          const check = await fetch(`${API_BASE_URL}/api/trabajador/pedidos?usuarioId=${usuarioId}${fecha ? `&fecha=${fecha}` : ''}&esCena=${esCena}`);
           const data = await check.json();
           setPedidoExistente(data.pedido ?? null);
         } catch (e) {
@@ -118,7 +125,8 @@ export const usePedidos = (usuarioId: string | undefined, fecha?: string) => {
 
     setEliminando(true);
     try {
-      const url = `${API_BASE_URL}/api/trabajador/pedidos?usuarioId=${usuarioId}${fechaParam ? `&fecha=${fechaParam}` : (fecha ? `&fecha=${fecha}` : '')}`;
+      // 🔥 Le pasamos el parámetro &esCena a la URL de eliminación
+      const url = `${API_BASE_URL}/api/trabajador/pedidos?usuarioId=${usuarioId}${fechaParam ? `&fecha=${fechaParam}` : (fecha ? `&fecha=${fecha}` : '')}&esCena=${esCena}`;
       const res = await fetch(url, { method: 'DELETE' });
       if (res.ok) {
         setPedidoExistente(null);
@@ -135,7 +143,6 @@ export const usePedidos = (usuarioId: string | undefined, fecha?: string) => {
     }
   };
 
-  // 🔥 NUEVO: Recibimos observacion como parámetro y la enviamos en el payload
   const enviarItems = async (items: Array<{ platoId: number; guarnicionId?: number | null; cantidad?: number }>, observacion?: string | null): Promise<boolean> => {
     if (!usuarioId) return false;
 
@@ -145,7 +152,8 @@ export const usePedidos = (usuarioId: string | undefined, fecha?: string) => {
         usuarioId,
         items,
         fecha: fecha ?? undefined,
-        observacion: observacion?.trim() || null, // 🔥 Ahora se inyecta correctamente
+        observacion: observacion?.trim() || null,
+        esCena: esCena, // 🔥 Lo inyectamos por seguridad
       };
 
       const respuesta = await fetch(`${API_BASE_URL}/api/trabajador/pedidos`, {
@@ -157,7 +165,8 @@ export const usePedidos = (usuarioId: string | undefined, fecha?: string) => {
       if (respuesta.ok) {
         setYaPedioHoy(true);
         try {
-          const check = await fetch(`${API_BASE_URL}/api/trabajador/pedidos?usuarioId=${usuarioId}${fecha ? `&fecha=${fecha}` : ''}`);
+          // 🔥 Actualizamos la URL aquí también
+          const check = await fetch(`${API_BASE_URL}/api/trabajador/pedidos?usuarioId=${usuarioId}${fecha ? `&fecha=${fecha}` : ''}&esCena=${esCena}`);
           const data = await check.json();
           setPedidoExistente(data.pedido ?? null);
         } catch (e) { /* ignore */ }
