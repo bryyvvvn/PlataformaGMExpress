@@ -24,7 +24,7 @@ export const usePedidos = (usuarioId: string | undefined, fecha?: string, token?
   const [pedidoExistente,       setPedidoExistente]       = useState<any | null>(null);
 
   const refrescarVerificacion = useCallback(async () => {
-    if (!usuarioId) {
+    if (!usuarioId || token === undefined) {
       setCargandoVerificacion(false);
       return;
     }

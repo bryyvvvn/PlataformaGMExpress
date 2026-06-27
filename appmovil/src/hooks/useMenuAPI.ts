@@ -57,6 +57,11 @@ export const useMenuAPI = (fecha?: string, usuarioId?: string, token?: string | 
   useEffect(() => {
     let cancelado = false; // evita set de estado si el componente se desmontó
 
+    if (!usuarioId || token === undefined) {
+      setCargando(false);
+      return;
+    }
+
     const cargarMenu = async () => {
       setCargando(true);
       try {

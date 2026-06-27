@@ -88,7 +88,7 @@ const HomePageTrabajador: React.FC = () => {
   useEffect(() => { setAutoSelected(false); }, [location.pathname]);
 
   const { obtenerToken } = useClerkToken();
-  const [clerkToken, setClerkToken] = useState<string | null>(null);
+  const [clerkToken, setClerkToken] = useState<string | null | undefined>(undefined);
 
   useEffect(() => {
     if (!user?.id) return;
