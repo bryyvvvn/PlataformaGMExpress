@@ -13,6 +13,7 @@ const CONVENIO_DEFAULTS = {
   permiteBebida: false,
   permiteAguaSaborizada: false,
   trabajaFinDeSemana: false,
+  permiteCena: false,
   tipoEmpaquetado: null,
 }
 
@@ -25,6 +26,7 @@ const CAMPOS_CONVENIO = [
   "permiteBebida",
   "permiteAguaSaborizada",
   "trabajaFinDeSemana",
+  "permiteCena",
 ] as const
 
 const TIPOS_EMPAQUETADO = [
@@ -179,6 +181,7 @@ function validarConvenio(value: unknown): ValidationResult<ConvenioData> {
 
   for (const campo of CAMPOS_CONVENIO) {
     if (!(campo in value)) {
+      if (campo === "permiteCena") continue
       return { error: `Falta el campo de convenio ${campo}` }
     }
 
@@ -195,7 +198,7 @@ function validarConvenio(value: unknown): ValidationResult<ConvenioData> {
       ...CAMPOS_CONVENIO.reduce(
         (acc, campo) => ({
           ...acc,
-          [campo]: value[campo],
+          [campo]: campo in value ? value[campo] : CONVENIO_DEFAULTS[campo],
         }),
         {} as Record<CampoConvenio, boolean>
       ),
@@ -576,6 +579,7 @@ export async function GET() {
               permiteBebida: true,
               permiteAguaSaborizada: true,
               trabajaFinDeSemana: true,
+              permiteCena: true,
               tipoEmpaquetado: true,
             },
           },
@@ -705,6 +709,7 @@ export async function POST(req: NextRequest) {
               permiteBebida: true,
               permiteAguaSaborizada: true,
               trabajaFinDeSemana: true,
+              permiteCena: true,
               tipoEmpaquetado: true,
             },
           },

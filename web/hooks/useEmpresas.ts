@@ -71,6 +71,7 @@ export function useEmpresas() {
             permiteBebida: empresa.convenio.permiteBebida,
             permiteAguaSaborizada: empresa.convenio.permiteAguaSaborizada,
             trabajaFinDeSemana: Boolean(empresa.convenio.trabajaFinDeSemana),
+            permiteCena: Boolean(empresa.convenio.permiteCena),
             tipoEmpaquetado: empresa.convenio.tipoEmpaquetado,
           }
         : CONVENIO_DEFAULTS

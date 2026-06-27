@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { ChevronDown, ChevronUp, Utensils, CheckCircle2, CalendarPlus } from 'lucide-react';
 
 interface Pedido {
@@ -15,6 +15,7 @@ interface TarjetaTrabajadorProps {
     nombre: string;
     pedidos?: Pedido[];
   };
+  permiteCena?: boolean;
 }
 
 const getNombreDia = (fechaStr: string) => {
@@ -23,13 +24,17 @@ const getNombreDia = (fechaStr: string) => {
   return dias[d.getDay()];
 };
 
-export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({ trabajador }) => {
+export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({ trabajador, permiteCena = false }) => {
   const nombreTrabajador = trabajador?.nombre?.trim() || 'Usuario sin nombre';
   const [isExpanded, setIsExpanded] = useState(false);
   const [modoComida, setModoComida] = useState<'ALMUERZO' | 'CENA'>('ALMUERZO');
   
   const pedidosTotales = Array.isArray(trabajador?.pedidos) ? trabajador.pedidos : [];
-  const pedidosFiltrados = pedidosTotales.filter(p => modoComida === 'CENA' ? p.esCena : !p.esCena);
+  const pedidosVisibles = useMemo(
+    () => (permiteCena ? pedidosTotales : pedidosTotales.filter(p => !p.esCena)),
+    [permiteCena, pedidosTotales]
+  );
+  const pedidosFiltrados = pedidosVisibles.filter(p => modoComida === 'CENA' ? p.esCena : !p.esCena);
   
   const [pedidoActivoId, setPedidoActivoId] = useState<number | null>(null);
   const [diaManualActivo, setDiaManualActivo] = useState<string | null>(null);
@@ -37,8 +42,8 @@ export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({ trabajador
 
   const getDiasSemana = () => {
     let refDate = new Date();
-    if (pedidosTotales.length > 0 && pedidosTotales[0].fecha) {
-      refDate = new Date(pedidosTotales[0].fecha.split('T')[0] + 'T12:00:00');
+    if (pedidosVisibles.length > 0 && pedidosVisibles[0].fecha) {
+      refDate = new Date(pedidosVisibles[0].fecha.split('T')[0] + 'T12:00:00');
     }
     const day = refDate.getDay() || 7;
     const lunes = new Date(refDate);
@@ -62,11 +67,17 @@ export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({ trabajador
       setPedidoActivoId(null);
       setDiaManualActivo(diasSemana[0]);
     }
-  }, [modoComida, pedidosTotales]);
+  }, [modoComida, pedidosVisibles]);
+
+  useEffect(() => {
+    if (!permiteCena && modoComida === 'CENA') {
+      setModoComida('ALMUERZO');
+    }
+  }, [permiteCena, modoComida]);
 
   const pedidoSeleccionado = pedidosFiltrados.find(p => p.id === pedidoActivoId);
-  const cantidadPedidos = pedidosTotales.length;
-  const cantidadConfirmados = pedidosTotales.filter(p => p.estado === 'CONFIRMADO').length;
+  const cantidadPedidos = pedidosVisibles.length;
+  const cantidadConfirmados = pedidosVisibles.filter(p => p.estado === 'CONFIRMADO').length;
   const cantidadPendientes = cantidadPedidos - cantidadConfirmados;
   const estaTotalmenteConfirmado = cantidadPedidos > 0 && cantidadPendientes === 0;
   const tieneParciales = cantidadConfirmados > 0 && cantidadPendientes > 0;
@@ -145,6 +156,7 @@ export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({ trabajador
       {isExpanded && (
         <div className="px-5 pb-6 pt-2 border-t border-slate-100 bg-white">
           
+          {permiteCena && (
           <div className="mb-5 bg-slate-100/80 p-1.5 rounded-[14px] flex items-center shadow-inner mt-3">
             <button
               onClick={() => setModoComida('ALMUERZO')}
@@ -159,6 +171,7 @@ export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({ trabajador
               🌙 Cena
             </button>
           </div>
+          )}
           
           {/* TIMELINE DE DÍAS */}
           <div className="flex gap-2 pb-4 overflow-x-auto [&::-webkit-scrollbar]:hidden">

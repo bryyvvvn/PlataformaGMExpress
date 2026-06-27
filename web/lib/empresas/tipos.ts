@@ -16,6 +16,7 @@ export type ConvenioForm = {
   permiteBebida: boolean
   permiteAguaSaborizada: boolean
   trabajaFinDeSemana: boolean
+  permiteCena: boolean
   tipoEmpaquetado: TipoEmpaquetado | null
 }
 
@@ -30,7 +31,7 @@ export type CampoBooleanoConvenio = Exclude<
 
 export type CampoProductoConvenio = Exclude<
   keyof ConvenioEmpresa,
-  "id" | "tipoEmpaquetado" | "trabajaFinDeSemana"
+  "id" | "tipoEmpaquetado" | "trabajaFinDeSemana" | "permiteCena"
 >
 
 export type EmpresaFormularioBase = {

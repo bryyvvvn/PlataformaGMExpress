@@ -1,17 +1,20 @@
 import { NextResponse } from 'next/server';
 import db from '../../../../lib/db';
 
-async function obtenerTrabajaFinDeSemana(empresaId: number) {
+async function obtenerConvenioEmpresa(empresaId: number) {
   const empresa = await db.empresa.findUnique({
     where: { id: empresaId },
     select: {
       ConvenioEmpresa: {
-        select: { trabajaFinDeSemana: true },
+        select: { trabajaFinDeSemana: true, permiteCena: true },
       },
     },
   });
 
-  return Boolean(empresa?.ConvenioEmpresa?.trabajaFinDeSemana);
+  return {
+    trabajaFinDeSemana: Boolean(empresa?.ConvenioEmpresa?.trabajaFinDeSemana),
+    permiteCena: Boolean(empresa?.ConvenioEmpresa?.permiteCena),
+  };
 }
 
 export async function GET(request: Request) {
@@ -42,8 +45,8 @@ export async function GET(request: Request) {
     inicioSemana.setHours(0, 0, 0, 0);
 
     const finSemana = new Date(inicioSemana);
-    const trabajaFinDeSemana = await obtenerTrabajaFinDeSemana(empresaId);
-    finSemana.setDate(inicioSemana.getDate() + (trabajaFinDeSemana ? 6 : 4));
+    const convenio = await obtenerConvenioEmpresa(empresaId);
+    finSemana.setDate(inicioSemana.getDate() + (convenio.trabajaFinDeSemana ? 6 : 4));
     finSemana.setHours(23, 59, 59, 999);
 
     const usuarios = await db.usuario.findMany({
@@ -54,7 +57,10 @@ export async function GET(request: Request) {
         rut: true,
         diasBloqueados: true, 
         pedidos: {
-          where: { fecha: { gte: inicioSemana, lte: finSemana } },
+          where: {
+            fecha: { gte: inicioSemana, lte: finSemana },
+            ...(convenio.permiteCena ? {} : { esCena: false }),
+          },
           orderBy: { fecha: 'asc' },
           select: {  
             id: true,

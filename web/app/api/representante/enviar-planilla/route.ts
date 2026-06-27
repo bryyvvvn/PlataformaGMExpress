@@ -4,18 +4,21 @@ import nodemailer from 'nodemailer'; // 🔥 IMPORTAMOS NODEMAILER
 
 import type { Prisma } from '@prisma/client';
 
-async function obtenerTrabajaFinDeSemana(empresaId?: number, usuarioId?: string) {
+async function obtenerConvenioEmpresa(empresaId?: number, usuarioId?: string) {
   if (empresaId) {
     const empresa = await db.empresa.findUnique({
       where: { id: empresaId },
       select: {
         ConvenioEmpresa: {
-          select: { trabajaFinDeSemana: true },
+          select: { trabajaFinDeSemana: true, permiteCena: true },
         },
       },
     });
 
-    return Boolean(empresa?.ConvenioEmpresa?.trabajaFinDeSemana);
+    return {
+      trabajaFinDeSemana: Boolean(empresa?.ConvenioEmpresa?.trabajaFinDeSemana),
+      permiteCena: Boolean(empresa?.ConvenioEmpresa?.permiteCena),
+    };
   }
 
   if (usuarioId) {
@@ -25,17 +28,20 @@ async function obtenerTrabajaFinDeSemana(empresaId?: number, usuarioId?: string)
         empresa: {
           select: {
             ConvenioEmpresa: {
-              select: { trabajaFinDeSemana: true },
+              select: { trabajaFinDeSemana: true, permiteCena: true },
             },
           },
         },
       },
     });
 
-    return Boolean(usuario?.empresa?.ConvenioEmpresa?.trabajaFinDeSemana);
+    return {
+      trabajaFinDeSemana: Boolean(usuario?.empresa?.ConvenioEmpresa?.trabajaFinDeSemana),
+      permiteCena: Boolean(usuario?.empresa?.ConvenioEmpresa?.permiteCena),
+    };
   }
 
-  return false;
+  return { trabajaFinDeSemana: false, permiteCena: false };
 }
 
 export async function POST(request: Request) {
@@ -64,8 +70,8 @@ export async function POST(request: Request) {
         ? parseInt(empresaId, 10)
         : empresaId
       : undefined;
-    const trabajaFinDeSemana = await obtenerTrabajaFinDeSemana(idEmpresaNum, usuarioId);
-    finSemana.setDate(inicioSemana.getDate() + (trabajaFinDeSemana ? 6 : 4));
+    const convenio = await obtenerConvenioEmpresa(idEmpresaNum, usuarioId);
+    finSemana.setDate(inicioSemana.getDate() + (convenio.trabajaFinDeSemana ? 6 : 4));
     finSemana.setHours(23, 59, 59, 999);
 
     const whereClause: Prisma.PedidoWhereInput = {
@@ -74,6 +80,7 @@ export async function POST(request: Request) {
         gte: inicioSemana,
         lte: finSemana,
       },
+      ...(convenio.permiteCena ? {} : { esCena: false }),
     };
 
     if (usuarioId) whereClause.usuarioId = usuarioId;

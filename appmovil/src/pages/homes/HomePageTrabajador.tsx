@@ -156,7 +156,25 @@ const HomePageTrabajador: React.FC = () => {
   // 🔥 EXTRAEMOS estadoFechas DEL HISTORIAL
   const { historial, estadoFechas, cargando: cargandoHistorial, cargarHistorial } = useHistorial(user?.id);
 
+  const estadoFechasVisibles = useMemo(() => {
+    if (permiteCena) return estadoFechas;
+    return Object.fromEntries(
+      Object.entries(estadoFechas).map(([fecha, estado]) => [
+        fecha,
+        { ...estado, cena: false },
+      ])
+    );
+  }, [estadoFechas, permiteCena]);
+
   useEffect(() => { if (user?.id) cargarHistorial(); }, [user?.id, cargarHistorial]);
+
+  useEffect(() => {
+    if (!permiteCena && modoComida === 'CENA') {
+      setModoComida('ALMUERZO');
+      setOpcionCena(null);
+      setModoEdicion(false);
+    }
+  }, [permiteCena, modoComida]);
 
   const fechasBloqueadas = useMemo(() => new Set((historial || []).map((p: any) => String(p?.fecha || '').split('T')[0])), [historial]);
 
@@ -343,6 +361,7 @@ const HomePageTrabajador: React.FC = () => {
 
   const manejarEnvio = async () => {
     if (modoComida === 'CENA') {
+      if (!permiteCena) return;
       if (!opcionCena) return;
       const exito = await enviarPedido({ esCena: true, tipoCena: opcionCena, observacion } as any);
       if (exito) { setModoEdicion(false); setObservacion(''); setOpcionCena(null); cargarHistorial(); }
@@ -400,7 +419,7 @@ const HomePageTrabajador: React.FC = () => {
   };
 
   const manejarModificarPedido = () => {
-    if (pedidoExistente?.esCena || pedidoExistente?.tipoCena) {
+    if (permiteCena && (pedidoExistente?.esCena || pedidoExistente?.tipoCena)) {
       setModoEdicion(true);
       setModoComida('CENA');
       setOpcionCena(pedidoExistente.tipoCena || null);
@@ -479,7 +498,7 @@ const HomePageTrabajador: React.FC = () => {
         todosBloqueados={todosBloqueados}
         setDiaSeleccionadoIdx={setDiaSeleccionadoIdx}
         fechasHorarioBloqueado={fechasVisualmenteBloqueadas}
-        estadoFechas={estadoFechas} // 🔥 PASAMOS EL ESTADO
+        estadoFechas={estadoFechasVisibles} // 🔥 PASAMOS EL ESTADO
       />
 
       <div className="mt-6 px-6 flex flex-col grow pb-6">
