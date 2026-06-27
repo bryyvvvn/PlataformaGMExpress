@@ -84,7 +84,6 @@ const HomePageTrabajador: React.FC = () => {
   const location = useLocation();
 
   const [autoSelected, setAutoSelected] = useState(false);
-  useConfigurarNotificaciones(user?.id);
 
   useEffect(() => { setAutoSelected(false); }, [location.pathname]);
 
@@ -95,6 +94,8 @@ const HomePageTrabajador: React.FC = () => {
     if (!user?.id) return;
     obtenerToken().then(setClerkToken);
   }, [user?.id, obtenerToken]);
+
+  useConfigurarNotificaciones(user?.id, clerkToken);
 
   const [estadoHorario, setEstadoHorario] = useState<EstadoHorarioResponse | null>(null);
   const [cargandoHorario, setCargandoHorario] = useState(true);

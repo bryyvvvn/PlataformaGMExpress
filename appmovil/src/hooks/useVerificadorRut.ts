@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { API_BASE_URL } from '../constants/api';
 
-export const useVerificadorRut = (clerkId: string | undefined) => {
+export const useVerificadorRut = (clerkId: string | undefined, token?: string | null) => {
   const [requiereRut, setRequiereRut] = useState(false);
   const [guardandoRut, setGuardandoRut] = useState(false);
 
@@ -32,7 +32,10 @@ export const useVerificadorRut = (clerkId: string | undefined) => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/usuarios/rut`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ clerkId, rut })
       });
       

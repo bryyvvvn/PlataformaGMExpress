@@ -1,9 +1,14 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { Capacitor } from '@capacitor/core';
 import { API_BASE_URL } from '../constants/api'; // Verifica que esta ruta apunte bien a tu archivo de constantes
 
-export const useConfigurarNotificaciones = (usuarioId: string | undefined) => {
+export const useConfigurarNotificaciones = (usuarioId: string | undefined, token?: string | null) => {
+  // El token de Clerk llega async y suele actualizarse después de montar
+  // el listener; el ref evita re-registrar el listener en cada cambio.
+  const tokenRef = useRef(token);
+  tokenRef.current = token;
+
   useEffect(() => {
     // Si no hay usuario o estamos probando en el navegador web (computador), cancelamos.
     // Las notificaciones nativas solo funcionan cuando la app corre en un celular.
@@ -29,17 +34,20 @@ export const useConfigurarNotificaciones = (usuarioId: string | undefined) => {
     registrarDispositivo();
 
     // 3. Listener: Escucha cuando Firebase nos entrega el Token con éxito
-    const registroListener = PushNotifications.addListener('registration', async (token) => {
-      console.log('¡Token FCM capturado en el celular!: ', token.value);
+    const registroListener = PushNotifications.addListener('registration', async (pushToken) => {
+      console.log('¡Token FCM capturado en el celular!: ', pushToken.value);
 
       // 4. Mandamos este Token a la ruta POST que armaste en Next.js (Railway)
       try {
         const respuesta = await fetch(`${API_BASE_URL}/api/usuarios/token`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...(tokenRef.current ? { 'Authorization': `Bearer ${tokenRef.current}` } : {}),
+          },
           body: JSON.stringify({
             usuarioId: usuarioId,
-            fcmToken: token.value
+            fcmToken: pushToken.value
           })
         });
         
