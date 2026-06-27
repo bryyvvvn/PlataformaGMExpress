@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import db from "@/lib/db";
 import { esPlatoUnicoPorLegumbre } from "@/lib/menu/es-plato-unico";
+import { validarAdministrador } from "@/lib/usuarios/admin";
 import { CategoriaPlato } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -186,6 +187,15 @@ function normalizarBebidaPlatoId(value: unknown): number | null {
 
 export async function GET() {
   try {
+    const admin = await validarAdministrador();
+
+    if ("error" in admin) {
+      return NextResponse.json(
+        { error: admin.error },
+        { status: admin.status }
+      );
+    }
+
     const menuActivo = await db.menuSemanal.findFirst({
       orderBy: { creado_en: "desc" },
       include: {
@@ -258,6 +268,15 @@ export async function GET() {
 
 export async function PATCH(req: NextRequest) {
   try {
+    const admin = await validarAdministrador();
+
+    if ("error" in admin) {
+      return NextResponse.json(
+        { error: admin.error },
+        { status: admin.status }
+      );
+    }
+
     const body = await req.json();
     const menuSemanalId = Number(body.menuSemanalId);
     const entradaId = Number(body.entradaId);

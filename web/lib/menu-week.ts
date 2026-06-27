@@ -1,6 +1,6 @@
 import db from "./db";
 import { chileEndOfDay, chileStartOfDay } from "./chile-time";
-import type { PrismaClient } from "@prisma/client";
+import { Prisma, type PrismaClient } from "@prisma/client";
 
 type DbClient = PrismaClient | typeof db;
 
@@ -28,23 +28,34 @@ export async function listMenuWeeks(client: DbClient = db) {
     },
   });
 
-  const pedidosPorSemana = await Promise.all(
-    semanas.map(async (semana) => {
-      const { inicio, fin } = toChileRange(semana.fecha_inicio, semana.fecha_fin);
-      const pedidos = await client.pedido.count({
-        where: {
-          fecha: {
-            gte: inicio,
-            lte: fin,
-          },
-        },
-      });
+  const rangos = semanas.map((semana) => ({
+    id: semana.id,
+    ...toChileRange(semana.fecha_inicio, semana.fecha_fin),
+  }));
+  const pedidosMap = new Map(semanas.map((semana) => [semana.id, 0]));
 
-      return [semana.id, pedidos] as const;
-    })
-  );
+  if (rangos.length > 0) {
+    const pedidosPorSemana = await client.$queryRaw<
+      Array<{ id: number; pedidos: number }>
+    >(Prisma.sql`
+      SELECT semana.id::integer AS id, COUNT(p.id)::integer AS pedidos
+      FROM (
+        VALUES ${Prisma.join(
+          rangos.map((rango) =>
+            Prisma.sql`(${rango.id}, ${rango.inicio}, ${rango.fin})`
+          )
+        )}
+      ) AS semana(id, inicio, fin)
+      LEFT JOIN "Pedido" p
+        ON p.fecha >= semana.inicio
+        AND p.fecha <= semana.fin
+      GROUP BY semana.id
+    `);
 
-  const pedidosMap = new Map(pedidosPorSemana);
+    for (const { id, pedidos } of pedidosPorSemana) {
+      pedidosMap.set(id, pedidos);
+    }
+  }
 
   return semanas.map((semana) => ({
     id: semana.id,

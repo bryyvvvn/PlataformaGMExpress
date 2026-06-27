@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { EstadoEmpresa, Prisma, Rol, TipoContactoEmpresa } from "@prisma/client"
 import db from "@/lib/db"
+import { validarAdministrador } from "@/lib/usuarios/admin"
 
 export const dynamic = "force-dynamic"
 
@@ -612,6 +613,15 @@ function validarCrearEmpresaPayload(body: unknown): ValidationResult<CrearEmpres
 
 export async function GET() {
   try {
+    const admin = await validarAdministrador()
+
+    if ("error" in admin) {
+      return NextResponse.json(
+        { error: admin.error },
+        { status: admin.status }
+      )
+    }
+
     const [empresas, usuariosPorRol, pedidosPorEmpresa] = await Promise.all([
       db.empresa.findMany({
         orderBy: { nombre: "asc" },
@@ -697,6 +707,15 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
+    const admin = await validarAdministrador()
+
+    if ("error" in admin) {
+      return NextResponse.json(
+        { error: admin.error },
+        { status: admin.status }
+      )
+    }
+
     let body: unknown
 
     try {

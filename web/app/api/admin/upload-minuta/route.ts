@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { buscarMenuSemanalExistente, guardarMinuta } from "@/lib/minuta/guardarMinuta";
 import { parsearMinutaExcel } from "@/lib/minuta/parsearMinutaExcel";
+import { validarAdministrador } from "@/lib/usuarios/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +11,15 @@ function getErrorDetalle(error: unknown) {
 
 export async function POST(req: NextRequest) {
   try {
+    const admin = await validarAdministrador();
+
+    if ("error" in admin) {
+      return NextResponse.json(
+        { error: admin.error },
+        { status: admin.status }
+      );
+    }
+
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
 

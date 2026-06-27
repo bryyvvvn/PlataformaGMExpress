@@ -9,6 +9,7 @@ import {
   obtenerDisponibilidadPlanillaProduccion,
 } from "@/lib/pedidos/cierre-pedidos"
 import { generarExcelProduccion } from "@/lib/pedidos/excel"
+import { validarAdministrador } from "@/lib/usuarios/admin"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -26,6 +27,15 @@ function obtenerDiaSiguiente(fechaISO: string): string {
 }
 
 export async function POST(request: Request) {
+  const admin = await validarAdministrador()
+
+  if ("error" in admin) {
+    return NextResponse.json(
+      { error: admin.error },
+      { status: admin.status }
+    )
+  }
+
   let payload: unknown
 
   try {

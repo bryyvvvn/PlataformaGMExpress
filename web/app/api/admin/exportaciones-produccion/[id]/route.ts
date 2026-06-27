@@ -3,6 +3,7 @@ import { NextResponse } from "next/server"
 import db from "@/lib/db"
 import { chileStartOfDay } from "@/lib/chile-time"
 import { generarExcelProduccion } from "@/lib/pedidos/excel"
+import { validarAdministrador } from "@/lib/usuarios/admin"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -17,6 +18,15 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const admin = await validarAdministrador()
+
+  if ("error" in admin) {
+    return NextResponse.json(
+      { error: admin.error },
+      { status: admin.status }
+    )
+  }
+
   const { id: rawId } = await params
   const id = Number(rawId)
 
