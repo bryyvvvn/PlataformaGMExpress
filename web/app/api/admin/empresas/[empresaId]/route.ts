@@ -28,6 +28,8 @@ type EmpresaEditData = {
   fechaNacimientoRepresentanteLegal: Date | null
   estado: EstadoEmpresa
   horaDespacho: string | null
+  esSucursal: boolean
+  casaMatrizId: number | null
 }
 
 type ContactoEditData = {
@@ -151,6 +153,60 @@ function validarFechaOpcional(
   }
 
   return { data: date }
+}
+
+function validarBooleanOpcional(value: unknown, campo: string): ValidationResult<boolean> {
+  if (value === undefined || value === null || value === "") {
+    return { data: false }
+  }
+
+  if (typeof value !== "boolean") {
+    return { error: `${campo} debe ser booleano` }
+  }
+
+  return { data: value }
+}
+
+function validarIdOpcional(value: unknown, campo: string): ValidationResult<number | null> {
+  if (value === undefined || value === null || value === "") {
+    return { data: null }
+  }
+
+  const id = typeof value === "number" ? value : Number(value)
+
+  if (!Number.isInteger(id) || id <= 0) {
+    return { error: `${campo} debe ser un ID valido` }
+  }
+
+  return { data: id }
+}
+
+function validarSucursalEmpresa(body: Record<string, unknown>) {
+  const esSucursal = validarBooleanOpcional(body.esSucursal, "esSucursal")
+  if ("error" in esSucursal) return esSucursal
+
+  if (!esSucursal.data) {
+    return {
+      data: {
+        esSucursal: false,
+        casaMatrizId: null,
+      },
+    }
+  }
+
+  const casaMatrizId = validarIdOpcional(body.casaMatrizId, "casaMatrizId")
+  if ("error" in casaMatrizId) return casaMatrizId
+
+  if (!casaMatrizId.data) {
+    return { error: "La casa matriz es obligatoria para una sucursal" }
+  }
+
+  return {
+    data: {
+      esSucursal: true,
+      casaMatrizId: casaMatrizId.data,
+    },
+  }
 }
 
 function validarFechaNacimiento(value: unknown): ValidationResult<Date | null> {
@@ -350,6 +406,8 @@ function validarEditarEmpresaPayload(body: unknown): ValidationResult<EditarEmpr
     "fechaNacimientoRepresentanteLegal",
     "estado",
     "horaDespacho",
+    "esSucursal",
+    "casaMatrizId",
     "contactoTitular",
     "contactoSuplente",
     "contactoCobranza",
@@ -438,6 +496,9 @@ function validarEditarEmpresaPayload(body: unknown): ValidationResult<EditarEmpr
   const horaDespacho = validarHoraDespacho(body.horaDespacho)
   if ("error" in horaDespacho) return horaDespacho
 
+  const sucursal = validarSucursalEmpresa(body)
+  if ("error" in sucursal) return sucursal
+
   const contactoTitular = validarContactoTitular(body.contactoTitular)
   if ("error" in contactoTitular) return contactoTitular
 
@@ -472,6 +533,8 @@ function validarEditarEmpresaPayload(body: unknown): ValidationResult<EditarEmpr
           fechaNacimientoRepresentanteLegal.data,
         estado: estado.data,
         horaDespacho: horaDespacho.data,
+        esSucursal: sucursal.data.esSucursal,
+        casaMatrizId: sucursal.data.casaMatrizId,
       },
       contactoTitular: contactoTitular.data,
       contactoSuplente: contactoSuplente.data,
@@ -565,6 +628,22 @@ export async function GET(_req: Request, { params }: RouteContext) {
         fechaNacimientoRepresentanteLegal: true,
         estado: true,
         horaDespacho: true,
+        esSucursal: true,
+        casaMatrizId: true,
+        casaMatriz: {
+          select: {
+            id: true,
+            nombre: true,
+          },
+        },
+        sucursales: {
+          orderBy: { nombre: "asc" },
+          select: {
+            id: true,
+            nombre: true,
+            estado: true,
+          },
+        },
         creado_en: true,
         actualizado_en: true,
         ConvenioEmpresa: {
@@ -681,7 +760,10 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
 
     const nombreDuplicado = await db.empresa.findFirst({
       where: {
-        nombre: payload.data.empresa.nombre,
+        nombre: {
+          equals: payload.data.empresa.nombre,
+          mode: "insensitive",
+        },
         id: { not: empresaId },
       },
       select: { id: true },
@@ -692,6 +774,46 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
         { error: "Ya existe una empresa con ese nombre" },
         { status: 409 }
       )
+    }
+
+    if (payload.data.empresa.esSucursal) {
+      if (payload.data.empresa.casaMatrizId === empresaId) {
+        return NextResponse.json(
+          { error: "Una empresa no puede ser casa matriz de si misma" },
+          { status: 400 }
+        )
+      }
+
+      const sucursalesAsociadas = await db.empresa.count({
+        where: {
+          casaMatrizId: empresaId,
+        },
+      })
+
+      if (sucursalesAsociadas > 0) {
+        return NextResponse.json(
+          {
+            error:
+              "No se puede marcar esta empresa como sucursal porque ya tiene sucursales asociadas.",
+          },
+          { status: 400 }
+        )
+      }
+
+      const casaMatriz = await db.empresa.findFirst({
+        where: {
+          id: payload.data.empresa.casaMatrizId ?? undefined,
+          esSucursal: false,
+        },
+        select: { id: true },
+      })
+
+      if (!casaMatriz) {
+        return NextResponse.json(
+          { error: "La casa matriz seleccionada no existe o es una sucursal" },
+          { status: 400 }
+        )
+      }
     }
 
     const empresa = await db.$transaction(async (tx) => {
@@ -737,6 +859,14 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
           fechaNacimientoRepresentanteLegal: true,
           estado: true,
           horaDespacho: true,
+          esSucursal: true,
+          casaMatrizId: true,
+          casaMatriz: {
+            select: {
+              id: true,
+              nombre: true,
+            },
+          },
           ContactoEmpresa: {
             orderBy: [{ activo: "desc" }, { tipo: "asc" }, { id: "asc" }],
             select: {

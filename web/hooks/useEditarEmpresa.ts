@@ -21,6 +21,8 @@ import type {
   EmpresaEdicionDetalle,
   EmpresaEdicionResponse,
   EmpresaEditForm,
+  EmpresaCliente,
+  EmpresasResponse,
   EstadoEmpresaCliente,
 } from "@/lib/empresas/tipos"
 
@@ -32,6 +34,7 @@ export function useEditarEmpresa(empresaId: string | undefined) {
   const [empresaCargada, setEmpresaCargada] = useState(false)
   const [empresaNombre, setEmpresaNombre] = useState("")
   const [form, setForm] = useState<EmpresaEditForm>(EMPRESA_EDIT_DEFAULTS)
+  const [casasMatrices, setCasasMatrices] = useState<EmpresaCliente[]>([])
   const [horaDespachoActivada, setHoraDespachoActivada] = useState(false)
   const [contactoTitularForm, setContactoTitularForm] =
     useState<ContactoEmpresaForm>(CONTACTO_DEFAULTS)
@@ -76,6 +79,8 @@ export function useEditarEmpresa(empresaId: string | undefined) {
       ),
       estado: empresa.estado,
       horaDespacho: textoFormulario(empresa.horaDespacho),
+      esSucursal: empresa.esSucursal,
+      casaMatrizId: empresa.casaMatrizId ? String(empresa.casaMatrizId) : "",
     })
     setContactoTitularForm(contactoAFormulario(contactoTitular))
     setContactoSuplenteForm(contactoAFormulario(contactoSuplente))
@@ -111,19 +116,38 @@ export function useEditarEmpresa(empresaId: string | undefined) {
     }
   }, [empresaId, hidratarFormulario])
 
+  const cargarCasasMatrices = useCallback(async () => {
+    try {
+      const response = await fetch("/api/admin/empresas", { cache: "no-store" })
+      if (!response.ok) return
+
+      const data = (await response.json()) as EmpresasResponse
+      const empresaActualId = empresaId ? Number(empresaId) : null
+      setCasasMatrices(
+        data.empresas.filter(
+          (empresa) => !empresa.esSucursal && empresa.id !== empresaActualId
+        )
+      )
+    } catch (err) {
+      console.error("[EditarEmpresaPage] Error cargando casas matrices:", err)
+    }
+  }, [empresaId])
+
   useEffect(() => {
     queueMicrotask(() => {
       void cargarEmpresa()
+      void cargarCasasMatrices()
     })
-  }, [cargarEmpresa])
+  }, [cargarEmpresa, cargarCasasMatrices])
 
   const actualizarCampoEmpresa = (
     campo: keyof EmpresaEditForm,
-    valor: string | EstadoEmpresaCliente
+    valor: string | boolean | EstadoEmpresaCliente
   ) => {
     setForm((prev) => ({
       ...prev,
       [campo]: valor,
+      ...(campo === "esSucursal" && valor === false ? { casaMatrizId: "" } : {}),
     }))
   }
 
@@ -211,6 +235,7 @@ export function useEditarEmpresa(empresaId: string | undefined) {
     empresaCargada,
     empresaNombre,
     form,
+    casasMatrices,
     horaDespachoActivada,
     contactoTitularForm,
     contactoSuplenteForm,

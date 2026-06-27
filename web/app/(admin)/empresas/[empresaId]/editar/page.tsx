@@ -24,6 +24,7 @@ export default function EditarEmpresaPage() {
     empresaCargada,
     empresaNombre,
     form,
+    casasMatrices,
     horaDespachoActivada,
     contactoTitularForm,
     contactoSuplenteForm,
@@ -87,6 +88,7 @@ export default function EditarEmpresaPage() {
 
       <EmpresaEditarForm
         form={form}
+        casasMatrices={casasMatrices}
         guardando={guardando}
         horaDespachoActivada={horaDespachoActivada}
         contactoTitularForm={contactoTitularForm}

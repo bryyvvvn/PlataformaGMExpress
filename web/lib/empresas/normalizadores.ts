@@ -56,8 +56,11 @@ export function crearPayloadCrearEmpresa({
   contactoCobranza: ContactoEmpresaForm
   usarTitularComoCobranza: boolean
 }) {
+  const casaMatrizId = form.esSucursal ? Number(form.casaMatrizId) : null
+
   return {
     ...form,
+    casaMatrizId,
     fechaNacimientoRepresentanteLegal:
       form.fechaNacimientoRepresentanteLegal || null,
     convenio,
@@ -91,8 +94,11 @@ export function crearPayloadEditarEmpresa({
   contactoSuplente: ContactoEmpresaForm
   contactoCobranza: ContactoEmpresaForm
 }) {
+  const casaMatrizId = form.esSucursal ? Number(form.casaMatrizId) : null
+
   return {
     ...form,
+    casaMatrizId,
     horaDespacho: form.horaDespacho || null,
     fechaNacimientoRepresentanteLegal:
       form.fechaNacimientoRepresentanteLegal || null,

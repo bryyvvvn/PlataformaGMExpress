@@ -28,15 +28,20 @@ model Empresa {
   fechaNacimientoRepresentanteLegal DateTime?
   estado                            EstadoEmpresa     @default(ACTIVA)
   horaDespacho                      String?           @db.VarChar(5)
+  esSucursal                        Boolean           @default(false)
+  casaMatrizId                      Int?
   creado_en                         DateTime          @default(now())
   actualizado_en                    DateTime          @default(now())
   ContactoEmpresa                   ContactoEmpresa[]
   ConvenioEmpresa                   ConvenioEmpresa?
+  casaMatriz                        Empresa?          @relation("SucursalesEmpresa", fields: [casaMatrizId], references: [id])
   pedidosManuales                   PedidoManual[]
   pedidos                           Pedido[]
+  sucursales                        Empresa[]         @relation("SucursalesEmpresa")
   usuarios                          Usuario[]
 
   @@index([estado])
+  @@index([casaMatrizId])
   @@index([rut])
 }
 
@@ -134,15 +139,15 @@ model MenuDiaSeleccion {
 }
 
 model Pedido {
-  id        Int             @id @default(autoincrement())
-  fecha     DateTime        @default(now())
-  estado    EstadoPedido    @default(PENDIENTE)
-  empresaId Int
-  usuarioId String
-  observacion String? @db.VarChar(500)
-  detalles  DetallePedido[]
-  empresa   Empresa         @relation(fields: [empresaId], references: [id])
-  usuario   Usuario         @relation(fields: [usuarioId], references: [id])
+  id          Int             @id @default(autoincrement())
+  fecha       DateTime        @default(now())
+  estado      EstadoPedido    @default(PENDIENTE)
+  empresaId   Int
+  usuarioId   String
+  observacion String?         @db.VarChar(500)
+  detalles    DetallePedido[]
+  empresa     Empresa         @relation(fields: [empresaId], references: [id])
+  usuario     Usuario         @relation(fields: [usuarioId], references: [id])
 
   @@index([empresaId, fecha])
 }
@@ -230,6 +235,7 @@ model MenuDiaEntradaSeleccion {
   @@index([menuDetalleId])
   @@index([menuDiaSeleccionId])
 }
+
 model ExportacionProduccion {
   id               Int      @id @default(autoincrement())
   fecha            String   @db.VarChar(10)
@@ -239,6 +245,7 @@ model ExportacionProduccion {
 
   @@index([fecha])
 }
+
 enum Rol {
   REPRESENTANTE
   TRABAJADOR

@@ -79,6 +79,16 @@ export function EmpresaDetalleHeader({
             >
               {empresa.estado === "ACTIVA" ? "Activa" : "Inactiva"}
             </Badge>
+            <Badge
+              variant="secondary"
+              className={
+                empresa.esSucursal
+                  ? "bg-blue-50 text-blue-700"
+                  : "bg-slate-100 text-slate-600"
+              }
+            >
+              {empresa.esSucursal ? "Sucursal" : "Casa matriz"}
+            </Badge>
           </div>
           <p className="text-sm text-slate-600">{subtitulo}</p>
         </div>
@@ -182,6 +192,22 @@ export function EmpresaDetalleDatosGenerales({
           label="Estado"
           value={empresa.estado === "ACTIVA" ? "Activa" : "Inactiva"}
         />
+        <Dato
+          label="Tipo"
+          value={empresa.esSucursal ? "Sucursal" : "Casa matriz"}
+        />
+        {empresa.esSucursal && (
+          <Dato
+            label="Casa matriz"
+            value={empresa.casaMatriz?.nombre ?? "Sin casa matriz"}
+          />
+        )}
+        {!empresa.esSucursal && empresa.sucursales.length > 0 && (
+          <Dato
+            label="Sucursales"
+            value={empresa.sucursales.map((sucursal) => sucursal.nombre).join(", ")}
+          />
+        )}
         <Dato label="Creada" value={formatearFecha(empresa.creado_en)} />
         <Dato label="Hora límite de pedidos" value={horaLimiteEfectivaTexto} />
       </CardContent>

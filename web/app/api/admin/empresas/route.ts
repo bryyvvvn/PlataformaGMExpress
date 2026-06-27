@@ -58,6 +58,8 @@ type EmpresaCreateData = {
   rutRepresentanteLegal: string | null
   fechaNacimientoRepresentanteLegal: Date | null
   estado: EstadoEmpresa
+  esSucursal: boolean
+  casaMatrizId: number | null
 }
 
 type ContactoCreateData = {
@@ -225,6 +227,60 @@ function validarFechaOpcional(
   return { data: date }
 }
 
+function validarBooleanOpcional(value: unknown, campo: string): ValidationResult<boolean> {
+  if (value === undefined || value === null || value === "") {
+    return { data: false }
+  }
+
+  if (typeof value !== "boolean") {
+    return { error: `${campo} debe ser booleano` }
+  }
+
+  return { data: value }
+}
+
+function validarIdOpcional(value: unknown, campo: string): ValidationResult<number | null> {
+  if (value === undefined || value === null || value === "") {
+    return { data: null }
+  }
+
+  const id = typeof value === "number" ? value : Number(value)
+
+  if (!Number.isInteger(id) || id <= 0) {
+    return { error: `${campo} debe ser un ID valido` }
+  }
+
+  return { data: id }
+}
+
+function validarSucursalEmpresa(body: Record<string, unknown>) {
+  const esSucursal = validarBooleanOpcional(body.esSucursal, "esSucursal")
+  if ("error" in esSucursal) return esSucursal
+
+  if (!esSucursal.data) {
+    return {
+      data: {
+        esSucursal: false,
+        casaMatrizId: null,
+      },
+    }
+  }
+
+  const casaMatrizId = validarIdOpcional(body.casaMatrizId, "casaMatrizId")
+  if ("error" in casaMatrizId) return casaMatrizId
+
+  if (!casaMatrizId.data) {
+    return { error: "La casa matriz es obligatoria para una sucursal" }
+  }
+
+  return {
+    data: {
+      esSucursal: true,
+      casaMatrizId: casaMatrizId.data,
+    },
+  }
+}
+
 function validarFechaNacimiento(value: unknown): ValidationResult<Date | null> {
   return validarFechaOpcional(value, "fechaNacimiento")
 }
@@ -386,6 +442,8 @@ function validarCrearEmpresaPayload(body: unknown): ValidationResult<CrearEmpres
     "rutRepresentanteLegal",
     "fechaNacimientoRepresentanteLegal",
     "estado",
+    "esSucursal",
+    "casaMatrizId",
     "convenio",
     "contactoTitular",
     "contactoSuplente",
@@ -473,6 +531,9 @@ function validarCrearEmpresaPayload(body: unknown): ValidationResult<CrearEmpres
   const estado = validarEstadoEmpresa(body.estado)
   if ("error" in estado) return estado
 
+  const sucursal = validarSucursalEmpresa(body)
+  if ("error" in sucursal) return sucursal
+
   const convenio = validarConvenio(body.convenio)
   if ("error" in convenio) return convenio
 
@@ -534,6 +595,8 @@ function validarCrearEmpresaPayload(body: unknown): ValidationResult<CrearEmpres
         fechaNacimientoRepresentanteLegal:
           fechaNacimientoRepresentanteLegal.data,
         estado: estado.data,
+        esSucursal: sucursal.data.esSucursal,
+        casaMatrizId: sucursal.data.casaMatrizId,
       },
       convenio: convenio.data,
       contactos: [
@@ -565,6 +628,14 @@ export async function GET() {
           region: true,
           sector: true,
           estado: true,
+          esSucursal: true,
+          casaMatrizId: true,
+          casaMatriz: {
+            select: {
+              id: true,
+              nombre: true,
+            },
+          },
           ConvenioEmpresa: {
             select: {
               id: true,
@@ -640,8 +711,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: payload.error }, { status: 400 })
     }
 
-    const empresaExistente = await db.empresa.findUnique({
-      where: { nombre: payload.data.empresa.nombre },
+    const empresaExistente = await db.empresa.findFirst({
+      where: {
+        nombre: {
+          equals: payload.data.empresa.nombre,
+          mode: "insensitive",
+        },
+      },
       select: { id: true },
     })
 
@@ -650,6 +726,23 @@ export async function POST(req: NextRequest) {
         { error: "Ya existe una empresa con ese nombre" },
         { status: 409 }
       )
+    }
+
+    if (payload.data.empresa.esSucursal && payload.data.empresa.casaMatrizId) {
+      const casaMatriz = await db.empresa.findFirst({
+        where: {
+          id: payload.data.empresa.casaMatrizId,
+          esSucursal: false,
+        },
+        select: { id: true },
+      })
+
+      if (!casaMatriz) {
+        return NextResponse.json(
+          { error: "La casa matriz seleccionada no existe o es una sucursal" },
+          { status: 400 }
+        )
+      }
     }
 
     const empresa = await db.$transaction(async (tx) => {
@@ -694,6 +787,14 @@ export async function POST(req: NextRequest) {
           rutRepresentanteLegal: true,
           fechaNacimientoRepresentanteLegal: true,
           estado: true,
+          esSucursal: true,
+          casaMatrizId: true,
+          casaMatriz: {
+            select: {
+              id: true,
+              nombre: true,
+            },
+          },
           ConvenioEmpresa: {
             select: {
               id: true,

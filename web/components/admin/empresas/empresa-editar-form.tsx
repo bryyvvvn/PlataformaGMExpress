@@ -22,12 +22,13 @@ import type {
   ContactoFormularioTipo,
   EmpresaEditForm,
   EmpresaFormularioBase,
+  EmpresaRelacionResumen,
   EstadoEmpresaCliente,
 } from "@/lib/empresas/tipos"
 
 type EditarEmpresaChange = (
   campo: keyof EmpresaEditForm,
-  valor: string | EstadoEmpresaCliente
+  valor: string | boolean | EstadoEmpresaCliente
 ) => void
 
 export function EmpresaEditarHeader({
@@ -86,6 +87,7 @@ export function EmpresaEditarHeader({
 
 export function EmpresaEditarForm({
   form,
+  casasMatrices,
   guardando,
   horaDespachoActivada,
   contactoTitularForm,
@@ -98,6 +100,7 @@ export function EmpresaEditarForm({
   onCancelar,
 }: {
   form: EmpresaEditForm
+  casasMatrices: EmpresaRelacionResumen[]
   guardando: boolean
   horaDespachoActivada: boolean
   contactoTitularForm: ContactoEmpresaForm
@@ -115,7 +118,7 @@ export function EmpresaEditarForm({
 }) {
   const actualizarCampoBase = (
     campo: keyof EmpresaFormularioBase,
-    valor: string | EstadoEmpresaCliente
+    valor: string | boolean | EstadoEmpresaCliente
   ) => actualizarCampoEmpresa(campo, valor)
 
   return (
@@ -133,6 +136,7 @@ export function EmpresaEditarForm({
             form={form}
             disabled={guardando}
             onChange={actualizarCampoBase}
+            casasMatrices={casasMatrices}
           />
         </CardContent>
       </Card>

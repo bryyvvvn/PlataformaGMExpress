@@ -191,10 +191,27 @@ export function EmpresasTable({
                     <TableRow key={empresa.id} className="text-sm">
                       <TableCell>
                         <div>
-                          <p className="font-medium text-slate-900">{empresa.nombre}</p>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="font-medium text-slate-900">{empresa.nombre}</p>
+                            <Badge
+                              variant="secondary"
+                              className={
+                                empresa.esSucursal
+                                  ? "bg-blue-50 text-blue-700"
+                                  : "bg-slate-100 text-slate-600"
+                              }
+                            >
+                              {empresa.esSucursal ? "Sucursal" : "Casa matriz"}
+                            </Badge>
+                          </div>
                           <p className="text-xs text-slate-500">
                             {empresa.correo_contacto ?? "Sin correo registrado"}
                           </p>
+                          {empresa.esSucursal && empresa.casaMatriz && (
+                            <p className="text-xs text-slate-500">
+                              Matriz: {empresa.casaMatriz.nombre}
+                            </p>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell className="font-mono text-sm">
