@@ -17,22 +17,20 @@ type PedidoRequestBody = {
   guarnicionId?: number | null;
   fecha?: string | null;
   items?: DetallePedidoInput[];
-  // 🔥 NUEVO: Agregamos los tipos para el fin de semana
   esFinDeSemana?: boolean;
   tipoFinde?: string;
+  // 🔥 NUEVOS CAMPOS DE CENA
+  esCena?: boolean;
+  tipoCena?: string;
   observacion?: string | null;
 };
 
 function toPositiveInteger(value: unknown): number | null {
-  if (typeof value === 'number' && Number.isInteger(value) && value > 0) {
-    return value;
-  }
-
+  if (typeof value === 'number' && Number.isInteger(value) && value > 0) return value;
   if (typeof value === 'string' && value.trim() !== '') {
     const parsed = Number(value);
     return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
   }
-
   return null;
 }
 
@@ -43,29 +41,16 @@ function normalizeEntradasIds(entradasIds: unknown, entradaId: unknown) {
 
   const addEntrada = (value: unknown) => {
     const id = toPositiveInteger(value);
-
-    if (!id) {
-      hasInvalidValue = true;
-      return;
-    }
-
-    if (!seen.has(id)) {
-      seen.add(id);
-      normalized.push(id);
-    }
+    if (!id) { hasInvalidValue = true; return; }
+    if (!seen.has(id)) { seen.add(id); normalized.push(id); }
   };
 
   if (entradasIds !== undefined && entradasIds !== null) {
-    if (!Array.isArray(entradasIds)) {
-      hasInvalidValue = true;
-    } else {
-      entradasIds.forEach(addEntrada);
-    }
+    if (!Array.isArray(entradasIds)) hasInvalidValue = true;
+    else entradasIds.forEach(addEntrada);
   }
 
-  if (entradaId !== undefined && entradaId !== null) {
-    addEntrada(entradaId);
-  }
+  if (entradaId !== undefined && entradaId !== null) addEntrada(entradaId);
 
   return { ids: normalized, hasInvalidValue };
 }
@@ -74,22 +59,15 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const usuarioId = searchParams.get('usuarioId');
 
-  if (!usuarioId) {
-    return NextResponse.json({ error: 'Falta usuarioId' }, { status: 400 });
-  }
+  if (!usuarioId) return NextResponse.json({ error: 'Falta usuarioId' }, { status: 400 });
 
   if (searchParams.get('historial') === 'true') {
     try {
       const pedidos = await db.pedido.findMany({
         where: { usuarioId },
         orderBy: { fecha: 'desc' },
-        include: {
-          detalles: {
-            include: { plato: true, guarnicion: true }
-          }
-        }
+        include: { detalles: { include: { plato: true, guarnicion: true } } }
       });
-
       return NextResponse.json(pedidos);
     } catch (error) {
       console.error('[API PEDIDOS] Error al obtener historial:', error);
@@ -99,27 +77,24 @@ export async function GET(request: Request) {
 
   try {
     const fechaParam = searchParams.get('fecha');
+    const esCenaQuery = searchParams.get('esCena') === 'true'; // 🔥 Permitimos consultar específicamente por cena o almuerzo
+    
     const inicioDia = chileStartOfDay(fechaParam ?? undefined);
     const finDia = chileEndOfDay(fechaParam ?? undefined);
 
+    // 🔥 MODIFICADO: Buscamos un pedido en ese rango de fecha, pero que coincida con el tipo (Almuerzo o Cena)
     const pedidoExistente = await db.pedido.findFirst({
       where: {
         usuarioId,
-        fecha: {
-          gte: inicioDia,
-          lte: finDia,
-        },
+        fecha: { gte: inicioDia, lte: finDia },
+        esCena: esCenaQuery // Buscamos almuerzo (false) o cena (true)
       },
       include: {
-        detalles: {
-          include: { plato: true, guarnicion: true }
-        }
+        detalles: { include: { plato: true, guarnicion: true } }
       }
     });
 
-    if (!pedidoExistente) {
-      return NextResponse.json({ existe: false });
-    }
+    if (!pedidoExistente) return NextResponse.json({ existe: false });
 
     const resumen = pedidoExistente.detalles.map(d => ({
       platoId: d.platoId,
@@ -129,7 +104,6 @@ export async function GET(request: Request) {
       guarnicionNombre: d.guarnicion?.nombre ?? null,
     }));
 
-    // 🔥 NUEVO: Inyectamos el tipoFinde si es que el pedido contiene un plato comodín
     let tipoFinde = null;
     const nombreFondo = resumen.find(r => r.categoria === 'FONDO')?.nombre;
     if (nombreFondo === 'Menú del Día (Fin de Semana)') tipoFinde = 'MENU_DIA';
@@ -143,7 +117,9 @@ export async function GET(request: Request) {
         id: pedidoExistente.id,
         fecha: pedidoExistente.fecha.toISOString(),
         resumen,
-        tipoFinde, // Esto le servirá a la app para saber qué botón marcar al "modificar"
+        tipoFinde,
+        esCena: pedidoExistente.esCena,     // 🔥 Devuelve si es cena
+        tipoCena: pedidoExistente.tipoCena, // 🔥 Devuelve qué tipo de cena es
         observacion: pedidoExistente.observacion ?? null
       },
     });
@@ -156,25 +132,23 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json() as PedidoRequestBody;
-    
-    // 🔥 NUEVO: Extraemos esFinDeSemana y tipoFinde
-    const { usuarioId, entradaId, entradasIds, fondoId, postreId, jugoId, guarnicionId, fecha, items, esFinDeSemana, tipoFinde, observacion } = body;
+    const { usuarioId, entradaId, entradasIds, fondoId, postreId, jugoId, guarnicionId, fecha, items, esFinDeSemana, tipoFinde, esCena, tipoCena, observacion } = body;
 
-    if (!usuarioId) {
-      return NextResponse.json({ error: 'Falta usuarioId' }, { status: 400 });
-    }
+    if (!usuarioId) return NextResponse.json({ error: 'Falta usuarioId' }, { status: 400 });
+
+    const isCenaFlow = Boolean(esCena === true); // 🔥 Determinamos si estamos guardando una cena
 
     const fondoIdNormalizado = toPositiveInteger(fondoId);
     const postreIdNormalizado = toPositiveInteger(postreId);
     const jugoIdNormalizado = toPositiveInteger(jugoId);
     const entradasNormalizadas = normalizeEntradasIds(entradasIds, entradaId);
 
-    // 🔥 NUEVO: Definimos el tercer flujo
     const usingClassicFlow = Boolean(fondoIdNormalizado);
     const usingItemsFlow = Boolean(items && Array.isArray(items) && items.length > 0);
     const usingFindeFlow = Boolean(esFinDeSemana && tipoFinde);
 
-    if (!usingClassicFlow && !usingItemsFlow && !usingFindeFlow) {
+    // Permitimos que pase si es flujo clásico, items, finde, o CENA
+    if (!usingClassicFlow && !usingItemsFlow && !usingFindeFlow && !isCenaFlow) {
       return NextResponse.json({ error: 'Faltan datos obligatorios' }, { status: 400 });
     }
 
@@ -183,11 +157,8 @@ export async function POST(request: Request) {
       select: { id: true, empresaId: true, rol: true },
     });
 
-    if (!usuario || !usuario.empresaId) {
-      return NextResponse.json({ error: 'Usuario no válido o sin empresa' }, { status: 400 });
-    }
+    if (!usuario || !usuario.empresaId) return NextResponse.json({ error: 'Usuario no válido o sin empresa' }, { status: 400 });
 
-    // Solo bloquear a TRABAJADORES
     if (usuario.rol === 'TRABAJADOR') {
       const estadoHorario = await getHorarioEmpresa(usuario.empresaId);
       if (!estadoHorario.permitido) {
@@ -200,136 +171,79 @@ export async function POST(request: Request) {
       }
     }
 
-    if (usingClassicFlow) {
-      if (entradasNormalizadas.hasInvalidValue) {
-        return NextResponse.json({ error: 'Una o mas entradas seleccionadas no son validas' }, { status: 400 });
-      }
+    if (usingClassicFlow && !isCenaFlow) {
+      if (entradasNormalizadas.hasInvalidValue) return NextResponse.json({ error: 'Entradas seleccionadas no validas' }, { status: 400 });
+      if (postreId !== undefined && postreId !== null && !postreIdNormalizado) return NextResponse.json({ error: 'Postre seleccionado no valido' }, { status: 400 });
+      if (jugoId !== undefined && jugoId !== null && !jugoIdNormalizado) return NextResponse.json({ error: 'Bebestible seleccionado no valido' }, { status: 400 });
 
-      if (postreId !== undefined && postreId !== null && !postreIdNormalizado) {
-        return NextResponse.json({ error: 'El postre seleccionado no es valido' }, { status: 400 });
-      }
-
-      if (jugoId !== undefined && jugoId !== null && !jugoIdNormalizado) {
-        return NextResponse.json({ error: 'El bebestible seleccionado no es valido' }, { status: 400 });
-      }
-
-      const idsAValidar = [
-        ...entradasNormalizadas.ids,
-        fondoIdNormalizado,
-        postreIdNormalizado,
-        jugoIdNormalizado,
-      ].filter((id): id is number => Boolean(id));
-
-      const platos = await db.plato.findMany({
-        where: { id: { in: idsAValidar } },
-        select: { id: true, categoria: true },
-      });
+      const idsAValidar = [...entradasNormalizadas.ids, fondoIdNormalizado, postreIdNormalizado, jugoIdNormalizado].filter((id): id is number => Boolean(id));
+      const platos = await db.plato.findMany({ where: { id: { in: idsAValidar } }, select: { id: true, categoria: true } });
       const categoriasPorId = new Map(platos.map((plato) => [plato.id, plato.categoria]));
 
-      const entradaInvalida = entradasNormalizadas.ids.some((id) => categoriasPorId.get(id) !== 'ENTRADA');
-      if (entradaInvalida) {
-        return NextResponse.json({ error: 'Una o mas entradas seleccionadas no corresponden a la categoria ENTRADA' }, { status: 400 });
-      }
-
-      if (categoriasPorId.get(fondoIdNormalizado!) !== 'FONDO') {
-        return NextResponse.json({ error: 'El fondo seleccionado no corresponde a la categoria FONDO' }, { status: 400 });
-      }
-
-      if (postreIdNormalizado && categoriasPorId.get(postreIdNormalizado) !== 'POSTRE') {
-        return NextResponse.json({ error: 'El postre seleccionado no corresponde a la categoria POSTRE' }, { status: 400 });
-      }
-
-      if (jugoIdNormalizado) {
-        const categoriaBebestible = categoriasPorId.get(jugoIdNormalizado);
-        const categoriasBebestibleValidas = ['JUGO', 'BEBIDA', 'AGUA_SABORIZADA'];
-
-        if (!categoriaBebestible || !categoriasBebestibleValidas.includes(categoriaBebestible)) {
-          return NextResponse.json({ error: 'El bebestible seleccionado no corresponde a una categoria valida' }, { status: 400 });
-        }
-      }
+      if (entradasNormalizadas.ids.some((id) => categoriasPorId.get(id) !== 'ENTRADA')) return NextResponse.json({ error: 'Entrada invalida' }, { status: 400 });
+      if (categoriasPorId.get(fondoIdNormalizado!) !== 'FONDO') return NextResponse.json({ error: 'Fondo invalido' }, { status: 400 });
+      if (postreIdNormalizado && categoriasPorId.get(postreIdNormalizado) !== 'POSTRE') return NextResponse.json({ error: 'Postre invalido' }, { status: 400 });
+      if (jugoIdNormalizado && !['JUGO', 'BEBIDA', 'AGUA_SABORIZADA'].includes(categoriasPorId.get(jugoIdNormalizado) || '')) return NextResponse.json({ error: 'Bebestible invalido' }, { status: 400 });
     }
 
     const targetIso = fecha && typeof fecha === 'string' ? fecha : undefined;
     const inicioDiaTarget = chileStartOfDay(targetIso);
     const finDiaTarget = chileEndOfDay(targetIso);
 
+    // 🔥 BUSCAMOS EL PEDIDO EXISTENTE, PERO SEPARANDO ALMUERZO DE CENA
     const pedidoExistente = await db.pedido.findFirst({
       where: {
         usuarioId,
-        fecha: {
-          gte: inicioDiaTarget,
-          lte: finDiaTarget,
-        },
+        fecha: { gte: inicioDiaTarget, lte: finDiaTarget },
+        esCena: isCenaFlow // Si guardo cena, busco si ya tiene cena. Si guardo almuerzo, busco almuerzo.
       },
     });
 
-    // 🔥 ARMAMOS EL ARREGLO DE DETALLES DINÁMICAMENTE según el flujo usado
     let detallesData: DetallePedidoInput[] = [];
 
-    // 🔥 NUEVO: Lógica interceptora para el fin de semana
-    if (usingFindeFlow) {
+    // 🔥 LÓGICA DE DETALLES PARA CENA Y FINDE (Usan los mismos platos comodín)
+    if (usingFindeFlow || isCenaFlow) {
       let nombreComodin = '';
-      if (tipoFinde === 'MENU_DIA') nombreComodin = 'Menú del Día (Fin de Semana)';
-      if (tipoFinde === 'HIPOCALORICO') nombreComodin = 'Hipocalórico (Fin de Semana)';
-      if (tipoFinde === 'VEGETARIANO') nombreComodin = 'Vegetariano (Fin de Semana)';
-      if (tipoFinde === 'COLACION') nombreComodin = 'Colación (Fin de Semana)';
+      const tipo = isCenaFlow ? tipoCena : tipoFinde; // Usamos el tipo que corresponda
+      
+      if (tipo === 'MENU_DIA') nombreComodin = 'Menú del Día (Fin de Semana)';
+      if (tipo === 'HIPOCALORICO') nombreComodin = 'Hipocalórico (Fin de Semana)';
+      if (tipo === 'VEGETARIANO') nombreComodin = 'Vegetariano (Fin de Semana)';
+      if (tipo === 'COLACION') nombreComodin = 'Colación (Fin de Semana)';
 
-      const platoComodin = await db.plato.findUnique({
-        where: { nombre: nombreComodin }
-      });
-
-      if (!platoComodin) {
-        return NextResponse.json({ error: `Falta crear el plato comodín en la base de datos: ${nombreComodin}` }, { status: 400 });
-      }
-
+      const platoComodin = await db.plato.findUnique({ where: { nombre: nombreComodin } });
+      if (!platoComodin) return NextResponse.json({ error: `Falta crear plato comodín: ${nombreComodin}` }, { status: 400 });
+      
       detallesData = [{ platoId: platoComodin.id, cantidad: 1 }];
 
     } else if (usingClassicFlow) {
-      // 1. Agregamos las entradas SOLO si existen y no están vacías
-      if (entradasNormalizadas.ids.length > 0) {
-        detallesData.push(...entradasNormalizadas.ids.map((id) => ({ platoId: id })));
-      }
-      
-      // 2. Siempre agregamos el fondo (ya validamos que existe)
-      if (fondoIdNormalizado) {
-        detallesData.push({ platoId: fondoIdNormalizado, guarnicionId: guarnicionId ?? null });
-      }
-
-      // 3. Agregamos el postre SOLO si existe
-      if (postreIdNormalizado) {
-        detallesData.push({ platoId: postreIdNormalizado });
-      }
-
-      // 4. Siempre agregamos el Jugo/Bebida
-      if (jugoIdNormalizado) {
-        detallesData.push({ platoId: jugoIdNormalizado });
-      }
+      if (entradasNormalizadas.ids.length > 0) detallesData.push(...entradasNormalizadas.ids.map((id) => ({ platoId: id })));
+      if (fondoIdNormalizado) detallesData.push({ platoId: fondoIdNormalizado, guarnicionId: guarnicionId ?? null });
+      if (postreIdNormalizado) detallesData.push({ platoId: postreIdNormalizado });
+      if (jugoIdNormalizado) detallesData.push({ platoId: jugoIdNormalizado });
     } else if (usingItemsFlow && items) {
       detallesData = items.map(it => ({ platoId: it.platoId, guarnicionId: it.guarnicionId ?? null, cantidad: it.cantidad ?? 1 }));
     }
 
+    // SI YA EXISTE, LO ACTUALIZAMOS
     if (pedidoExistente) {
       await db.$transaction(async (tx) => {
-        // Borramos los detalles antiguos
         await tx.detallePedido.deleteMany({ where: { pedidoId: pedidoExistente.id } });
-        
-        // Creamos los nuevos detalles mapeando el id del pedido
         await tx.detallePedido.createMany({
-          data: detallesData.map(detalle => ({
-            pedidoId: pedidoExistente.id,
-            ...detalle
-          })),
+          data: detallesData.map(detalle => ({ pedidoId: pedidoExistente.id, ...detalle })),
         });
-
         await tx.pedido.update({
           where: { id: pedidoExistente.id },
-          data: { observacion: observacion?.trim() || null }
+          data: { 
+            observacion: observacion?.trim() || null,
+            tipoCena: isCenaFlow ? tipoCena : null // Si actualizamos, guardamos el tipo
+          }
         });
       });
-
       return NextResponse.json({ mensaje: 'Pedido actualizado', pedidoId: pedidoExistente.id });
     }
 
+    // SI NO EXISTE, LO CREAMOS
     const nuevoPedido = await db.pedido.create({
       data: {
         fecha: inicioDiaTarget,
@@ -337,10 +251,9 @@ export async function POST(request: Request) {
         empresaId: usuario.empresaId,
         estado: 'PENDIENTE',
         observacion: observacion?.trim() || null,
-        detalles: {
-          // Prisma usa 'create' con un arreglo directamente
-          create: detallesData,
-        },
+        esCena: isCenaFlow, // 🔥 Guardamos el estado
+        tipoCena: isCenaFlow ? tipoCena : null, // 🔥 Guardamos el tipo de cena
+        detalles: { create: detallesData },
       },
       select: { id: true },
     });
@@ -357,28 +270,24 @@ export async function DELETE(request: Request) {
     const { searchParams } = new URL(request.url);
     const usuarioId = searchParams.get('usuarioId');
     const fecha = searchParams.get('fecha');
+    const esCenaQuery = searchParams.get('esCena') === 'true'; // 🔥 Sabemos qué borrar
 
-    if (!usuarioId) {
-      return NextResponse.json({ error: 'Falta usuarioId' }, { status: 400 });
-    }
+    if (!usuarioId) return NextResponse.json({ error: 'Falta usuarioId' }, { status: 400 });
 
     const targetIso = fecha && typeof fecha === 'string' ? fecha : undefined;
     const inicioDiaTarget = chileStartOfDay(targetIso);
     const finDiaTarget = chileEndOfDay(targetIso);
 
+    // 🔥 MODIFICADO: Borramos estrictamente el almuerzo O la cena
     const pedidoParaEliminar = await db.pedido.findFirst({
       where: {
         usuarioId,
-        fecha: {
-          gte: inicioDiaTarget,
-          lte: finDiaTarget,
-        },
+        fecha: { gte: inicioDiaTarget, lte: finDiaTarget },
+        esCena: esCenaQuery // Buscamos con precisión
       },
     });
 
-    if (!pedidoParaEliminar) {
-      return NextResponse.json({ error: 'Pedido no encontrado' }, { status: 404 });
-    }
+    if (!pedidoParaEliminar) return NextResponse.json({ error: 'Pedido no encontrado' }, { status: 404 });
 
     await db.$transaction(async (tx) => {
       await tx.detallePedido.deleteMany({ where: { pedidoId: pedidoParaEliminar.id } });

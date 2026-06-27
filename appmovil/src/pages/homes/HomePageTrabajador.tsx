@@ -29,6 +29,7 @@ import type { Plato } from '../../hooks/useMenuAPI';
 
 type Categoria = 'ENTRADA' | 'FONDO' | 'POSTRE' | 'JUGO' | null;
 type TipoMenu = 'MENU_DIA' | 'PERSONALIZADO' | 'OTRO';
+type ModoComida = 'ALMUERZO' | 'CENA';
 
 const capitalizar = (texto: string | null | undefined) => {
   if (!texto) return '';
@@ -70,8 +71,7 @@ const obtenerIncluidosPorConvenio = (menuDia: any, convenio: any) => {
   return incluidos;
 };
 
-// 🔥 LAS 4 OPCIONES FIJAS QUE PIDIÓ EL CLIENTE PARA EL FIN DE SEMANA
-const OPCIONES_FIN_DE_SEMANA = [
+const OPCIONES_PREFIJADAS = [
   { id: 'MENU_DIA', nombre: 'MENÚ DEL DÍA', descripcion: 'Opción tradicional.' },
   { id: 'HIPOCALORICO', nombre: 'HIPOCALÓRICO', descripcion: 'Alternativa baja en calorías.' },
   { id: 'VEGETARIANO', nombre: 'VEGETARIANO', descripcion: 'Alternativa sin contenido cárnico.' },
@@ -92,28 +92,25 @@ const HomePageTrabajador: React.FC = () => {
 
   useEffect(() => {
     if (!user?.id) return;
-
     let cancelado = false;
-
     const fetchHorario = async () => {
       try {
         const res = await fetch(`${API_BASE_URL}/api/trabajador/horario?usuarioId=${user.id}`, { cache: 'no-store' });
         const data: EstadoHorarioResponse = await res.json();
         if (!cancelado) setEstadoHorario(data);
       } catch (e) {
-        console.error('[HomePageTrabajador] Error al verificar horario:', e);
         if (!cancelado) setEstadoHorario({ permitido: true, fechaBloqueada: null });
       } finally {
         if (!cancelado) setCargandoHorario(false);
       }
     };
-
     fetchHorario();
     return () => { cancelado = true; };
   }, [user?.id]);
 
   const { diasBloqueadosAdmin, convenio } = usePerfilTrabajador(user?.id);
   const trabajaFinDeSemana = Boolean(convenio?.trabajaFinDeSemana);
+  const permiteCena = Boolean(convenio?.permiteCena);
 
   const {
     setSemanaOffset: _setSemanaOffset, fechaTexto, diasSemanaArray, getSemanaTexto,
@@ -131,8 +128,10 @@ const HomePageTrabajador: React.FC = () => {
     bebidaId: null as number | null, jugoId: null as number | null, isDoblePostre: false
   });
 
+  const [modoComida, setModoComida] = useState<ModoComida>('ALMUERZO');
   const [activeTab, setActiveTab] = useState<TipoMenu>('MENU_DIA');
   const [opcionFinde, setOpcionFinde] = useState<string | null>(null);
+  const [opcionCena, setOpcionCena] = useState<string | null>(null);
   const [observacion, setObservacion] = useState('');
 
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -152,17 +151,16 @@ const HomePageTrabajador: React.FC = () => {
   const { otrosPlatos, loadingOtros } = useOtrosPlatos(activeTab === 'OTRO' || activeTab === 'PERSONALIZADO');
   const { timeRemaining } = useCountdown(DEADLINE_HOUR);
   const { menuHoy, cargando: cargandoMenu } = useMenuAPI(fechaSeleccionadaISO, user?.id);
-  const { pedidoExistente, cargandoVerificacion, enviarPedido, enviarItems, enviando, refrescarVerificacion, eliminarPedido, eliminando } = usePedidos(user?.id, fechaSeleccionadaISO);
-  const { historial, cargando: cargandoHistorial, cargarHistorial } = useHistorial(user?.id);
+  const { pedidoExistente, cargandoVerificacion, enviarPedido, enviarItems, enviando, refrescarVerificacion, eliminarPedido, eliminando } = usePedidos(user?.id, fechaSeleccionadaISO, modoComida === 'CENA');
+  
+  // 🔥 EXTRAEMOS estadoFechas DEL HISTORIAL
+  const { historial, estadoFechas, cargando: cargandoHistorial, cargarHistorial } = useHistorial(user?.id);
 
   useEffect(() => { if (user?.id) cargarHistorial(); }, [user?.id, cargarHistorial]);
 
   const fechasBloqueadas = useMemo(() => new Set((historial || []).map((p: any) => String(p?.fecha || '').split('T')[0])), [historial]);
 
-  const fechaBloqueadaPorHorario: string | null =
-    estadoHorario && !estadoHorario.permitido
-      ? estadoHorario.fechaBloqueada ?? null
-      : null;
+  const fechaBloqueadaPorHorario: string | null = estadoHorario && !estadoHorario.permitido ? estadoHorario.fechaBloqueada ?? null : null;
 
   const fechasVisualmenteBloqueadas = useMemo(() => {
     const set = new Set<string>();
@@ -176,12 +174,8 @@ const HomePageTrabajador: React.FC = () => {
   const esBloqueadoPermanente = (diasBloqueadosAdmin || []).includes(numDiaSeleccionado);
   const fechaBloqueada = (diasSemanaArray?.[diaSeleccionadoIdx]?.bloqueado ?? false) || esBloqueadoPermanente;
   const fechaSeleccionadaTienePedido = fechasBloqueadas.has(fechaSeleccionadaISO || '');
-  const bloquearUI =
-    (isSelectedDateToday && isDeadlinePassed) ||
-    (fechaBloqueada && !fechaSeleccionadaTienePedido) ||
-    (fechaBloqueadaPorHorario === fechaSeleccionadaISO && !fechaSeleccionadaTienePedido);
+  const bloquearUI = (isSelectedDateToday && isDeadlinePassed) || (fechaBloqueada && !fechaSeleccionadaTienePedido) || (fechaBloqueadaPorHorario === fechaSeleccionadaISO && !fechaSeleccionadaTienePedido);
 
-  // 🔥 DETECTOR DE FIN DE SEMANA
   const esFinDeSemana = numDiaSeleccionado === 0 || numDiaSeleccionado === 6;
 
   const todosBloqueados = useMemo(() => {
@@ -210,11 +204,9 @@ const HomePageTrabajador: React.FC = () => {
       const primerDiaConPedido = diasSemanaArray.findIndex(dia => dia?.iso && fechasBloqueadas.has(dia.iso));
       if (primerDiaConPedido !== -1) setDiaSeleccionadoIdx(primerDiaConPedido);
     }
-    
     setAutoSelected(true); 
   }, [autoSelected, diasSemanaArray, cargandoHistorial, cargandoVerificacion, diasBloqueadosAdmin, fechasBloqueadas, setDiaSeleccionadoIdx]);
 
-  // --- VARIABLES DE REGLAS ---
   const fondoObj = (menuHoy?.fondos || []).find((p: any) => p?.id === pedido.fondoId);
   const isHipocalorico = fondoObj?.tipo === 'HIPOCALORICO';
   const isPlatoUnicoOrHipocalorico = fondoObj?.tipo === 'PLATO_UNICO' || isHipocalorico;
@@ -236,10 +228,11 @@ const HomePageTrabajador: React.FC = () => {
 
   const estaCompletoOtro = activeTab === 'OTRO' && Boolean((pedido.canjeId !== null) || (pedido.sandwichId !== null && pedido.bebidaId !== null));
   
-  // 🔥 LÓGICA DE ENVÍO
-  const puedeEnviar = esFinDeSemana 
-    ? Boolean(opcionFinde) 
-    : (activeTab === 'MENU_DIA' ? menuDiaSeleccionado : (activeTab === 'PERSONALIZADO' ? estaCompletoPersonalizado : estaCompletoOtro));
+  const puedeEnviar = modoComida === 'CENA' 
+    ? Boolean(opcionCena)
+    : esFinDeSemana 
+      ? Boolean(opcionFinde) 
+      : (activeTab === 'MENU_DIA' ? menuDiaSeleccionado : (activeTab === 'PERSONALIZADO' ? estaCompletoPersonalizado : estaCompletoOtro));
 
   const isCanjeSelected = tipoOtroSeleccionado === 'CANJE';
   const isPremiumSelected = tipoOtroSeleccionado === 'PREMIUM';
@@ -250,19 +243,22 @@ const HomePageTrabajador: React.FC = () => {
     setModoEdicion(false);
     setTipoOtroSeleccionado(null);
     setOpcionFinde(null);
+    setOpcionCena(null);
     setObservacion('');
+    setModoComida('ALMUERZO');
   }, [fechaSeleccionadaISO]);
 
   const isPedidoDelDiaSeleccionado = String(pedidoExistente?.fecha || '').startsWith(fechaSeleccionadaISO || '');
   const pedidoSeguro = (isPedidoDelDiaSeleccionado && !cargandoVerificacion) ? pedidoExistente : null;
+  const pedidoDeEstaVista = pedidoSeguro && (modoComida === 'CENA' ? pedidoSeguro.esCena : !pedidoSeguro.esCena) ? pedidoSeguro : null;
 
   useEffect(() => {
-    if (activeTab === 'PERSONALIZADO' && !cargandoMenu && !bloquearUI && (!pedidoExistente || modoEdicion)) {
+    if (activeTab === 'PERSONALIZADO' && !cargandoMenu && !bloquearUI && (!pedidoDeEstaVista || modoEdicion)) {
       setSeccionAbierta('ENTRADA'); 
     } else {
       setSeccionAbierta(null); 
     }
-  }, [activeTab, cargandoMenu, bloquearUI, pedidoExistente, modoEdicion]);
+  }, [activeTab, cargandoMenu, bloquearUI, pedidoDeEstaVista, modoEdicion]);
 
   const toggleSeccion = (cat: Categoria) => setSeccionAbierta(prev => (prev === cat ? null : cat));
 
@@ -346,6 +342,13 @@ const HomePageTrabajador: React.FC = () => {
   };
 
   const manejarEnvio = async () => {
+    if (modoComida === 'CENA') {
+      if (!opcionCena) return;
+      const exito = await enviarPedido({ esCena: true, tipoCena: opcionCena, observacion } as any);
+      if (exito) { setModoEdicion(false); setObservacion(''); setOpcionCena(null); cargarHistorial(); }
+      return;
+    }
+
     if (esFinDeSemana) {
       if (!opcionFinde) return;
       const exito = await enviarPedido({ esFinDeSemana: true, tipoFinde: opcionFinde, observacion });
@@ -377,10 +380,7 @@ const HomePageTrabajador: React.FC = () => {
       if (pedido.sandwichId) items.push({ platoId: pedido.sandwichId, cantidad: 1 });
       if (pedido.bebidaId) items.push({ platoId: pedido.bebidaId, cantidad: 1 });
       if (items.length === 0) { alert('Selecciona al menos un item.'); return; }
-      
-      // 🔥 FIX: Le pasamos la observación a enviarItems
-      const exito = await enviarItems(items, observacion); 
-      
+      const exito = await enviarItems(items, observacion);
       if (exito) { setModoEdicion(false); setTipoOtroSeleccionado(null); cargarHistorial(); }
       return;
     }
@@ -394,17 +394,27 @@ const HomePageTrabajador: React.FC = () => {
       setPedido({ entradasIds: [], fondoId: null, postreId: null, guarnicionId: null, canjeId: null, sandwichId: null, bebidaId: null, jugoId: null, isDoblePostre: false });
       setTipoOtroSeleccionado(null);
       setOpcionFinde(null);
+      setOpcionCena(null);
       try { await cargarHistorial(); refrescarVerificacion(); } catch (e) { }
     }
   };
 
   const manejarModificarPedido = () => {
+    if (pedidoExistente?.esCena || pedidoExistente?.tipoCena) {
+      setModoEdicion(true);
+      setModoComida('CENA');
+      setOpcionCena(pedidoExistente.tipoCena || null);
+      return;
+    }
+
     if (esFinDeSemana) {
       setModoEdicion(true);
+      setModoComida('ALMUERZO');
       setOpcionFinde(pedidoExistente?.tipoFinde || null);
       return;
     }
 
+    setModoComida('ALMUERZO');
     const resumen = pedidoExistente?.resumen || [];
     const entradas = resumen.filter((r:any)=>r?.categoria==='ENTRADA').map((e:any) => e.platoId);
     const f = resumen.find((r:any)=>r?.categoria==='FONDO');
@@ -431,7 +441,6 @@ const HomePageTrabajador: React.FC = () => {
   };
 
   if (eliminando) return <LoadingView message="Eliminando pedido..." />;
-
   if (cargandoHorario) return <LoadingView message="Verificando horario..." />;
 
   const categoriasPersonalizado = ['ENTRADA', 'FONDO', 'POSTRE', 'JUGO'];
@@ -470,22 +479,38 @@ const HomePageTrabajador: React.FC = () => {
         todosBloqueados={todosBloqueados}
         setDiaSeleccionadoIdx={setDiaSeleccionadoIdx}
         fechasHorarioBloqueado={fechasVisualmenteBloqueadas}
+        estadoFechas={estadoFechas} // 🔥 PASAMOS EL ESTADO
       />
 
-      <div className="mt-8 px-6 flex flex-col grow pb-6">
+      <div className="mt-6 px-6 flex flex-col grow pb-6">
+        
+        {permiteCena && !todosBloqueados && (
+          <div className="mb-6 bg-gray-100 p-1.5 rounded-[20px] flex items-center shadow-inner shrink-0">
+            <button
+              onClick={() => { setModoComida('ALMUERZO'); setModoEdicion(false); }}
+              className={`flex-1 py-3.5 text-[11px] font-black uppercase tracking-widest rounded-2xl transition-all ${modoComida === 'ALMUERZO' ? 'bg-white text-[#1d2d50] shadow-sm' : 'text-gray-400 hover:text-gray-500'}`}
+            >
+              ☀️ Almuerzo
+            </button>
+            <button
+              onClick={() => { setModoComida('CENA'); setModoEdicion(false); }}
+              className={`flex-1 py-3.5 text-[11px] font-black uppercase tracking-widest rounded-2xl transition-all ${modoComida === 'CENA' ? 'bg-[#1d2d50] text-white shadow-md' : 'text-gray-400 hover:text-gray-500'}`}
+            >
+              🌙 Cena
+            </button>
+          </div>
+        )}
+
         {fechaBloqueadaPorHorario === fechaSeleccionadaISO && (
-          <div className="mx-4 mb-4 flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3">
+          <div className="mb-4 flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3">
             <Clock size={16} className="text-amber-500 shrink-0" />
             <div>
-              <p className="text-xs font-black text-amber-700 uppercase tracking-widest">
-                Pedidos cerrados para hoy
-              </p>
-              <p className="text-xs text-amber-600 mt-0.5">
-                {estadoHorario && !estadoHorario.permitido ? estadoHorario.horaReapertura : ''}
-              </p>
+              <p className="text-xs font-black text-amber-700 uppercase tracking-widest">Pedidos cerrados para hoy</p>
+              <p className="text-xs text-amber-600 mt-0.5">{estadoHorario && !estadoHorario.permitido ? estadoHorario.horaReapertura : ''}</p>
             </div>
           </div>
         )}
+
         {todosBloqueados ? (
           <div className="bg-white rounded-[2rem] p-8 border border-gray-100 shadow-sm text-center mt-4 flex flex-col items-center justify-center grow mb-4">
             <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4"><CalendarOff size={32} className="text-gray-400" /></div>
@@ -494,38 +519,59 @@ const HomePageTrabajador: React.FC = () => {
           </div>
         ) : (cargandoVerificacion || cargandoMenu) ? (
           <MenuSkeleton />
-        ) : pedidoSeguro && !modoEdicion ? (
+        ) : pedidoDeEstaVista && !modoEdicion ? (
           <ResumenPedido
-            pedidoExistente={pedidoSeguro} menuHoy={menuHoy} manejarEliminar={manejarEliminar}
+            pedidoExistente={pedidoDeEstaVista} menuHoy={menuHoy} manejarEliminar={manejarEliminar}
             onModificar={manejarModificarPedido} isDeadlinePassed={isDeadlinePassed} fechaBloqueada={fechaBloqueada}
-            convenio={convenio} observacion={pedidoSeguro.observacion}
+            convenio={convenio} observacion={pedidoDeEstaVista.observacion}
           />
         ) : (
           <>
-            {/* 🔥 VISTA DE FIN DE SEMANA REDISEÑADA */}
-            {esFinDeSemana ? (
-              <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm flex flex-col grow mb-4">
-                
-                {/* Cabecera Estilo "Entrada" */}
+            {modoComida === 'CENA' ? (
+              <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm flex flex-col grow mb-4 animate-in fade-in duration-200">
+                <div className="border-b border-gray-200 pb-3 mb-4 flex flex-col items-center text-center">
+                  <span className="text-xl font-black text-[#1d2d50] uppercase tracking-widest">Menú de Cena</span>
+                  <span className="text-[11px] font-bold text-gray-400 mt-1 uppercase tracking-wider">Revisa WhatsApp o correo para ver el menú nocturno</span>
+                </div>
+                {modoEdicion && (
+                  <div className="flex justify-between items-center mb-4 shrink-0">
+                    <span className="font-black text-sm text-[#1d2d50] uppercase tracking-widest flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" /> Modificando</span>
+                    <button onClick={() => setModoEdicion(false)} className="text-[11px] font-bold text-gray-400 uppercase bg-gray-100 px-3 py-1.5 rounded-full active:scale-95 transition-transform"><X size={14} className="inline mr-1" /> Cancelar</button>
+                  </div>
+                )}
+                <div className="flex flex-col gap-3">
+                  {OPCIONES_PREFIJADAS.map(opcion => (
+                    <button 
+                      key={opcion.id}
+                      onClick={() => setOpcionCena(opcion.id === opcionCena ? null : opcion.id)}
+                      disabled={bloquearUI}
+                      className={`flex items-center justify-between w-full px-5 py-5 rounded-3xl border transition-all ${opcionCena === opcion.id ? 'border-[#70a344] bg-green-50 shadow-sm scale-[0.98]' : 'border-gray-200 bg-white shadow-sm hover:bg-gray-50'}`}
+                    >
+                      <div className="flex flex-col text-left">
+                        <span className={`font-black text-[16px] uppercase tracking-widest ${opcionCena === opcion.id ? 'text-[#70a344]' : 'text-[#1d2d50]'}`}>{opcion.nombre}</span>
+                        <span className={`text-xs font-medium mt-1 pr-4 ${opcionCena === opcion.id ? 'text-[#5a8335]' : 'text-gray-400'}`}>{opcion.descripcion}</span>
+                      </div>
+                      <div className={`shrink-0 w-7 h-7 rounded-lg border-2 flex items-center justify-center transition-all ${opcionCena === opcion.id ? 'bg-[#70a344] border-[#70a344]' : 'bg-transparent border-gray-300'}`}>
+                        {opcionCena === opcion.id && <Check size={18} strokeWidth={4} className="text-white" />}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : esFinDeSemana ? (
+              <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm flex flex-col grow mb-4 animate-in fade-in duration-200">
                 <div className="border-b border-gray-200 pb-3 mb-4 flex flex-col items-center text-center">
                   <span className="text-xl font-black text-[#1d2d50] uppercase tracking-widest">Menú Fin de Semana</span>
                   <span className="text-[11px] font-bold text-gray-400 mt-1 uppercase tracking-wider">Revisa WhatsApp o correo para ver el menú</span>
                 </div>
-                
                 {modoEdicion && (
                   <div className="flex justify-between items-center mb-4 shrink-0">
-                    <span className="font-black text-sm text-[#1d2d50] uppercase tracking-widest flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" /> Modificando
-                    </span>
-                    <button onClick={() => setModoEdicion(false)} className="text-[11px] font-bold text-gray-400 uppercase bg-gray-100 px-3 py-1.5 rounded-full active:scale-95 transition-transform">
-                      <X size={14} className="inline mr-1" /> Cancelar
-                    </button>
+                    <span className="font-black text-sm text-[#1d2d50] uppercase tracking-widest flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" /> Modificando</span>
+                    <button onClick={() => setModoEdicion(false)} className="text-[11px] font-bold text-gray-400 uppercase bg-gray-100 px-3 py-1.5 rounded-full active:scale-95 transition-transform"><X size={14} className="inline mr-1" /> Cancelar</button>
                   </div>
                 )}
-
                 <div className="flex flex-col gap-3">
-                  {/* Tarjetas de Opciones */}
-                  {OPCIONES_FIN_DE_SEMANA.map(opcion => (
+                  {OPCIONES_PREFIJADAS.map(opcion => (
                     <button 
                       key={opcion.id}
                       onClick={() => setOpcionFinde(opcion.id === opcionFinde ? null : opcion.id)}
@@ -542,15 +588,13 @@ const HomePageTrabajador: React.FC = () => {
                     </button>
                   ))}
                 </div>
-
               </div>
             ) : (
-              /* VISTA NORMAL (LUNES A VIERNES) */
-              <>
-                <div id="seccion-tabs" className="flex bg-white border border-gray-100 p-1.5 rounded-[20px] mb-6 shadow-sm shrink-0">
-                  <button onClick={() => { setActiveTab('MENU_DIA'); if (!modoEdicion) { setTipoOtroSeleccionado(null); } }} className={`flex-1 py-3 px-2 text-[10px] sm:text-[11px] font-black uppercase tracking-widest rounded-2xl transition-all ${activeTab === 'MENU_DIA' ? 'bg-[#70a344] shadow-md text-white' : 'text-gray-400 bg-transparent'}`}>Menú Día</button>
-                  <button onClick={() => { setActiveTab('PERSONALIZADO'); if (!modoEdicion) { setPedido({ entradasIds: [], fondoId: null, postreId: null, guarnicionId: null, canjeId: null, sandwichId: null, bebidaId: null, jugoId: null, isDoblePostre: false }); setTipoOtroSeleccionado(null); } }} className={`flex-1 py-3 px-2 text-[10px] sm:text-[11px] font-black uppercase tracking-widest rounded-2xl transition-all ${activeTab === 'PERSONALIZADO' ? 'bg-[#70a344] shadow-md text-white' : 'text-gray-400 bg-transparent'}`}>Personalizado</button>
-                  <button onClick={() => { setActiveTab('OTRO'); if (!modoEdicion) { setPedido({ entradasIds: [], fondoId: null, postreId: null, guarnicionId: null, canjeId: null, sandwichId: null, bebidaId: null, jugoId: null, isDoblePostre: false }); setTipoOtroSeleccionado(null); } }} className={`flex-1 py-3 px-2 text-[10px] sm:text-[11px] font-black uppercase tracking-widest rounded-2xl transition-all ${activeTab === 'OTRO' ? 'bg-[#70a344] shadow-md text-white' : 'text-gray-400 bg-transparent'}`}>Otros</button>
+              <div className="animate-in fade-in duration-200 flex flex-col grow">
+                <div id="seccion-tabs" className="flex bg-white border border-gray-100 p-1.5 rounded-[20px] mb-6 shadow-sm shrink-0 overflow-x-auto [&::-webkit-scrollbar]:hidden">
+                  <button onClick={() => { setActiveTab('MENU_DIA'); if (!modoEdicion) { setTipoOtroSeleccionado(null); } }} className={`flex-1 min-w-[70px] py-3 px-1 text-[9px] sm:text-[10px] font-black uppercase tracking-wider rounded-2xl transition-all ${activeTab === 'MENU_DIA' ? 'bg-[#70a344] shadow-md text-white' : 'text-gray-400 bg-transparent'}`}>Menú Día</button>
+                  <button onClick={() => { setActiveTab('PERSONALIZADO'); if (!modoEdicion) { setPedido({ entradasIds: [], fondoId: null, postreId: null, guarnicionId: null, canjeId: null, sandwichId: null, bebidaId: null, jugoId: null, isDoblePostre: false }); setTipoOtroSeleccionado(null); } }} className={`flex-1 min-w-[85px] py-3 px-1 text-[9px] sm:text-[10px] font-black uppercase tracking-wider rounded-2xl transition-all ${activeTab === 'PERSONALIZADO' ? 'bg-[#70a344] shadow-md text-white' : 'text-gray-400 bg-transparent'}`}>Personalizado</button>
+                  <button onClick={() => { setActiveTab('OTRO'); if (!modoEdicion) { setPedido({ entradasIds: [], fondoId: null, postreId: null, guarnicionId: null, canjeId: null, sandwichId: null, bebidaId: null, jugoId: null, isDoblePostre: false }); setTipoOtroSeleccionado(null); } }} className={`flex-1 min-w-[60px] py-3 px-1 text-[9px] sm:text-[10px] font-black uppercase tracking-wider rounded-2xl transition-all ${activeTab === 'OTRO' ? 'bg-[#70a344] shadow-md text-white' : 'text-gray-400 bg-transparent'}`}>Otros</button>
                 </div>
 
                 {modoEdicion && (
@@ -749,7 +793,7 @@ const HomePageTrabajador: React.FC = () => {
                     </section>
                   </div>
                 )}
-              </>
+              </div>
             )}
           </>
         )}
@@ -863,9 +907,9 @@ const HomePageTrabajador: React.FC = () => {
         </div>
       </BottomSheet>
 
-      {!(cargandoVerificacion || cargandoMenu) && !bloquearUI && (!pedidoExistente || modoEdicion) && (
+      {!(cargandoVerificacion || cargandoMenu) && !bloquearUI && (!pedidoDeEstaVista || modoEdicion) && (
         <div
-          className="fixed bottom-0 left-0 w-full px-6 pt-4 pb-6 bg-white/90 backdrop-blur-xl shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-40"
+          className="fixed bottom-0 left-0 w-full px-6 pt-4 pb-6 bg-white/90 backdrop-blur-xl shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-40 transform-gpu"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="mb-3">

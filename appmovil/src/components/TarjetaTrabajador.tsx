@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ChevronDown, ChevronUp, Utensils, CheckCircle2, CalendarX2 } from 'lucide-react';
 
 interface Pedido {
@@ -6,6 +6,7 @@ interface Pedido {
   fecha?: string;
   listaPlatos?: string[];
   estado?: string;
+  esCena?: boolean; // 🔥 NUEVO: Ahora la tarjeta sabe si es cena o almuerzo
 }
 
 interface TarjetaTrabajadorProps {
@@ -27,17 +28,32 @@ export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({ trabajador
   const nombreTrabajador = trabajador?.nombre?.trim() || 'Usuario sin nombre';
   const [isExpanded, setIsExpanded] = useState(false);
   
-  const pedidos = Array.isArray(trabajador?.pedidos) ? trabajador.pedidos : [];
+  // 🔥 NUEVO ESTADO: Interruptor Almuerzo / Cena
+  const [modoComida, setModoComida] = useState<'ALMUERZO' | 'CENA'>('ALMUERZO');
   
-  const [pedidoActivoId, setPedidoActivoId] = useState<number | null>(
-    pedidos.length > 0 ? pedidos[0].id : null
-  );
+  const pedidosTotales = Array.isArray(trabajador?.pedidos) ? trabajador.pedidos : [];
+  
+  // 🔥 FILTRAMOS LOS PEDIDOS SEGÚN EL MODO SELECCIONADO
+  const pedidosFiltrados = pedidosTotales.filter(p => modoComida === 'CENA' ? p.esCena : !p.esCena);
+  
+  const [pedidoActivoId, setPedidoActivoId] = useState<number | null>(null);
 
-  const pedidoSeleccionado = pedidos.find(p => p.id === pedidoActivoId);
+  // Sincronizar el pedido activo cuando se cambia de pestaña (Almuerzo <-> Cena)
+  useEffect(() => {
+    if (pedidosFiltrados.length > 0) {
+      if (!pedidosFiltrados.find(p => p.id === pedidoActivoId)) {
+        setPedidoActivoId(pedidosFiltrados[0].id);
+      }
+    } else {
+      setPedidoActivoId(null);
+    }
+  }, [modoComida, pedidosTotales]); // Se ejecuta al cambiar el tab
 
-  // 🔥 LÓGICA DE ESTADO GLOBAL DEL TRABAJADOR ACTUALIZADA
-  const cantidadPedidos = pedidos.length;
-  const cantidadConfirmados = pedidos.filter(p => p.estado === 'CONFIRMADO').length;
+  const pedidoSeleccionado = pedidosFiltrados.find(p => p.id === pedidoActivoId);
+
+  // ESTADO GLOBAL DEL TRABAJADOR (Toma en cuenta TODO: Almuerzo + Cena)
+  const cantidadPedidos = pedidosTotales.length;
+  const cantidadConfirmados = pedidosTotales.filter(p => p.estado === 'CONFIRMADO').length;
   const cantidadPendientes = cantidadPedidos - cantidadConfirmados;
 
   const estaTotalmenteConfirmado = cantidadPedidos > 0 && cantidadPendientes === 0;
@@ -59,7 +75,7 @@ export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({ trabajador
               {nombreTrabajador.toLowerCase()}
             </span>
             
-            {/* 🔥 ETIQUETA DINÁMICA DE ESTADO */}
+            {/* 🔥 ETIQUETA DINÁMICA DE ESTADO (Cambió "DÍAS" por "PEDIDOS") */}
             {cantidadPedidos === 0 ? (
                <span className="text-[10px] font-black uppercase tracking-widest flex items-center gap-1 mt-1 text-gray-400">
                  <span className="w-1.5 h-1.5 rounded-full bg-gray-300"></span>
@@ -68,12 +84,12 @@ export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({ trabajador
             ) : estaTotalmenteConfirmado ? (
                <span className="text-[10px] font-black uppercase tracking-widest flex items-center gap-1 mt-1 text-[#70a344]">
                  <CheckCircle2 size={12} className="text-[#70a344]" />
-                 {cantidadPedidos} {cantidadPedidos === 1 ? 'DÍA CONFIRMADO' : 'DÍAS CONFIRMADOS'}
+                 {cantidadPedidos} {cantidadPedidos === 1 ? 'PEDIDO CONFIRMADO' : 'PEDIDOS CONFIRMADOS'}
                </span>
             ) : (
                <span className={`text-[10px] font-black uppercase tracking-widest flex items-center gap-1 mt-1 ${tieneParciales ? 'text-amber-500' : 'text-gray-500'}`}>
                  <span className={`w-1.5 h-1.5 rounded-full ${tieneParciales ? 'bg-amber-400' : 'bg-gray-400'}`}></span>
-                 {cantidadPendientes} {cantidadPendientes === 1 ? 'DÍA PENDIENTE' : 'DÍAS PENDIENTES'}
+                 {cantidadPendientes} {cantidadPendientes === 1 ? 'PEDIDO PENDIENTE' : 'PEDIDOS PENDIENTES'}
                </span>
             )}
           </div>
@@ -83,12 +99,28 @@ export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({ trabajador
       </button>
 
       {isExpanded && (
-        <div className="px-5 pb-5 pt-0 border-t border-gray-50 bg-gray-50/30">
+        <div className="px-5 pb-5 pt-4 border-t border-gray-50 bg-gray-50/30">
           
-          {pedidos.length > 0 ? (
+          {/* 🔥 INTERRUPTOR (TOGGLE) ALMUERZO / CENA */}
+          <div className="mb-4 bg-gray-200/60 p-1 rounded-[14px] flex items-center shadow-inner">
+            <button
+              onClick={() => setModoComida('ALMUERZO')}
+              className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${modoComida === 'ALMUERZO' ? 'bg-white text-[#1d2d50] shadow-sm' : 'text-gray-400 hover:text-gray-500'}`}
+            >
+              ☀️ Almuerzo
+            </button>
+            <button
+              onClick={() => setModoComida('CENA')}
+              className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${modoComida === 'CENA' ? 'bg-[#1d2d50] text-white shadow-md' : 'text-gray-400 hover:text-gray-500'}`}
+            >
+              🌙 Cena
+            </button>
+          </div>
+          
+          {pedidosFiltrados.length > 0 ? (
             <>
-              <div className="flex gap-2.5 py-4 overflow-x-auto [&::-webkit-scrollbar]:hidden">
-                {pedidos.map((pedido) => {
+              <div className="flex gap-2.5 pb-4 overflow-x-auto [&::-webkit-scrollbar]:hidden">
+                {pedidosFiltrados.map((pedido) => {
                   const isActive = pedidoActivoId === pedido.id;
                   const diaCorto = getDiaCorto(pedido.fecha);
                   const numeroDia = pedido.fecha ? pedido.fecha.split('T')[0].split('-')[2] : '--';
@@ -154,13 +186,15 @@ export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({ trabajador
               )}
             </>
           ) : (
-            <div className="py-8 flex flex-col items-center justify-center text-center">
+            <div className="py-6 flex flex-col items-center justify-center text-center">
               <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-3">
                 <CalendarX2 size={20} className="text-gray-400" />
               </div>
-              <span className="text-xs font-black text-[#1d2d50] uppercase tracking-widest mb-1">Sin Solicitudes</span>
-              <span className="text-[11px] text-gray-400 leading-tight px-4">
-                El trabajador no ha registrado ningún menú para los días de esta semana.
+              <span className="text-xs font-black text-[#1d2d50] uppercase tracking-widest mb-1">
+                Sin {modoComida === 'ALMUERZO' ? 'Almuerzos' : 'Cenas'}
+              </span>
+              <span className="text-[11px] text-gray-400 leading-tight px-4 mt-1">
+                El trabajador no ha registrado ningún {modoComida === 'ALMUERZO' ? 'almuerzo' : 'menú nocturno'} para esta semana.
               </span>
             </div>
           )}

@@ -51,7 +51,7 @@ export async function GET(request: Request) {
       select: {
         id: true,
         nombre: true,
-        rut: true, // 🔥 MAGIA: Ahora Prisma sí nos traerá el RUT
+        rut: true,
         diasBloqueados: true, 
         pedidos: {
           where: { fecha: { gte: inicioSemana, lte: finSemana } },
@@ -59,7 +59,8 @@ export async function GET(request: Request) {
           select: {  
             id: true,
             fecha: true,
-            estado: true, 
+            estado: true,
+            esCena: true, // 🔥 SE AGREGÓ: Ahora traemos la propiedad esCena desde la base de datos
             detalles: {
               include: {
                 plato: true,
@@ -82,7 +83,8 @@ export async function GET(request: Request) {
           return {
             id: p.id,
             fecha: p.fecha.toISOString(),
-            estado: p.estado, 
+            estado: p.estado,
+            esCena: p.esCena, // 🔥 SE AGREGÓ: Pasamos el valor al frontend para que la tarjeta lo pueda filtrar
             listaPlatos: listaPlatos.length > 0 ? listaPlatos : ['Menú Seleccionado']
           };
         });
@@ -90,7 +92,7 @@ export async function GET(request: Request) {
         return {
           id: usuario.id,
           nombre: usuario.nombre,
-          rut: usuario.rut, // 🔥 MAGIA 2: Y ahora se lo mandamos al Frontend
+          rut: usuario.rut,
           diasBloqueados: usuario.diasBloqueados, 
           pedidos: pedidosFormateados
         };
