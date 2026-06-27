@@ -16,7 +16,7 @@ export interface PedidoPayload {
 
 // ─── HOOK ─────────────────────────────────────────────────────────────────────
 
-export const usePedidos = (usuarioId: string | undefined, fecha?: string) => {
+export const usePedidos = (usuarioId: string | undefined, fecha?: string, token?: string | null) => {
   const [yaPedioHoy,            setYaPedioHoy]            = useState(false);
   const [cargandoVerificacion,  setCargandoVerificacion]  = useState(true);
   const [enviando,              setEnviando]              = useState(false);
@@ -35,7 +35,9 @@ export const usePedidos = (usuarioId: string | undefined, fecha?: string) => {
     
     try {
       const url = `${API_BASE_URL}/api/trabajador/pedidos?usuarioId=${usuarioId}${fecha ? `&fecha=${fecha}` : ''}`;
-      const res  = await fetch(url);
+      const res  = await fetch(url, {
+        headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}) },
+      });
       const data = await res.json();
       setYaPedioHoy(data.existe);
       setPedidoExistente(data.pedido ?? null);
@@ -44,7 +46,7 @@ export const usePedidos = (usuarioId: string | undefined, fecha?: string) => {
     } finally {
       setCargandoVerificacion(false);
     }
-  }, [usuarioId, fecha]);
+  }, [usuarioId, fecha, token]);
 
   useEffect(() => {
     refrescarVerificacion();
@@ -72,14 +74,20 @@ export const usePedidos = (usuarioId: string | undefined, fecha?: string) => {
 
       const respuesta = await fetch(`${API_BASE_URL}/api/trabajador/pedidos`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify(payload),
       });
 
       if (respuesta.ok) {
         setYaPedioHoy(true);
         try {
-          const check = await fetch(`${API_BASE_URL}/api/trabajador/pedidos?usuarioId=${usuarioId}${fecha ? `&fecha=${fecha}` : ''}`);
+          const check = await fetch(`${API_BASE_URL}/api/trabajador/pedidos?usuarioId=${usuarioId}${fecha ? `&fecha=${fecha}` : ''}`, {
+            headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}) },
+          });
           const data = await check.json();
           setPedidoExistente(data.pedido ?? null);
         } catch (e) {
@@ -97,7 +105,7 @@ export const usePedidos = (usuarioId: string | undefined, fecha?: string) => {
       }
 
       if (respuesta.status === 409) {
-        setYaPedioHoy(true); 
+        setYaPedioHoy(true);
         return false;
       }
 
@@ -119,7 +127,10 @@ export const usePedidos = (usuarioId: string | undefined, fecha?: string) => {
     setEliminando(true);
     try {
       const url = `${API_BASE_URL}/api/trabajador/pedidos?usuarioId=${usuarioId}${fechaParam ? `&fecha=${fechaParam}` : (fecha ? `&fecha=${fecha}` : '')}`;
-      const res = await fetch(url, { method: 'DELETE' });
+      const res = await fetch(url, {
+        method: 'DELETE',
+        headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}) },
+      });
       if (res.ok) {
         setPedidoExistente(null);
         setYaPedioHoy(false);
@@ -150,14 +161,20 @@ export const usePedidos = (usuarioId: string | undefined, fecha?: string) => {
 
       const respuesta = await fetch(`${API_BASE_URL}/api/trabajador/pedidos`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify(payload),
       });
 
       if (respuesta.ok) {
         setYaPedioHoy(true);
         try {
-          const check = await fetch(`${API_BASE_URL}/api/trabajador/pedidos?usuarioId=${usuarioId}${fecha ? `&fecha=${fecha}` : ''}`);
+          const check = await fetch(`${API_BASE_URL}/api/trabajador/pedidos?usuarioId=${usuarioId}${fecha ? `&fecha=${fecha}` : ''}`, {
+            headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}) },
+          });
           const data = await check.json();
           setPedidoExistente(data.pedido ?? null);
         } catch (e) { /* ignore */ }

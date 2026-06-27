@@ -20,6 +20,7 @@ import { useHistorial } from '../../hooks/useHistorial';
 import { usePerfilTrabajador } from '../../hooks/usePerfilTrabajador';
 import { useOtrosPlatos } from '../../hooks/useOtrosPlatos';
 import { useConfigurarNotificaciones } from '../../hooks/useConfigurarNotificaciones';
+import { useClerkToken } from '../../hooks/useClerkToken';
 // Nuevos Componentes
 import { MenuSkeleton } from '../../components/MenuSkeleton';
 import { CalendarioSemanal } from '../../components/CalendarioSemanal';
@@ -87,6 +88,14 @@ const HomePageTrabajador: React.FC = () => {
 
   useEffect(() => { setAutoSelected(false); }, [location.pathname]);
 
+  const { obtenerToken } = useClerkToken();
+  const [clerkToken, setClerkToken] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    obtenerToken().then(setClerkToken);
+  }, [user?.id, obtenerToken]);
+
   const [estadoHorario, setEstadoHorario] = useState<EstadoHorarioResponse | null>(null);
   const [cargandoHorario, setCargandoHorario] = useState(true);
 
@@ -97,7 +106,15 @@ const HomePageTrabajador: React.FC = () => {
 
     const fetchHorario = async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/api/trabajador/horario?usuarioId=${user.id}`, { cache: 'no-store' });
+        const res = await fetch(
+          `${API_BASE_URL}/api/trabajador/horario?usuarioId=${user.id}`,
+          {
+            cache: 'no-store',
+            headers: clerkToken
+              ? { 'Authorization': `Bearer ${clerkToken}` }
+              : {},
+          }
+        );
         const data: EstadoHorarioResponse = await res.json();
         if (!cancelado) setEstadoHorario(data);
       } catch (e) {
@@ -110,7 +127,7 @@ const HomePageTrabajador: React.FC = () => {
 
     fetchHorario();
     return () => { cancelado = true; };
-  }, [user?.id]);
+  }, [user?.id, clerkToken]);
 
   const { diasBloqueadosAdmin, convenio } = usePerfilTrabajador(user?.id);
   const trabajaFinDeSemana = Boolean(convenio?.trabajaFinDeSemana);
@@ -151,8 +168,8 @@ const HomePageTrabajador: React.FC = () => {
 
   const { otrosPlatos, loadingOtros } = useOtrosPlatos(activeTab === 'OTRO' || activeTab === 'PERSONALIZADO');
   const { timeRemaining } = useCountdown(DEADLINE_HOUR);
-  const { menuHoy, cargando: cargandoMenu } = useMenuAPI(fechaSeleccionadaISO, user?.id);
-  const { pedidoExistente, cargandoVerificacion, enviarPedido, enviarItems, enviando, refrescarVerificacion, eliminarPedido, eliminando } = usePedidos(user?.id, fechaSeleccionadaISO);
+  const { menuHoy, cargando: cargandoMenu } = useMenuAPI(fechaSeleccionadaISO, user?.id, clerkToken);
+  const { pedidoExistente, cargandoVerificacion, enviarPedido, enviarItems, enviando, refrescarVerificacion, eliminarPedido, eliminando } = usePedidos(user?.id, fechaSeleccionadaISO, clerkToken);
   const { historial, cargando: cargandoHistorial, cargarHistorial } = useHistorial(user?.id);
 
   useEffect(() => { if (user?.id) cargarHistorial(); }, [user?.id, cargarHistorial]);

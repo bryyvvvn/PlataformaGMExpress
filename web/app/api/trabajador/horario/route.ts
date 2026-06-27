@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { Rol } from '@prisma/client'
 import db from '@/lib/db'
 import { getHorarioEmpresa } from '@/lib/horario-pedidos-server'
+import { verificarTokenTrabajador } from '@/lib/trabajador/verificar-token'
 
 export const dynamic = 'force-dynamic'
 
@@ -11,6 +12,11 @@ export async function GET(request: NextRequest) {
 
   if (!usuarioId) {
     return NextResponse.json({ error: 'Falta usuarioId' }, { status: 400 })
+  }
+
+  const verificacion = await verificarTokenTrabajador(request, usuarioId)
+  if ('error' in verificacion) {
+    return NextResponse.json({ error: verificacion.error }, { status: verificacion.status })
   }
 
   try {
