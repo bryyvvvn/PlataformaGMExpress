@@ -10,6 +10,31 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Faltan datos requeridos' }, { status: 400 });
     }
 
+    const usuario = await db.usuario.findUnique({
+      where: { id: usuarioId },
+      select: {
+        empresaId: true,
+        empresa: {
+          select: {
+            ConvenioEmpresa: {
+              select: { permiteCena: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!usuario || !usuario.empresaId) {
+      return NextResponse.json({ error: 'Usuario no tiene empresa asignada' }, { status: 400 });
+    }
+
+    if (Boolean(esCena) && !Boolean(usuario.empresa?.ConvenioEmpresa?.permiteCena)) {
+      return NextResponse.json(
+        { error: 'La empresa no tiene habilitados pedidos de cena.' },
+        { status: 403 }
+      );
+    }
+
     // 1. Mapeo de los botones al nombre exacto del plato en tu Base de Datos
     // ⚠️ REVISA ESTOS NOMBRES: Deben ser iguales a los que tienes en tu BD
     const mapaPlatos: Record<string, string> = {
@@ -59,15 +84,6 @@ export async function POST(request: Request) {
       
     } else {
       // Si no existe, creamos el pedido desde cero
-      const usuario = await db.usuario.findUnique({ 
-        where: { id: usuarioId }, 
-        select: { empresaId: true } 
-      });
-
-      if (!usuario || !usuario.empresaId) {
-         return NextResponse.json({ error: 'Usuario no tiene empresa asignada' }, { status: 400 });
-      }
-
       await db.pedido.create({
         data: {
           fecha: inicioDia, // Usamos la fecha a las 00:00 hora Chile

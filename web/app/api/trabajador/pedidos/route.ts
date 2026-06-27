@@ -54,6 +54,23 @@ function normalizeEntradasIds(entradasIds: unknown, entradaId: unknown) {
   return { ids: normalized, hasInvalidValue };
 }
 
+async function obtenerPermiteCenaUsuario(usuarioId: string) {
+  const usuario = await db.usuario.findUnique({
+    where: { id: usuarioId },
+    select: {
+      empresa: {
+        select: {
+          ConvenioEmpresa: {
+            select: { permiteCena: true },
+          },
+        },
+      },
+    },
+  });
+
+  return Boolean(usuario?.empresa?.ConvenioEmpresa?.permiteCena);
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const usuarioId = searchParams.get('usuarioId');
@@ -62,8 +79,12 @@ export async function GET(request: Request) {
 
   if (searchParams.get('historial') === 'true') {
     try {
+      const permiteCena = await obtenerPermiteCenaUsuario(usuarioId);
       const pedidos = await db.pedido.findMany({
-        where: { usuarioId },
+        where: {
+          usuarioId,
+          ...(permiteCena ? {} : { esCena: false }),
+        },
         orderBy: { fecha: 'desc' },
         include: { detalles: { include: { plato: true, guarnicion: true } } }
       });
@@ -78,6 +99,12 @@ export async function GET(request: Request) {
     const fechaParam = searchParams.get('fecha');
     const esCenaQuery = searchParams.get('esCena') === 'true'; // 🔥 Permitimos consultar específicamente por cena o almuerzo
     
+    const permiteCena = await obtenerPermiteCenaUsuario(usuarioId);
+
+    if (esCenaQuery && !permiteCena) {
+      return NextResponse.json({ existe: false, permiteCena: false });
+    }
+
     const inicioDia = chileStartOfDay(fechaParam ?? undefined);
     const finDia = chileEndOfDay(fechaParam ?? undefined);
 
@@ -153,10 +180,28 @@ export async function POST(request: Request) {
 
     const usuario = await db.usuario.findUnique({
       where: { id: usuarioId },
-      select: { id: true, empresaId: true, rol: true },
+      select: {
+        id: true,
+        empresaId: true,
+        rol: true,
+        empresa: {
+          select: {
+            ConvenioEmpresa: {
+              select: { permiteCena: true },
+            },
+          },
+        },
+      },
     });
 
     if (!usuario || !usuario.empresaId) return NextResponse.json({ error: 'Usuario no válido o sin empresa' }, { status: 400 });
+
+    if (isCenaFlow && !Boolean(usuario.empresa?.ConvenioEmpresa?.permiteCena)) {
+      return NextResponse.json(
+        { error: 'La empresa no tiene habilitados pedidos de cena.' },
+        { status: 403 }
+      );
+    }
 
     if (usuario.rol === 'TRABAJADOR') {
       const estadoHorario = await getHorarioEmpresa(usuario.empresaId);

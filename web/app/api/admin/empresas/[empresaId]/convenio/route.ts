@@ -16,6 +16,7 @@ const CAMPOS_CONVENIO = [
   "permiteBebida",
   "permiteAguaSaborizada",
   "trabajaFinDeSemana",
+  "permiteCena",
 ] as const
 
 const TIPOS_EMPAQUETADO = [
@@ -69,6 +70,7 @@ function validarConvenioPayload(body: unknown): ValidationResult<ConvenioPayload
 
   for (const campo of CAMPOS_CONVENIO) {
     if (!(campo in body)) {
+      if (campo === "permiteCena") continue
       return { error: `Falta el campo ${campo}` }
     }
 
@@ -80,7 +82,7 @@ function validarConvenioPayload(body: unknown): ValidationResult<ConvenioPayload
   const data = CAMPOS_CONVENIO.reduce(
     (acc, campo) => ({
       ...acc,
-      [campo]: body[campo],
+      [campo]: campo in body ? body[campo] : false,
     }),
     {} as ConvenioPayload
   )
@@ -144,6 +146,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
         permiteBebida: true,
         permiteAguaSaborizada: true,
         trabajaFinDeSemana: true,
+        permiteCena: true,
         tipoEmpaquetado: true,
       },
     })

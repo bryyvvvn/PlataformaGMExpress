@@ -26,6 +26,7 @@ const HomePageRepresentante: React.FC<HomePageRepresentanteProps> = ({ empresaId
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { enviarPlanilla, loading: enviandoTodo } = usePlanilla();
   const trabajaFinDeSemana = Boolean(convenio?.trabajaFinDeSemana);
+  const permiteCena = Boolean(convenio?.permiteCena);
   
   // 🔥 Extraemos semanaOffset del hook para saber si estamos en el pasado
   const { setSemanaOffset, getSemanaTexto, fechaSeleccionadaISO, fechaTexto, semanaOffset } = useCalendario(trabajaFinDeSemana);
@@ -75,10 +76,13 @@ const HomePageRepresentante: React.FC<HomePageRepresentanteProps> = ({ empresaId
     }
   };
 
-  const totalPedidos = trabajadores.reduce((acc, t) => acc + (t.pedidos?.length || 0), 0);
+  const pedidosVisibles = (pedidos: any[] | undefined) =>
+    (pedidos || []).filter((pedido: any) => permiteCena || !pedido.esCena);
+
+  const totalPedidos = trabajadores.reduce((acc, t) => acc + pedidosVisibles(t.pedidos).length, 0);
   
   const pedidosConfirmados = trabajadores.reduce((acc, t) => 
-    acc + (t.pedidos?.filter((p: any) => p.estado === 'CONFIRMADO').length || 0)
+    acc + pedidosVisibles(t.pedidos).filter((p: any) => p.estado === 'CONFIRMADO').length
   , 0);
   
   const faltanConfirmar = totalPedidos > 0 && pedidosConfirmados < totalPedidos;
@@ -201,7 +205,11 @@ const HomePageRepresentante: React.FC<HomePageRepresentanteProps> = ({ empresaId
         ) : (
           <div className="space-y-3">
             {trabajadores.map((trabajador) => (
-              <TarjetaTrabajador key={trabajador.id} trabajador={trabajador} />
+              <TarjetaTrabajador
+                key={trabajador.id}
+                trabajador={trabajador}
+                permiteCena={permiteCena}
+              />
             ))}
           </div>
         )}

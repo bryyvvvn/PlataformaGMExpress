@@ -6,6 +6,7 @@ export type RolUsuario = 'TRABAJADOR' | 'REPRESENTANTE' | 'ADMIN' | null;
 
 export type ConvenioEmpresa = {
   trabajaFinDeSemana?: boolean | null;
+  permiteCena?: boolean | null;
 };
 
 export const usePerfil = () => {
