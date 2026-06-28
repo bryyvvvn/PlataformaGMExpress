@@ -16,6 +16,13 @@ export const useHistorial = (usuarioId: string | undefined) => {
 
       const res = await fetch(url);
       const data = await res.json();
+
+      // Si la respuesta no es un array, retornar vacío
+      if (!Array.isArray(data)) {
+        setHistorial([]);
+        return;
+      }
+
       setHistorial(data);
     } catch (e) {
       console.error("Fallo al obtener datos:", e);

@@ -1,17 +1,33 @@
 import { useAuth } from '@clerk/clerk-react';
-import { useCallback } from 'react';
+import { useEffect, useState } from 'react';
 
 export function useClerkToken() {
   const { getToken } = useAuth();
+  const [token, setToken] = useState<string | null | undefined>(undefined);
 
-  const obtenerToken = useCallback(async (): Promise<string | null> => {
-    try {
-      return await getToken();
-    } catch (err) {
-      console.error('[useClerkToken] Error obteniendo token:', err);
-      return null;
-    }
+  useEffect(() => {
+    let cancelado = false;
+
+    const refrescarToken = async () => {
+      try {
+        const nuevoToken = await getToken({ skipCache: true });
+        if (!cancelado) setToken(nuevoToken);
+      } catch (err) {
+        console.error('[useClerkToken] Error obteniendo token:', err);
+        if (!cancelado) setToken(null);
+      }
+    };
+
+    refrescarToken();
+
+    // Refrescar el token cada 50 segundos para evitar que expire (los tokens de Clerk duran ~60 segundos)
+    const interval = setInterval(refrescarToken, 50000);
+
+    return () => {
+      cancelado = true;
+      clearInterval(interval);
+    };
   }, [getToken]);
 
-  return { obtenerToken };
+  return { token };
 }

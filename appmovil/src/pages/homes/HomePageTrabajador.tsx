@@ -87,13 +87,7 @@ const HomePageTrabajador: React.FC = () => {
 
   useEffect(() => { setAutoSelected(false); }, [location.pathname]);
 
-  const { obtenerToken } = useClerkToken();
-  const [clerkToken, setClerkToken] = useState<string | null | undefined>(undefined);
-
-  useEffect(() => {
-    if (!user?.id) return;
-    obtenerToken().then(setClerkToken);
-  }, [user?.id, obtenerToken]);
+  const { token: clerkToken } = useClerkToken();
 
   useConfigurarNotificaciones(user?.id, clerkToken);
 
@@ -175,7 +169,7 @@ const HomePageTrabajador: React.FC = () => {
 
   useEffect(() => { if (user?.id) cargarHistorial(); }, [user?.id, cargarHistorial]);
 
-  const fechasBloqueadas = useMemo(() => new Set((historial || []).map((p: any) => String(p?.fecha || '').split('T')[0])), [historial]);
+  const fechasBloqueadas = useMemo(() => new Set((Array.isArray(historial) ? historial : []).map((p: any) => String(p?.fecha || '').split('T')[0])), [historial]);
 
   const fechaBloqueadaPorHorario: string | null =
     estadoHorario && !estadoHorario.permitido

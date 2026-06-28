@@ -1,5 +1,5 @@
 // src/components/VerificadorRut.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { useVerificadorRut } from '../hooks/useVerificadorRut';
 import { useClerkToken } from '../hooks/useClerkToken';
@@ -31,13 +31,7 @@ export const VerificadorRut: React.FC = () => {
   const { user } = useUser();
   const [inputRut, setInputRut] = useState('');
 
-  const { obtenerToken } = useClerkToken();
-  const [clerkToken, setClerkToken] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!user?.id) return;
-    obtenerToken().then(setClerkToken);
-  }, [user?.id, obtenerToken]);
+  const { token: clerkToken } = useClerkToken();
 
   // 🔥 Importamos la lógica desde nuestro nuevo hook
   const { requiereRut, guardandoRut, guardarRutAPI } = useVerificadorRut(user?.id, clerkToken);
