@@ -6,7 +6,7 @@ import type { Prisma } from '@prisma/client';
 import { enviarPlanillaSchema } from '@/lib/schemas/representante';
 import { verificarRepresentante } from '@/lib/representante/verificar-representante';
 
-async function obtenerTrabajaFinDeSemana(empresaId?: number, usuarioId?: string) {
+async function obtenerConvenioEmpresa(empresaId?: number, usuarioId?: string) {
   if (empresaId) {
     const empresa = await db.empresa.findUnique({
       where: { id: empresaId },
@@ -17,7 +17,7 @@ async function obtenerTrabajaFinDeSemana(empresaId?: number, usuarioId?: string)
       },
     });
 
-    return Boolean(empresa?.ConvenioEmpresa?.trabajaFinDeSemana);
+    return { trabajaFinDeSemana: Boolean(empresa?.ConvenioEmpresa?.trabajaFinDeSemana) };
   }
 
   if (usuarioId) {
@@ -34,10 +34,10 @@ async function obtenerTrabajaFinDeSemana(empresaId?: number, usuarioId?: string)
       },
     });
 
-    return Boolean(usuario?.empresa?.ConvenioEmpresa?.trabajaFinDeSemana);
+    return { trabajaFinDeSemana: Boolean(usuario?.empresa?.ConvenioEmpresa?.trabajaFinDeSemana) };
   }
 
-  return false;
+  return { trabajaFinDeSemana: false };
 }
 
 export async function POST(request: Request) {
@@ -88,8 +88,8 @@ export async function POST(request: Request) {
     inicioSemana.setHours(0, 0, 0, 0);
 
     const finSemana = new Date(inicioSemana);
-    const trabajaFinDeSemana = await obtenerTrabajaFinDeSemana(empresaIdSeguro, usuarioId);
-    finSemana.setDate(inicioSemana.getDate() + (trabajaFinDeSemana ? 6 : 4));
+    const convenio = await obtenerConvenioEmpresa(empresaIdSeguro, usuarioId);
+    finSemana.setDate(inicioSemana.getDate() + (convenio.trabajaFinDeSemana ? 6 : 4));
     finSemana.setHours(23, 59, 59, 999);
 
     const whereClause: Prisma.PedidoWhereInput = {

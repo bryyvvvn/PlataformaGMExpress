@@ -3,7 +3,7 @@ import db from '../../../../lib/db';
 import { planillaSchema } from '@/lib/schemas/representante';
 import { verificarRepresentante } from '@/lib/representante/verificar-representante';
 
-async function obtenerTrabajaFinDeSemana(empresaId: number) {
+async function obtenerConvenioEmpresa(empresaId: number) {
   const empresa = await db.empresa.findUnique({
     where: { id: empresaId },
     select: {
@@ -13,7 +13,7 @@ async function obtenerTrabajaFinDeSemana(empresaId: number) {
     },
   });
 
-  return Boolean(empresa?.ConvenioEmpresa?.trabajaFinDeSemana);
+  return { trabajaFinDeSemana: Boolean(empresa?.ConvenioEmpresa?.trabajaFinDeSemana) };
 }
 
 export async function POST(request: Request) {
@@ -50,8 +50,8 @@ export async function POST(request: Request) {
     inicioSemana.setHours(0, 0, 0, 0);
 
     const finSemana = new Date(inicioSemana);
-    const trabajaFinDeSemana = await obtenerTrabajaFinDeSemana(empresaIdSeguro);
-    finSemana.setDate(inicioSemana.getDate() + (trabajaFinDeSemana ? 6 : 4));
+    const convenio = await obtenerConvenioEmpresa(empresaIdSeguro);
+    finSemana.setDate(inicioSemana.getDate() + (convenio.trabajaFinDeSemana ? 6 : 4));
     finSemana.setHours(23, 59, 59, 999);
 
     const actualizados = await db.pedido.updateMany({

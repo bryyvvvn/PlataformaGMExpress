@@ -30,6 +30,7 @@ import type { Plato } from '../../hooks/useMenuAPI';
 
 type Categoria = 'ENTRADA' | 'FONDO' | 'POSTRE' | 'JUGO' | null;
 type TipoMenu = 'MENU_DIA' | 'PERSONALIZADO' | 'OTRO';
+type ModoComida = 'ALMUERZO' | 'CENA';
 
 const capitalizar = (texto: string | null | undefined) => {
   if (!texto) return '';
@@ -71,8 +72,8 @@ const obtenerIncluidosPorConvenio = (menuDia: any, convenio: any) => {
   return incluidos;
 };
 
-// 🔥 LAS 4 OPCIONES FIJAS QUE PIDIÓ EL CLIENTE PARA EL FIN DE SEMANA
-const OPCIONES_FIN_DE_SEMANA = [
+// 🔥 LAS 4 OPCIONES FIJAS QUE PIDIÓ EL CLIENTE (FIN DE SEMANA Y CENA)
+const OPCIONES_PREFIJADAS = [
   { id: 'MENU_DIA', nombre: 'MENÚ DEL DÍA', descripcion: 'Opción tradicional.' },
   { id: 'HIPOCALORICO', nombre: 'HIPOCALÓRICO', descripcion: 'Alternativa baja en calorías.' },
   { id: 'VEGETARIANO', nombre: 'VEGETARIANO', descripcion: 'Alternativa sin contenido cárnico.' },
@@ -126,6 +127,7 @@ const HomePageTrabajador: React.FC = () => {
 
   const { diasBloqueadosAdmin, convenio } = usePerfilTrabajador(user?.id);
   const trabajaFinDeSemana = Boolean(convenio?.trabajaFinDeSemana);
+  const permiteCena = Boolean(convenio?.permiteCena);
 
   const {
     setSemanaOffset: _setSemanaOffset, fechaTexto, diasSemanaArray, getSemanaTexto,
@@ -143,8 +145,10 @@ const HomePageTrabajador: React.FC = () => {
     bebidaId: null as number | null, jugoId: null as number | null, isDoblePostre: false
   });
 
+  const [modoComida, setModoComida] = useState<ModoComida>('ALMUERZO');
   const [activeTab, setActiveTab] = useState<TipoMenu>('MENU_DIA');
   const [opcionFinde, setOpcionFinde] = useState<string | null>(null);
+  const [opcionCena, setOpcionCena] = useState<string | null>(null);
   const [observacion, setObservacion] = useState('');
 
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -164,10 +168,30 @@ const HomePageTrabajador: React.FC = () => {
   const { otrosPlatos, loadingOtros } = useOtrosPlatos(activeTab === 'OTRO' || activeTab === 'PERSONALIZADO');
   const { timeRemaining } = useCountdown(DEADLINE_HOUR);
   const { menuHoy, cargando: cargandoMenu } = useMenuAPI(fechaSeleccionadaISO, user?.id, clerkToken);
-  const { pedidoExistente, cargandoVerificacion, enviarPedido, enviarItems, enviando, refrescarVerificacion, eliminarPedido, eliminando } = usePedidos(user?.id, fechaSeleccionadaISO, clerkToken);
-  const { historial, cargando: cargandoHistorial, cargarHistorial } = useHistorial(user?.id);
+  const { pedidoExistente, cargandoVerificacion, enviarPedido, enviarItems, enviando, refrescarVerificacion, eliminarPedido, eliminando } = usePedidos(user?.id, fechaSeleccionadaISO, clerkToken, modoComida === 'CENA');
+
+  // 🔥 EXTRAEMOS estadoFechas DEL HISTORIAL
+  const { historial, estadoFechas, cargando: cargandoHistorial, cargarHistorial } = useHistorial(user?.id);
+
+  const estadoFechasVisibles = useMemo(() => {
+    if (permiteCena) return estadoFechas;
+    return Object.fromEntries(
+      Object.entries(estadoFechas).map(([fecha, estado]) => [
+        fecha,
+        { ...estado, cena: false },
+      ])
+    );
+  }, [estadoFechas, permiteCena]);
 
   useEffect(() => { if (user?.id) cargarHistorial(); }, [user?.id, cargarHistorial]);
+
+  useEffect(() => {
+    if (!permiteCena && modoComida === 'CENA') {
+      setModoComida('ALMUERZO');
+      setOpcionCena(null);
+      setModoEdicion(false);
+    }
+  }, [permiteCena, modoComida]);
 
   const fechasBloqueadas = useMemo(() => new Set((Array.isArray(historial) ? historial : []).map((p: any) => String(p?.fecha || '').split('T')[0])), [historial]);
 
@@ -249,9 +273,11 @@ const HomePageTrabajador: React.FC = () => {
   const estaCompletoOtro = activeTab === 'OTRO' && Boolean((pedido.canjeId !== null) || (pedido.sandwichId !== null && pedido.bebidaId !== null));
   
   // 🔥 LÓGICA DE ENVÍO
-  const puedeEnviar = esFinDeSemana 
-    ? Boolean(opcionFinde) 
-    : (activeTab === 'MENU_DIA' ? menuDiaSeleccionado : (activeTab === 'PERSONALIZADO' ? estaCompletoPersonalizado : estaCompletoOtro));
+  const puedeEnviar = modoComida === 'CENA'
+    ? Boolean(opcionCena)
+    : esFinDeSemana
+      ? Boolean(opcionFinde)
+      : (activeTab === 'MENU_DIA' ? menuDiaSeleccionado : (activeTab === 'PERSONALIZADO' ? estaCompletoPersonalizado : estaCompletoOtro));
 
   const isCanjeSelected = tipoOtroSeleccionado === 'CANJE';
   const isPremiumSelected = tipoOtroSeleccionado === 'PREMIUM';
@@ -262,19 +288,22 @@ const HomePageTrabajador: React.FC = () => {
     setModoEdicion(false);
     setTipoOtroSeleccionado(null);
     setOpcionFinde(null);
+    setOpcionCena(null);
     setObservacion('');
+    setModoComida('ALMUERZO');
   }, [fechaSeleccionadaISO]);
 
   const isPedidoDelDiaSeleccionado = String(pedidoExistente?.fecha || '').startsWith(fechaSeleccionadaISO || '');
   const pedidoSeguro = (isPedidoDelDiaSeleccionado && !cargandoVerificacion) ? pedidoExistente : null;
+  const pedidoDeEstaVista = pedidoSeguro && (modoComida === 'CENA' ? pedidoSeguro.esCena : !pedidoSeguro.esCena) ? pedidoSeguro : null;
 
   useEffect(() => {
-    if (activeTab === 'PERSONALIZADO' && !cargandoMenu && !bloquearUI && (!pedidoExistente || modoEdicion)) {
-      setSeccionAbierta('ENTRADA'); 
+    if (activeTab === 'PERSONALIZADO' && !cargandoMenu && !bloquearUI && (!pedidoDeEstaVista || modoEdicion)) {
+      setSeccionAbierta('ENTRADA');
     } else {
-      setSeccionAbierta(null); 
+      setSeccionAbierta(null);
     }
-  }, [activeTab, cargandoMenu, bloquearUI, pedidoExistente, modoEdicion]);
+  }, [activeTab, cargandoMenu, bloquearUI, pedidoDeEstaVista, modoEdicion]);
 
   const toggleSeccion = (cat: Categoria) => setSeccionAbierta(prev => (prev === cat ? null : cat));
 
@@ -358,6 +387,14 @@ const HomePageTrabajador: React.FC = () => {
   };
 
   const manejarEnvio = async () => {
+    if (modoComida === 'CENA') {
+      if (!permiteCena) return;
+      if (!opcionCena) return;
+      const exito = await enviarPedido({ esCena: true, tipoCena: opcionCena, observacion });
+      if (exito) { setModoEdicion(false); setObservacion(''); setOpcionCena(null); cargarHistorial(); }
+      return;
+    }
+
     if (esFinDeSemana) {
       if (!opcionFinde) return;
       const exito = await enviarPedido({ esFinDeSemana: true, tipoFinde: opcionFinde, observacion });
@@ -406,17 +443,27 @@ const HomePageTrabajador: React.FC = () => {
       setPedido({ entradasIds: [], fondoId: null, postreId: null, guarnicionId: null, canjeId: null, sandwichId: null, bebidaId: null, jugoId: null, isDoblePostre: false });
       setTipoOtroSeleccionado(null);
       setOpcionFinde(null);
+      setOpcionCena(null);
       try { await cargarHistorial(); refrescarVerificacion(); } catch (e) { }
     }
   };
 
   const manejarModificarPedido = () => {
+    if (permiteCena && (pedidoExistente?.esCena || pedidoExistente?.tipoCena)) {
+      setModoEdicion(true);
+      setModoComida('CENA');
+      setOpcionCena(pedidoExistente.tipoCena || null);
+      return;
+    }
+
     if (esFinDeSemana) {
       setModoEdicion(true);
+      setModoComida('ALMUERZO');
       setOpcionFinde(pedidoExistente?.tipoFinde || null);
       return;
     }
 
+    setModoComida('ALMUERZO');
     const resumen = pedidoExistente?.resumen || [];
     const entradas = resumen.filter((r:any)=>r?.categoria==='ENTRADA').map((e:any) => e.platoId);
     const f = resumen.find((r:any)=>r?.categoria==='FONDO');
@@ -482,9 +529,26 @@ const HomePageTrabajador: React.FC = () => {
         todosBloqueados={todosBloqueados}
         setDiaSeleccionadoIdx={setDiaSeleccionadoIdx}
         fechasHorarioBloqueado={fechasVisualmenteBloqueadas}
+        estadoFechas={estadoFechasVisibles}
       />
 
       <div className="mt-8 px-6 flex flex-col grow pb-6">
+        {permiteCena && !todosBloqueados && (
+          <div className="mb-6 bg-gray-100 p-1.5 rounded-[20px] flex items-center shadow-inner shrink-0">
+            <button
+              onClick={() => { setModoComida('ALMUERZO'); setModoEdicion(false); }}
+              className={`flex-1 py-3.5 text-[11px] font-black uppercase tracking-widest rounded-2xl transition-all ${modoComida === 'ALMUERZO' ? 'bg-white text-[#1d2d50] shadow-sm' : 'text-gray-400 hover:text-gray-500'}`}
+            >
+              ☀️ Almuerzo
+            </button>
+            <button
+              onClick={() => { setModoComida('CENA'); setModoEdicion(false); }}
+              className={`flex-1 py-3.5 text-[11px] font-black uppercase tracking-widest rounded-2xl transition-all ${modoComida === 'CENA' ? 'bg-[#1d2d50] text-white shadow-md' : 'text-gray-400 hover:text-gray-500'}`}
+            >
+              🌙 Cena
+            </button>
+          </div>
+        )}
         {fechaBloqueadaPorHorario === fechaSeleccionadaISO && (
           <div className="mx-4 mb-4 flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3">
             <Clock size={16} className="text-amber-500 shrink-0" />
@@ -506,16 +570,57 @@ const HomePageTrabajador: React.FC = () => {
           </div>
         ) : (cargandoVerificacion || cargandoMenu) ? (
           <MenuSkeleton />
-        ) : pedidoSeguro && !modoEdicion ? (
+        ) : pedidoDeEstaVista && !modoEdicion ? (
           <ResumenPedido
-            pedidoExistente={pedidoSeguro} menuHoy={menuHoy} manejarEliminar={manejarEliminar}
+            pedidoExistente={pedidoDeEstaVista} menuHoy={menuHoy} manejarEliminar={manejarEliminar}
             onModificar={manejarModificarPedido} isDeadlinePassed={isDeadlinePassed} fechaBloqueada={fechaBloqueada}
-            convenio={convenio} observacion={pedidoSeguro.observacion}
+            convenio={convenio} observacion={pedidoDeEstaVista.observacion}
           />
         ) : (
           <>
-            {/* 🔥 VISTA DE FIN DE SEMANA REDISEÑADA */}
-            {esFinDeSemana ? (
+            {/* 🔥 VISTA DE CENA / FIN DE SEMANA REDISEÑADA */}
+            {modoComida === 'CENA' ? (
+              <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm flex flex-col grow mb-4">
+
+                {/* Cabecera Estilo "Entrada" */}
+                <div className="border-b border-gray-200 pb-3 mb-4 flex flex-col items-center text-center">
+                  <span className="text-xl font-black text-[#1d2d50] uppercase tracking-widest">Menú de Cena</span>
+                  <span className="text-[11px] font-bold text-gray-400 mt-1 uppercase tracking-wider">Revisa WhatsApp o correo para ver el menú nocturno</span>
+                </div>
+
+                {modoEdicion && (
+                  <div className="flex justify-between items-center mb-4 shrink-0">
+                    <span className="font-black text-sm text-[#1d2d50] uppercase tracking-widest flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" /> Modificando
+                    </span>
+                    <button onClick={() => setModoEdicion(false)} className="text-[11px] font-bold text-gray-400 uppercase bg-gray-100 px-3 py-1.5 rounded-full active:scale-95 transition-transform">
+                      <X size={14} className="inline mr-1" /> Cancelar
+                    </button>
+                  </div>
+                )}
+
+                <div className="flex flex-col gap-3">
+                  {/* Tarjetas de Opciones */}
+                  {OPCIONES_PREFIJADAS.map(opcion => (
+                    <button
+                      key={opcion.id}
+                      onClick={() => setOpcionCena(opcion.id === opcionCena ? null : opcion.id)}
+                      disabled={bloquearUI}
+                      className={`flex items-center justify-between w-full px-5 py-5 rounded-3xl border transition-all ${opcionCena === opcion.id ? 'border-[#70a344] bg-green-50 shadow-sm scale-[0.98]' : 'border-gray-200 bg-white shadow-sm hover:bg-gray-50'}`}
+                    >
+                      <div className="flex flex-col text-left">
+                        <span className={`font-black text-[16px] uppercase tracking-widest ${opcionCena === opcion.id ? 'text-[#70a344]' : 'text-[#1d2d50]'}`}>{opcion.nombre}</span>
+                        <span className={`text-xs font-medium mt-1 pr-4 ${opcionCena === opcion.id ? 'text-[#5a8335]' : 'text-gray-400'}`}>{opcion.descripcion}</span>
+                      </div>
+                      <div className={`shrink-0 w-7 h-7 rounded-lg border-2 flex items-center justify-center transition-all ${opcionCena === opcion.id ? 'bg-[#70a344] border-[#70a344]' : 'bg-transparent border-gray-300'}`}>
+                        {opcionCena === opcion.id && <Check size={18} strokeWidth={4} className="text-white" />}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+              </div>
+            ) : esFinDeSemana ? (
               <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm flex flex-col grow mb-4">
                 
                 {/* Cabecera Estilo "Entrada" */}
@@ -537,7 +642,7 @@ const HomePageTrabajador: React.FC = () => {
 
                 <div className="flex flex-col gap-3">
                   {/* Tarjetas de Opciones */}
-                  {OPCIONES_FIN_DE_SEMANA.map(opcion => (
+                  {OPCIONES_PREFIJADAS.map(opcion => (
                     <button 
                       key={opcion.id}
                       onClick={() => setOpcionFinde(opcion.id === opcionFinde ? null : opcion.id)}
@@ -875,7 +980,7 @@ const HomePageTrabajador: React.FC = () => {
         </div>
       </BottomSheet>
 
-      {!(cargandoVerificacion || cargandoMenu) && !bloquearUI && (!pedidoExistente || modoEdicion) && (
+      {!(cargandoVerificacion || cargandoMenu) && !bloquearUI && (!pedidoDeEstaVista || modoEdicion) && (
         <div
           className="fixed bottom-0 left-0 w-full px-6 pt-4 pb-6 bg-white/90 backdrop-blur-xl shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-40"
           onClick={(e) => e.stopPropagation()}
