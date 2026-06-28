@@ -1,18 +1,24 @@
 "use client"
 
+import dynamic from "next/dynamic"
 import type { SemanaConsolidada } from "@/lib/pedidos/consolidado"
 import { useGestionPedidos } from "@/hooks/useGestionPedidos"
 import { PedidosHeader } from "@/components/admin/pedidos/pedidos-header"
-import {
-  MensajePedidoManualAlert,
-  PedidoManualModal,
-} from "@/components/admin/pedidos/pedido-manual-modal"
+import { MensajePedidoManualAlert } from "@/components/admin/pedidos/mensaje-pedido-manual-alert"
 import {
   HoraLimitePedidosCard,
   PedidosEmptySemana,
   PedidosKpis,
 } from "@/components/admin/pedidos/pedidos-resumen"
 import { PedidosSemanaTabs } from "@/components/admin/pedidos/pedidos-semana-tabs"
+
+const PedidoManualModal = dynamic(
+  () =>
+    import("@/components/admin/pedidos/pedido-manual-modal").then(
+      (mod) => mod.PedidoManualModal
+    ),
+  { ssr: false }
+)
 
 type GestionPedidosClientProps = {
   semana: SemanaConsolidada
@@ -56,19 +62,21 @@ export function GestionPedidosClient({
         <MensajePedidoManualAlert mensaje={mensajeManual} />
       )}
 
-      <PedidoManualModal
-        open={modalManualOpen}
-        empresas={empresas}
-        empresaManualSeleccionada={empresaManualSeleccionada}
-        formManual={formManual}
-        guardandoManual={guardandoManual}
-        mensajeManual={mensajeManual}
-        onClose={cerrarModalManual}
-        onChange={actualizarFormManual}
-        onGuardar={() => {
-          void guardarPedidoManual()
-        }}
-      />
+      {modalManualOpen && (
+        <PedidoManualModal
+          open={modalManualOpen}
+          empresas={empresas}
+          empresaManualSeleccionada={empresaManualSeleccionada}
+          formManual={formManual}
+          guardandoManual={guardandoManual}
+          mensajeManual={mensajeManual}
+          onClose={cerrarModalManual}
+          onChange={actualizarFormManual}
+          onGuardar={() => {
+            void guardarPedidoManual()
+          }}
+        />
+      )}
 
       <PedidosKpis semana={semana} />
 

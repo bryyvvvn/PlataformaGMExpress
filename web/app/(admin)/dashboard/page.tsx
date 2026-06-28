@@ -1,9 +1,22 @@
+import dynamic from "next/dynamic";
 import { Header } from "@/components/admin/header";
 import { PedidosSemanalChart } from "@/components/admin/chart";
 import { UltimosPedidos } from "@/components/admin/ultimos-items";
-import ExportarConsolidados from "@/components/admin/exportar-consolidados";
 import DashboardVista from "@/components/admin/dashboard-vista";
 import { getDashboardStats } from "@/lib/admin/dashboard-stats";
+
+const ExportarConsolidados = dynamic(
+  () => import("@/components/admin/exportar-consolidados"),
+  {
+    loading: () => (
+      <div className="rounded-xl border border-border bg-card p-5">
+        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+          ExportaciÃ³n Operativa
+        </h3>
+      </div>
+    ),
+  }
+);
 
 export default async function DashboardPage() {
   // Consumimos la lógica intacta sin romper el backend

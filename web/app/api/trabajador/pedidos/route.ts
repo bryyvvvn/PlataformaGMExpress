@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import db from '../../../../lib/db';
 import { chileStartOfDay, chileEndOfDay } from '../../../../lib/chile-time';
 import { getHorarioEmpresa } from '../../../../lib/horario-pedidos-server';
+import { verificarTokenTrabajador } from '../../../../lib/trabajador/verificar-token';
 
 export const dynamic = 'force-dynamic';
 
@@ -76,6 +77,11 @@ export async function GET(request: Request) {
   const usuarioId = searchParams.get('usuarioId');
 
   if (!usuarioId) return NextResponse.json({ error: 'Falta usuarioId' }, { status: 400 });
+
+  const verificacion = await verificarTokenTrabajador(request, usuarioId);
+  if ('error' in verificacion) {
+    return NextResponse.json({ error: verificacion.error }, { status: verificacion.status });
+  }
 
   if (searchParams.get('historial') === 'true') {
     try {
@@ -163,6 +169,11 @@ export async function POST(request: Request) {
     if (!usuarioId) return NextResponse.json({ error: 'Falta usuarioId' }, { status: 400 });
 
     const isCenaFlow = Boolean(esCena === true); // 🔥 Determinamos si estamos guardando una cena
+
+    const verificacion = await verificarTokenTrabajador(request, usuarioId);
+    if ('error' in verificacion) {
+      return NextResponse.json({ error: verificacion.error }, { status: verificacion.status });
+    }
 
     const fondoIdNormalizado = toPositiveInteger(fondoId);
     const postreIdNormalizado = toPositiveInteger(postreId);
@@ -317,6 +328,11 @@ export async function DELETE(request: Request) {
     const esCenaQuery = searchParams.get('esCena') === 'true'; // 🔥 Sabemos qué borrar
 
     if (!usuarioId) return NextResponse.json({ error: 'Falta usuarioId' }, { status: 400 });
+
+    const verificacion = await verificarTokenTrabajador(request, usuarioId);
+    if ('error' in verificacion) {
+      return NextResponse.json({ error: verificacion.error }, { status: verificacion.status });
+    }
 
     const targetIso = fecha && typeof fecha === 'string' ? fecha : undefined;
     const inicioDiaTarget = chileStartOfDay(targetIso);

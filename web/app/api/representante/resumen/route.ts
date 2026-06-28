@@ -1,18 +1,14 @@
 import { NextResponse } from 'next/server';
 import db from '../../../../lib/db';
+import { verificarRepresentante } from '@/lib/representante/verificar-representante';
 
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const empresaIdStr = searchParams.get('empresaId');
-
-  if (!empresaIdStr) {
-    return NextResponse.json({ error: 'Falta el empresaId' }, { status: 400 });
+export async function GET() {
+  const rep = await verificarRepresentante();
+  if ('error' in rep) {
+    return NextResponse.json({ error: rep.error }, { status: rep.status });
   }
 
-  const empresaId = parseInt(empresaIdStr, 10);
-  if (isNaN(empresaId)) {
-    return NextResponse.json({ error: 'empresaId inválido' }, { status: 400 });
-  }
+  const empresaId = rep.empresaId;
 
   try {
     const empresa = await db.empresa.findUnique({

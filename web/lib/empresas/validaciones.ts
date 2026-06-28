@@ -34,7 +34,8 @@ export function datosGeneralesCompletos(
     campoCompleto(form.region) &&
     campoCompleto(form.sector) &&
     campoCompleto(form.nombreFaena) &&
-    campoCompleto(form.direccionFaena)
+    campoCompleto(form.direccionFaena) &&
+    (!form.esSucursal || campoCompleto(form.casaMatrizId))
   )
 }
 

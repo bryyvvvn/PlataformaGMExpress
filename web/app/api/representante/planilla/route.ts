@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import db from '../../../../lib/db';
+import { planillaSchema } from '@/lib/schemas/representante';
+import { verificarRepresentante } from '@/lib/representante/verificar-representante';
 
 async function obtenerConvenioEmpresa(empresaId: number) {
   const empresa = await db.empresa.findUnique({
@@ -18,14 +20,27 @@ async function obtenerConvenioEmpresa(empresaId: number) {
 }
 
 export async function POST(request: Request) {
+  const rep = await verificarRepresentante();
+  if ('error' in rep) {
+    return NextResponse.json({ error: rep.error }, { status: rep.status });
+  }
+
+  let body: unknown;
   try {
-    const body = await request.json();
-    const { empresaId, fecha } = body as { empresaId?: string | number; fecha?: string | null };
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Body JSON inválido' }, { status: 400 });
+  }
 
-    if (!empresaId) {
-      return NextResponse.json({ error: 'Falta empresaId' }, { status: 400 });
-    }
+  const result = planillaSchema.safeParse(body);
+  if (!result.success) {
+    return NextResponse.json({ error: result.error.issues[0].message }, { status: 400 });
+  }
 
+  const { fecha } = result.data;
+  const empresaIdSeguro = rep.empresaId; // ignorar body.empresaId
+
+  try {
     let fechaBase = new Date();
     if (fecha) {
       const safeDate = fecha.includes('T') ? fecha : `${fecha}T12:00:00`;
@@ -38,14 +53,13 @@ export async function POST(request: Request) {
     inicioSemana.setHours(0, 0, 0, 0);
 
     const finSemana = new Date(inicioSemana);
-    const empresaIdNumber = typeof empresaId === 'string' ? parseInt(empresaId, 10) : empresaId;
-    const convenio = await obtenerConvenioEmpresa(empresaIdNumber);
+    const convenio = await obtenerConvenioEmpresa(empresaIdSeguro);
     finSemana.setDate(inicioSemana.getDate() + (convenio.trabajaFinDeSemana ? 6 : 4));
     finSemana.setHours(23, 59, 59, 999);
 
     const actualizados = await db.pedido.updateMany({
       where: {
-        empresaId: empresaIdNumber,
+        empresaId: empresaIdSeguro,
         estado: 'PENDIENTE',
         ...(convenio.permiteCena ? {} : { esCena: false }),
         fecha: {

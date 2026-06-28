@@ -12,25 +12,28 @@ import type {
   ContactoFormularioTipo,
   ConvenioForm,
   EmpresaFormularioBase,
+  EmpresaRelacionResumen,
   EstadoEmpresaCliente,
   TipoEmpaquetado,
 } from "@/lib/empresas/tipos"
 
 type EmpresaFormChange = (
   campo: keyof EmpresaFormularioBase,
-  valor: string | EstadoEmpresaCliente
+  valor: string | boolean | EstadoEmpresaCliente
 ) => void
 
 type EmpresaFieldsProps = {
   form: EmpresaFormularioBase
   disabled: boolean
   onChange: EmpresaFormChange
+  casasMatrices?: EmpresaRelacionResumen[]
 }
 
 export function EmpresaDatosGeneralesFields({
   form,
   disabled,
   onChange,
+  casasMatrices = [],
 }: EmpresaFieldsProps) {
   return (
     <>
@@ -109,6 +112,55 @@ export function EmpresaDatosGeneralesFields({
           <option value="ACTIVA">Activa</option>
           <option value="INACTIVA">Inactiva</option>
         </select>
+      </div>
+
+      <div className="space-y-3 rounded-md border border-slate-200 p-3 md:col-span-2">
+        <label className="flex items-start gap-3 text-sm">
+          <input
+            type="checkbox"
+            checked={form.esSucursal}
+            disabled={disabled}
+            onChange={(event) => onChange("esSucursal", event.target.checked)}
+            className="mt-0.5 h-5 w-5 rounded border-slate-300 accent-[#75aa46]"
+          />
+          <span className="space-y-1">
+            <span className="block font-medium text-[#1B2C56]">
+              Esta empresa es una sucursal?
+            </span>
+            <span className="block text-xs leading-5 text-slate-500">
+              Las sucursales comparten RUT con su casa matriz, pero se gestionan
+              como empresas independientes para pedidos, convenios y facturacion.
+            </span>
+            <span className="block text-xs leading-5 text-slate-500">
+              Usa nombres como &quot;Starco - La Serena&quot; para diferenciar sucursales.
+            </span>
+          </span>
+        </label>
+
+        {form.esSucursal && (
+          <div className="space-y-2">
+            <Label htmlFor="casaMatrizId">Casa matriz *</Label>
+            <select
+              id="casaMatrizId"
+              value={form.casaMatrizId}
+              disabled={disabled}
+              onChange={(event) => onChange("casaMatrizId", event.target.value)}
+              className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <option value="">Selecciona una casa matriz</option>
+              {casasMatrices.map((empresa) => (
+                <option key={empresa.id} value={empresa.id}>
+                  {empresa.nombre}
+                </option>
+              ))}
+            </select>
+            {casasMatrices.length === 0 && (
+              <p className="text-xs leading-5 text-slate-500">
+                No hay empresas principales disponibles para seleccionar.
+              </p>
+            )}
+          </div>
+        )}
       </div>
     </>
   )

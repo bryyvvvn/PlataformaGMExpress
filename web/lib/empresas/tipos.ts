@@ -51,6 +51,8 @@ export type EmpresaFormularioBase = {
   rutRepresentanteLegal: string
   fechaNacimientoRepresentanteLegal: string
   estado: EstadoEmpresaCliente
+  esSucursal: boolean
+  casaMatrizId: string
 }
 
 export type CrearEmpresaForm = EmpresaFormularioBase
@@ -101,6 +103,15 @@ export type EmpresaDetalleBase = {
   fechaNacimientoRepresentanteLegal: string | null
   estado: EstadoEmpresaCliente
   horaDespacho: string | null
+  esSucursal: boolean
+  casaMatrizId: number | null
+  casaMatriz: EmpresaRelacionResumen | null
+}
+
+export type EmpresaRelacionResumen = {
+  id: number
+  nombre: string
+  estado?: EstadoEmpresaCliente
 }
 
 export type EmpresaDetalle = EmpresaDetalleBase & {
@@ -108,6 +119,7 @@ export type EmpresaDetalle = EmpresaDetalleBase & {
   actualizado_en: string
   convenio: ConvenioEmpresa | null
   contactos: ContactoEmpresa[]
+  sucursales: EmpresaRelacionResumen[]
   metricas: {
     trabajadores: number
     representantes: number
@@ -146,6 +158,9 @@ export type EmpresaCliente = {
   region: string | null
   sector: string | null
   estado: EstadoEmpresaCliente
+  esSucursal: boolean
+  casaMatrizId: number | null
+  casaMatriz: EmpresaRelacionResumen | null
   trabajadores: number
   representantes: number
   pedidos: number

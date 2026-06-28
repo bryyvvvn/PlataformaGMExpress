@@ -1,6 +1,13 @@
 import { useState, useCallback } from 'react';
 import { API_BASE_URL } from '../constants/api';
 
+export interface EstadoFecha {
+  almuerzo: boolean;
+  cena: boolean;
+}
+
+export type EstadoFechas = Record<string, EstadoFecha>;
+
 export const useHistorial = (usuarioId: string | undefined) => {
   const [historial, setHistorial] = useState([]);
   // 🔥 NUEVO: Creamos un mapa inteligente que guardará qué comidas se pidieron cada día
@@ -9,12 +16,20 @@ export const useHistorial = (usuarioId: string | undefined) => {
 
   const cargarHistorial = useCallback(async () => {
     if (!usuarioId) return;
-    
+
     setCargando(true);
     try {
       const url = `${API_BASE_URL}/api/trabajador/pedidos?usuarioId=${usuarioId}&historial=true`;
       const res = await fetch(url);
       const data = await res.json();
+
+      // Si la respuesta no es un array, retornar vacío
+      if (!Array.isArray(data)) {
+        setHistorial([]);
+        setEstadoFechas({});
+        return;
+      }
+
       setHistorial(data);
 
       // 🔥 PROCESAMOS LOS DATOS PARA SEPARAR ALMUERZO Y CENA

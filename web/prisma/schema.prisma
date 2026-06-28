@@ -28,15 +28,20 @@ model Empresa {
   fechaNacimientoRepresentanteLegal DateTime?
   estado                            EstadoEmpresa     @default(ACTIVA)
   horaDespacho                      String?           @db.VarChar(5)
+  esSucursal                        Boolean           @default(false)
+  casaMatrizId                      Int?
   creado_en                         DateTime          @default(now())
   actualizado_en                    DateTime          @default(now())
   ContactoEmpresa                   ContactoEmpresa[]
   ConvenioEmpresa                   ConvenioEmpresa?
+  casaMatriz                        Empresa?          @relation("SucursalesEmpresa", fields: [casaMatrizId], references: [id])
   pedidosManuales                   PedidoManual[]
   pedidos                           Pedido[]
+  sucursales                        Empresa[]         @relation("SucursalesEmpresa")
   usuarios                          Usuario[]
 
   @@index([estado])
+  @@index([casaMatrizId])
   @@index([rut])
 }
 
@@ -233,6 +238,7 @@ model MenuDiaEntradaSeleccion {
   @@index([menuDetalleId])
   @@index([menuDiaSeleccionId])
 }
+
 model ExportacionProduccion {
   id               Int      @id @default(autoincrement())
   fecha            String   @db.VarChar(10)
@@ -242,6 +248,7 @@ model ExportacionProduccion {
 
   @@index([fecha])
 }
+
 enum Rol {
   REPRESENTANTE
   TRABAJADOR

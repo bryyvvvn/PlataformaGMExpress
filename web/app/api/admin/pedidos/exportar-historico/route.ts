@@ -8,6 +8,7 @@ import {
   obtenerDisponibilidadHistorico,
 } from "@/lib/pedidos/cierre-pedidos"
 import { generarExcelHistorico } from "@/lib/pedidos/excel"
+import { validarAdministrador } from "@/lib/usuarios/admin"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -19,6 +20,15 @@ function obtenerDiaSiguiente(fechaISO: string): string {
 }
 
 export async function GET(request: Request) {
+  const admin = await validarAdministrador()
+
+  if ("error" in admin) {
+    return NextResponse.json(
+      { error: admin.error },
+      { status: admin.status }
+    )
+  }
+
   const { searchParams } = new URL(request.url)
   const fecha = searchParams.get("fecha")
 

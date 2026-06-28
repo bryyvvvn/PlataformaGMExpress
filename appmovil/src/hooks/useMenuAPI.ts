@@ -51,12 +51,17 @@ const MENU_VACIO: MenuDia = { entradas: [], fondos: [], postres: [], menuDia: nu
  *
  * Se vuelve a ejecutar automáticamente cuando cambia `fecha`.
  */
-export const useMenuAPI = (fecha?: string, usuarioId?: string) => {
+export const useMenuAPI = (fecha?: string, usuarioId?: string, token?: string | null) => {
   const [menuHoy, setMenuHoy] = useState<MenuDia>(MENU_VACIO);
   const [cargando, setCargando] = useState(true);
 
   useEffect(() => {
     let cancelado = false; // evita set de estado si el componente se desmontó
+
+    if (!usuarioId || token === undefined) {
+      setCargando(false);
+      return;
+    }
 
     const cargarMenu = async () => {
       setCargando(true);
@@ -67,7 +72,11 @@ export const useMenuAPI = (fecha?: string, usuarioId?: string) => {
         const query = params.toString();
         const url = `${API_BASE_URL}/api/trabajador/menu-semanal${query ? `?${query}` : ""}`;
 
-        const respuesta = await fetch(url);
+        const headers: HeadersInit = {};
+        if (token && usuarioId) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+        const respuesta = await fetch(url, { headers });
 
         if (!respuesta.ok) {
           console.error("[useMenuAPI] Error HTTP:", respuesta.status);
@@ -90,7 +99,7 @@ export const useMenuAPI = (fecha?: string, usuarioId?: string) => {
     return () => {
       cancelado = true; // cleanup al desmontar o cuando cambia fecha
     };
-  }, [fecha, usuarioId]); // se re-ejecuta cuando cambia fecha o usuario
+  }, [fecha, usuarioId, token]); // se re-ejecuta cuando cambia fecha, usuario o token
 
   return { menuHoy, cargando };
 };

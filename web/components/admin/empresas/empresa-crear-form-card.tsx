@@ -15,6 +15,7 @@ import type {
   ConvenioForm,
   CrearEmpresaForm,
   EmpresaFormularioBase,
+  EmpresaRelacionResumen,
   EstadoEmpresaCliente,
   PasoCrearEmpresa,
   TipoEmpaquetado,
@@ -25,6 +26,7 @@ export function EmpresaCrearFormCard({
   guardandoEmpresa,
   crearEmpresaForm,
   crearEmpresaConvenio,
+  casasMatrices,
   contactoTitularForm,
   contactoSuplenteForm,
   contactoCobranzaForm,
@@ -38,6 +40,7 @@ export function EmpresaCrearFormCard({
   pasoCrearEmpresa: PasoCrearEmpresa
   guardandoEmpresa: boolean
   crearEmpresaForm: CrearEmpresaForm
+  casasMatrices: EmpresaRelacionResumen[]
   crearEmpresaConvenio: ConvenioForm
   contactoTitularForm: ContactoEmpresaForm
   contactoSuplenteForm: ContactoEmpresaForm
@@ -46,7 +49,7 @@ export function EmpresaCrearFormCard({
   setUsarTitularComoCobranza: (value: boolean) => void
   actualizarCampoCrearEmpresa: (
     campo: keyof EmpresaFormularioBase,
-    valor: string | EstadoEmpresaCliente
+    valor: string | boolean | EstadoEmpresaCliente
   ) => void
   actualizarConvenioCrearEmpresa: (
     campo: CampoBooleanoConvenio,
@@ -81,6 +84,7 @@ export function EmpresaCrearFormCard({
               form={crearEmpresaForm}
               disabled={guardandoEmpresa}
               onChange={actualizarCampoCrearEmpresa}
+              casasMatrices={casasMatrices}
             />
             <EmpresaUbicacionFields
               form={crearEmpresaForm}

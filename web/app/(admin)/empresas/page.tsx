@@ -1,13 +1,21 @@
 "use client"
 
+import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
 import {
-  EmpresaConvenioModal,
   EmpresasHeader,
   EmpresasStats,
   EmpresasTable,
 } from "@/components/admin/empresas/empresas-listado"
 import { useEmpresas } from "@/hooks/useEmpresas"
+
+const EmpresaConvenioModal = dynamic(
+  () =>
+    import("@/components/admin/empresas/empresa-convenio-modal").then(
+      (mod) => mod.EmpresaConvenioModal
+    ),
+  { ssr: false }
+)
 
 export default function EmpresasView() {
   const router = useRouter()
@@ -62,16 +70,18 @@ export default function EmpresasView() {
         onCambiarEstado={cambiarEstadoEmpresa}
       />
 
-      <EmpresaConvenioModal
-        empresa={empresaConvenioSeleccionada}
-        convenioForm={convenioForm}
-        guardandoConvenio={guardandoConvenio}
-        errorConvenio={errorConvenio}
-        cerrarModalConvenio={cerrarModalConvenio}
-        actualizarCampoConvenio={actualizarCampoConvenio}
-        actualizarTipoEmpaquetado={actualizarTipoEmpaquetado}
-        guardarConvenio={guardarConvenio}
-      />
+      {empresaConvenioSeleccionada && (
+        <EmpresaConvenioModal
+          empresa={empresaConvenioSeleccionada}
+          convenioForm={convenioForm}
+          guardandoConvenio={guardandoConvenio}
+          errorConvenio={errorConvenio}
+          cerrarModalConvenio={cerrarModalConvenio}
+          actualizarCampoConvenio={actualizarCampoConvenio}
+          actualizarTipoEmpaquetado={actualizarTipoEmpaquetado}
+          guardarConvenio={guardarConvenio}
+        />
+      )}
     </div>
   )
 }

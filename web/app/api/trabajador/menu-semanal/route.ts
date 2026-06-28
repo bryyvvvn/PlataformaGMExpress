@@ -7,6 +7,7 @@ import {
   getChileDayName,
 } from "@/lib/chile-time";
 import { esPlatoUnicoPorLegumbre } from "@/lib/menu/es-plato-unico";
+import { verificarTokenTrabajador } from "@/lib/trabajador/verificar-token";
 
 export const dynamic = "force-dynamic";
 
@@ -153,6 +154,13 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const fechaParam = searchParams.get("fecha");
     const usuarioId = searchParams.get("usuarioId");
+
+    if (usuarioId) {
+      const verificacion = await verificarTokenTrabajador(req, usuarioId);
+      if ("error" in verificacion) {
+        return NextResponse.json({ error: verificacion.error }, { status: verificacion.status });
+      }
+    }
 
     const isoFecha: string =
       fechaParam && /^\d{4}-\d{2}-\d{2}$/.test(fechaParam)

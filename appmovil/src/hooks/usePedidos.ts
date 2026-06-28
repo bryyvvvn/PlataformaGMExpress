@@ -11,15 +11,19 @@ export interface PedidoPayload {
   guarnicionId?: number | null;
   esFinDeSemana?: boolean;
   tipoFinde?: string | null;
-  esCena?: boolean; // 🔥 Agregado
-  tipoCena?: string | null; // 🔥 Agregado
+  esCena?: boolean;
+  tipoCena?: string | null;
   observacion?: string | null;
 }
 
 // ─── HOOK ─────────────────────────────────────────────────────────────────────
 
-// 🔥 NUEVO: Ahora el hook recibe 'esCena' como tercer parámetro (por defecto false)
-export const usePedidos = (usuarioId: string | undefined, fecha?: string, esCena: boolean = false) => {
+export const usePedidos = (
+  usuarioId: string | undefined,
+  fecha?: string,
+  token?: string | null,
+  esCena: boolean = false
+) => {
   const [yaPedioHoy,            setYaPedioHoy]            = useState(false);
   const [cargandoVerificacion,  setCargandoVerificacion]  = useState(true);
   const [enviando,              setEnviando]              = useState(false);
@@ -27,7 +31,7 @@ export const usePedidos = (usuarioId: string | undefined, fecha?: string, esCena
   const [pedidoExistente,       setPedidoExistente]       = useState<any | null>(null);
 
   const refrescarVerificacion = useCallback(async () => {
-    if (!usuarioId) {
+    if (!usuarioId || token === undefined) {
       setCargandoVerificacion(false);
       return;
     }
@@ -37,9 +41,10 @@ export const usePedidos = (usuarioId: string | undefined, fecha?: string, esCena
     setYaPedioHoy(false);
     
     try {
-      // 🔥 Le pasamos el parámetro &esCena=true o false a la URL de búsqueda
       const url = `${API_BASE_URL}/api/trabajador/pedidos?usuarioId=${usuarioId}${fecha ? `&fecha=${fecha}` : ''}&esCena=${esCena}`;
-      const res  = await fetch(url);
+      const res  = await fetch(url, {
+        headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}) },
+      });
       const data = await res.json();
       setYaPedioHoy(data.existe);
       setPedidoExistente(data.pedido ?? null);
@@ -48,7 +53,7 @@ export const usePedidos = (usuarioId: string | undefined, fecha?: string, esCena
     } finally {
       setCargandoVerificacion(false);
     }
-  }, [usuarioId, fecha, esCena]); // 🔥 Agregamos esCena a las dependencias
+  }, [usuarioId, fecha, token, esCena]);
 
   useEffect(() => {
     refrescarVerificacion();
@@ -69,24 +74,29 @@ export const usePedidos = (usuarioId: string | undefined, fecha?: string, esCena
         fecha: fecha ?? undefined,
         esFinDeSemana: pedido.esFinDeSemana ?? false,
         tipoFinde: pedido.tipoFinde ?? null,
-        esCena: pedido.esCena ?? false, 
-        tipoCena: pedido.tipoCena ?? null, 
+        esCena: pedido.esCena ?? false,
+        tipoCena: pedido.tipoCena ?? null,
         observacion: pedido.observacion?.trim() || null,
       };
-      
+
       console.info('[usePedidos] Enviando pedido payload=', payload);
 
       const respuesta = await fetch(`${API_BASE_URL}/api/trabajador/pedidos`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify(payload),
       });
 
       if (respuesta.ok) {
         setYaPedioHoy(true);
         try {
-          // 🔥 Actualizamos la URL aquí también
-          const check = await fetch(`${API_BASE_URL}/api/trabajador/pedidos?usuarioId=${usuarioId}${fecha ? `&fecha=${fecha}` : ''}&esCena=${esCena}`);
+          const check = await fetch(`${API_BASE_URL}/api/trabajador/pedidos?usuarioId=${usuarioId}${fecha ? `&fecha=${fecha}` : ''}&esCena=${esCena}`, {
+            headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}) },
+          });
           const data = await check.json();
           setPedidoExistente(data.pedido ?? null);
         } catch (e) {
@@ -104,7 +114,7 @@ export const usePedidos = (usuarioId: string | undefined, fecha?: string, esCena
       }
 
       if (respuesta.status === 409) {
-        setYaPedioHoy(true); 
+        setYaPedioHoy(true);
         return false;
       }
 
@@ -125,9 +135,11 @@ export const usePedidos = (usuarioId: string | undefined, fecha?: string, esCena
 
     setEliminando(true);
     try {
-      // 🔥 Le pasamos el parámetro &esCena a la URL de eliminación
       const url = `${API_BASE_URL}/api/trabajador/pedidos?usuarioId=${usuarioId}${fechaParam ? `&fecha=${fechaParam}` : (fecha ? `&fecha=${fecha}` : '')}&esCena=${esCena}`;
-      const res = await fetch(url, { method: 'DELETE' });
+      const res = await fetch(url, {
+        method: 'DELETE',
+        headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}) },
+      });
       if (res.ok) {
         setPedidoExistente(null);
         setYaPedioHoy(false);
@@ -153,20 +165,25 @@ export const usePedidos = (usuarioId: string | undefined, fecha?: string, esCena
         items,
         fecha: fecha ?? undefined,
         observacion: observacion?.trim() || null,
-        esCena: esCena, // 🔥 Lo inyectamos por seguridad
+        esCena,
       };
 
       const respuesta = await fetch(`${API_BASE_URL}/api/trabajador/pedidos`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify(payload),
       });
 
       if (respuesta.ok) {
         setYaPedioHoy(true);
         try {
-          // 🔥 Actualizamos la URL aquí también
-          const check = await fetch(`${API_BASE_URL}/api/trabajador/pedidos?usuarioId=${usuarioId}${fecha ? `&fecha=${fecha}` : ''}&esCena=${esCena}`);
+          const check = await fetch(`${API_BASE_URL}/api/trabajador/pedidos?usuarioId=${usuarioId}${fecha ? `&fecha=${fecha}` : ''}&esCena=${esCena}`, {
+            headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}) },
+          });
           const data = await check.json();
           setPedidoExistente(data.pedido ?? null);
         } catch (e) { /* ignore */ }

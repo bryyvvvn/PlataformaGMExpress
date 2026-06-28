@@ -1,7 +1,7 @@
 // src/components/CalendarioSemanal.tsx
 import React from 'react';
 import { ChevronLeft, ChevronRight, Lock } from 'lucide-react';
-import { THEME } from '../constants/theme';
+import type { EstadoFechas } from '../hooks/useHistorial';
 
 interface CalendarioSemanalProps {
   getSemanaTexto: () => string;

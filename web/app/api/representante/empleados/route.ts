@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import db from '../../../../lib/db';
+import { verificarRepresentante } from '@/lib/representante/verificar-representante';
 
 async function obtenerConvenioEmpresa(empresaId: number) {
   const empresa = await db.empresa.findUnique({
@@ -18,18 +19,14 @@ async function obtenerConvenioEmpresa(empresaId: number) {
 }
 
 export async function GET(request: Request) {
+  const rep = await verificarRepresentante();
+  if ('error' in rep) {
+    return NextResponse.json({ error: rep.error }, { status: rep.status });
+  }
+
   const { searchParams } = new URL(request.url);
-  const empresaIdStr = searchParams.get('empresaId');
   const fechaStr = searchParams.get('fecha');
-
-  if (!empresaIdStr) {
-    return NextResponse.json({ error: 'Falta el empresaId' }, { status: 400 });
-  }
-
-  const empresaId = parseInt(empresaIdStr, 10);
-  if (isNaN(empresaId)) {
-    return NextResponse.json({ error: 'empresaId inválido' }, { status: 400 });
-  }
+  const empresaId = rep.empresaId;
 
   try {
     let fechaBase = new Date(); 

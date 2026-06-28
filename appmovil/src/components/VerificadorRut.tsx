@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { useVerificadorRut } from '../hooks/useVerificadorRut';
+import { useClerkToken } from '../hooks/useClerkToken';
 
 // 🔥 Función matemática pura para validar que el RUT sea real
 const validarRutChileno = (rutCompleto: string) => {
@@ -29,9 +30,11 @@ const validarRutChileno = (rutCompleto: string) => {
 export const VerificadorRut: React.FC = () => {
   const { user } = useUser();
   const [inputRut, setInputRut] = useState('');
-  
+
+  const { token: clerkToken } = useClerkToken();
+
   // 🔥 Importamos la lógica desde nuestro nuevo hook
-  const { requiereRut, guardandoRut, guardarRutAPI } = useVerificadorRut(user?.id);
+  const { requiereRut, guardandoRut, guardarRutAPI } = useVerificadorRut(user?.id, clerkToken);
 
   // Formateador visual en tiempo real
   const manejarCambioRut = (e: React.ChangeEvent<HTMLInputElement>) => {

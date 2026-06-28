@@ -1,7 +1,13 @@
 import { NextResponse } from 'next/server';
 import db from '../../../../lib/db'; // Ajusta la ruta a tu lib/db según corresponda
+import { verificarRepresentante } from '@/lib/representante/verificar-representante';
 
 export async function GET(req: Request) {
+  const rep = await verificarRepresentante();
+  if ('error' in rep) {
+    return NextResponse.json({ error: rep.error }, { status: rep.status });
+  }
+
   const { searchParams } = new URL(req.url);
   const rut = searchParams.get('rut');
 

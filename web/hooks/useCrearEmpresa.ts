@@ -1,5 +1,5 @@
 import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import {
   CONTACTO_DEFAULTS,
   CONVENIO_DEFAULTS,
@@ -23,6 +23,8 @@ import type {
   PasoCrearEmpresa,
   TipoEmpaquetado,
   EstadoEmpresaCliente,
+  EmpresaCliente,
+  EmpresasResponse,
 } from "@/lib/empresas/tipos"
 
 export function useCrearEmpresa() {
@@ -32,6 +34,7 @@ export function useCrearEmpresa() {
   const [errorCrearEmpresa, setErrorCrearEmpresa] = useState<string | null>(null)
   const [crearEmpresaForm, setCrearEmpresaForm] =
     useState<CrearEmpresaForm>(CREAR_EMPRESA_DEFAULTS)
+  const [casasMatrices, setCasasMatrices] = useState<EmpresaCliente[]>([])
   const [crearEmpresaConvenio, setCrearEmpresaConvenio] =
     useState<ConvenioForm>(CONVENIO_DEFAULTS)
   const [contactoTitularForm, setContactoTitularForm] =
@@ -44,13 +47,32 @@ export function useCrearEmpresa() {
 
   const actualizarCampoCrearEmpresa = (
     campo: keyof CrearEmpresaForm,
-    valor: string | EstadoEmpresaCliente
+    valor: string | boolean | EstadoEmpresaCliente
   ) => {
     setCrearEmpresaForm((prev) => ({
       ...prev,
       [campo]: valor,
+      ...(campo === "esSucursal" && valor === false ? { casaMatrizId: "" } : {}),
     }))
   }
+
+  const cargarCasasMatrices = useCallback(async () => {
+    try {
+      const response = await fetch("/api/admin/empresas", { cache: "no-store" })
+      if (!response.ok) return
+
+      const data = (await response.json()) as EmpresasResponse
+      setCasasMatrices(data.empresas.filter((empresa) => !empresa.esSucursal))
+    } catch (err) {
+      console.error("[NuevaEmpresaPage] Error cargando casas matrices:", err)
+    }
+  }, [])
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      void cargarCasasMatrices()
+    })
+  }, [cargarCasasMatrices])
 
   const actualizarConvenioCrearEmpresa = (
     campo: CampoBooleanoConvenio,
@@ -258,6 +280,7 @@ export function useCrearEmpresa() {
     guardandoEmpresa,
     errorCrearEmpresa,
     crearEmpresaForm,
+    casasMatrices,
     crearEmpresaConvenio,
     contactoTitularForm,
     contactoSuplenteForm,

@@ -41,16 +41,28 @@ export function getHoraLimiteEfectiva(horaDespacho: string | null, horaGlobal: s
   }
 }
 
-export function getEstadoHorario(horaDespacho: string | null, horaGlobal: string): EstadoHorario {
+type ContextoTiempo = {
+  hour: number
+  minute: number
+  dayName: string
+  iso: string
+}
+
+export function getEstadoHorario(
+  horaDespacho: string | null,
+  horaGlobal: string,
+  trabajaFinDeSemana: boolean,
+  _contexto?: ContextoTiempo // opcional: para testing
+): EstadoHorario {
   const { horaLimite, fuenteHora } = getHoraLimiteEfectiva(horaDespacho, horaGlobal)
-  const { hour, minute, dayName, iso } = nowChile()
+  const { hour, minute, dayName, iso } = _contexto ?? nowChile()
   const horaActual = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
 
-  const esFinDeSemana = DIAS_FIN_DE_SEMANA.includes(dayName)
+  const esFinDeSemana = !trabajaFinDeSemana && DIAS_FIN_DE_SEMANA.includes(dayName)
   const limiteSuperado = horaActual >= horaLimite
   const permitido = !esFinDeSemana && !limiteSuperado
 
-  const horaReapertura = dayName === 'Viernes' || esFinDeSemana
+  const horaReapertura = (dayName === 'Viernes' && !trabajaFinDeSemana) || esFinDeSemana
     ? `el lunes a las ${horaLimite}`
     : `mañana a las ${horaLimite}`
 

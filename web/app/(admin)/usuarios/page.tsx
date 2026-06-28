@@ -1,8 +1,8 @@
 "use client"
 
+import dynamic from "next/dynamic"
 import { useMemo, useState } from "react"
 
-import { AsignarRepresentanteModal } from "@/components/admin/usuarios/asignar-representante-modal"
 import { UsuariosHeader } from "@/components/admin/usuarios/usuarios-header"
 import { UsuariosKpiCards } from "@/components/admin/usuarios/usuarios-kpi-cards"
 import { UsuariosListado } from "@/components/admin/usuarios/usuarios-listado"
@@ -10,6 +10,14 @@ import {
   type PerfilUsuarioApp,
   useUsuariosApp,
 } from "@/hooks/useUsuariosApp"
+
+const AsignarRepresentanteModal = dynamic(
+  () =>
+    import("@/components/admin/usuarios/asignar-representante-modal").then(
+      (mod) => mod.AsignarRepresentanteModal
+    ),
+  { loading: () => null }
+)
 
 export default function UsuariosAppPage() {
   const { usuarios, resumen, loading, error, cargarUsuarios } = useUsuariosApp()
@@ -76,11 +84,13 @@ export default function UsuariosAppPage() {
         onReintentar={cargarUsuarios}
       />
 
-      <AsignarRepresentanteModal
-        abierto={modalAbierto}
-        onCerrar={() => setModalAbierto(false)}
-        onAsignado={confirmarAsignacion}
-      />
+      {modalAbierto && (
+        <AsignarRepresentanteModal
+          abierto={modalAbierto}
+          onCerrar={() => setModalAbierto(false)}
+          onAsignado={confirmarAsignacion}
+        />
+      )}
     </div>
   )
 }

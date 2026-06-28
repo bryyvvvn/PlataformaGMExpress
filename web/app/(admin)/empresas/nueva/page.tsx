@@ -12,6 +12,7 @@ export default function NuevaEmpresaPage() {
     guardandoEmpresa,
     errorCrearEmpresa,
     crearEmpresaForm,
+    casasMatrices,
     crearEmpresaConvenio,
     contactoTitularForm,
     contactoSuplenteForm,
@@ -58,6 +59,7 @@ export default function NuevaEmpresaPage() {
         pasoCrearEmpresa={pasoCrearEmpresa}
         guardandoEmpresa={guardandoEmpresa}
         crearEmpresaForm={crearEmpresaForm}
+        casasMatrices={casasMatrices}
         crearEmpresaConvenio={crearEmpresaConvenio}
         contactoTitularForm={contactoTitularForm}
         contactoSuplenteForm={contactoSuplenteForm}

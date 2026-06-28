@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { deleteMenuWeek, listMenuWeeks } from "@/lib/menu-week";
+import { validarAdministrador } from "@/lib/usuarios/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +10,15 @@ function getErrorMessage(error: unknown) {
 
 export async function GET() {
   try {
+    const admin = await validarAdministrador();
+
+    if ("error" in admin) {
+      return NextResponse.json(
+        { error: admin.error },
+        { status: admin.status }
+      );
+    }
+
     const semanas = await listMenuWeeks();
     return NextResponse.json({ semanas });
   } catch (error) {
@@ -19,6 +29,15 @@ export async function GET() {
 
 export async function DELETE(req: NextRequest) {
   try {
+    const admin = await validarAdministrador();
+
+    if ("error" in admin) {
+      return NextResponse.json(
+        { error: admin.error },
+        { status: admin.status }
+      );
+    }
+
     const { searchParams } = new URL(req.url);
     const id = Number(searchParams.get("id"));
 

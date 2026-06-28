@@ -3,6 +3,8 @@ import db from '../../../../lib/db';
 import nodemailer from 'nodemailer'; // 🔥 IMPORTAMOS NODEMAILER
 
 import type { Prisma } from '@prisma/client';
+import { enviarPlanillaSchema } from '@/lib/schemas/representante';
+import { verificarRepresentante } from '@/lib/representante/verificar-representante';
 
 async function obtenerConvenioEmpresa(empresaId?: number, usuarioId?: string) {
   if (empresaId) {
@@ -45,12 +47,39 @@ async function obtenerConvenioEmpresa(empresaId?: number, usuarioId?: string) {
 }
 
 export async function POST(request: Request) {
-  try {
-    const body = await request.json();
-    const { empresaId, usuarioId, fecha } = body as { empresaId?: string | number; usuarioId?: string; fecha?: string | null };
+  const rep = await verificarRepresentante();
+  if ('error' in rep) {
+    return NextResponse.json({ error: rep.error }, { status: rep.status });
+  }
 
-    if (!empresaId && !usuarioId) {
-      return NextResponse.json({ error: 'Falta empresaId o usuarioId' }, { status: 400 });
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Body JSON inválido' }, { status: 400 });
+  }
+
+  const result = enviarPlanillaSchema.safeParse(body);
+  if (!result.success) {
+    return NextResponse.json({ error: result.error.issues[0].message }, { status: 400 });
+  }
+
+  const { usuarioId, fecha } = result.data;
+  const empresaIdSeguro = rep.empresaId; // ignorar body.empresaId
+
+  try {
+    if (usuarioId) {
+      const trabajador = await db.usuario.findUnique({
+        where: { id: usuarioId },
+        select: { empresaId: true },
+      });
+
+      if (!trabajador || trabajador.empresaId !== empresaIdSeguro) {
+        return NextResponse.json(
+          { error: 'No tienes autoridad sobre este trabajador' },
+          { status: 403 }
+        );
+      }
     }
 
     let fechaBase = new Date();
@@ -65,12 +94,7 @@ export async function POST(request: Request) {
     inicioSemana.setHours(0, 0, 0, 0);
 
     const finSemana = new Date(inicioSemana);
-    const idEmpresaNum = empresaId
-      ? typeof empresaId === 'string'
-        ? parseInt(empresaId, 10)
-        : empresaId
-      : undefined;
-    const convenio = await obtenerConvenioEmpresa(idEmpresaNum, usuarioId);
+    const convenio = await obtenerConvenioEmpresa(empresaIdSeguro, usuarioId);
     finSemana.setDate(inicioSemana.getDate() + (convenio.trabajaFinDeSemana ? 6 : 4));
     finSemana.setHours(23, 59, 59, 999);
 
@@ -84,7 +108,7 @@ export async function POST(request: Request) {
     };
 
     if (usuarioId) whereClause.usuarioId = usuarioId;
-    else if (idEmpresaNum) whereClause.empresaId = idEmpresaNum;
+    else whereClause.empresaId = empresaIdSeguro;
 
     // 1. ACTUALIZAMOS LA BASE DE DATOS (Tu código original)
     const actualizados = await db.pedido.updateMany({
@@ -93,11 +117,11 @@ export async function POST(request: Request) {
     });
 
     // 🔥 2. SI SE CONFIRMARON PEDIDOS, MANDAMOS EL CORREO
-    if (actualizados.count > 0 && idEmpresaNum) {
+    if (actualizados.count > 0) {
       try {
         // Buscamos el nombre de la empresa para personalizar el correo
         const empresaData = await db.empresa.findUnique({
-          where: { id: idEmpresaNum },
+          where: { id: empresaIdSeguro },
           select: { nombre: true }
         });
 

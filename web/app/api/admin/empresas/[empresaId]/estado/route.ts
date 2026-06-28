@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { EstadoEmpresa } from "@prisma/client"
 import db from "@/lib/db"
+import { validarAdministrador } from "@/lib/usuarios/admin"
 
 export const dynamic = "force-dynamic"
 
@@ -14,6 +15,15 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 export async function PATCH(req: NextRequest, { params }: RouteContext) {
   try {
+    const admin = await validarAdministrador()
+
+    if ("error" in admin) {
+      return NextResponse.json(
+        { error: admin.error },
+        { status: admin.status }
+      )
+    }
+
     const { empresaId: empresaIdParam } = await params
     const empresaId = Number(empresaIdParam)
 

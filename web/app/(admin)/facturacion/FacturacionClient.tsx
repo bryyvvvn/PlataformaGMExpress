@@ -9,8 +9,7 @@ import {
   Loader2,
   Receipt,
 } from "lucide-react";
-import * as ExcelJS from "exceljs";
-import { saveAs } from "file-saver";
+import type { Borders, Fill } from "exceljs";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -39,6 +38,17 @@ type EmpresaOption = {
   nombre: string;
 };
 
+type GuardarArchivoExcel = (data: Blob, filename?: string) => void;
+
+type FileSaverModule = {
+  saveAs?: GuardarArchivoExcel;
+  default?:
+    | GuardarArchivoExcel
+    | {
+        saveAs?: GuardarArchivoExcel;
+      };
+};
+
 const RANGOS = [
   { value: "7", label: "Últimos 7 días" },
   { value: "15", label: "Últimos 15 días" },
@@ -51,13 +61,13 @@ const RESUMEN_VACIO: ResumenFacturacion = {
   tabla: [],
 };
 
-const HEADER_FILL: ExcelJS.Fill = {
+const HEADER_FILL: Fill = {
   type: "pattern",
   pattern: "solid",
   fgColor: { argb: "FF1B2C56" },
 };
 
-const BORDE_NEGRO: Partial<ExcelJS.Borders> = {
+const BORDE_NEGRO: Partial<Borders> = {
   top: { style: "thin", color: { argb: "FF000000" } },
   left: { style: "thin", color: { argb: "FF000000" } },
   bottom: { style: "thin", color: { argb: "FF000000" } },
@@ -125,10 +135,25 @@ export function FacturacionClient({ empresas }: { empresas: EmpresaOption[] }) {
 
     setLoadingExcel(true);
     try {
+      const [excelModule, fileSaverModule] = await Promise.all([
+        import("exceljs"),
+        import("file-saver") as Promise<FileSaverModule>,
+      ]);
+      const { Workbook } = excelModule;
+      const saveAs =
+        fileSaverModule.saveAs ??
+        (typeof fileSaverModule.default === "function"
+          ? fileSaverModule.default
+          : fileSaverModule.default?.saveAs);
+
+      if (typeof saveAs !== "function") {
+        throw new Error("No se pudo cargar la función saveAs de file-saver.");
+      }
+
       const empresaSeleccionada =
         empresas.find((e) => String(e.id) === empresaId)?.nombre ?? "Empresa";
 
-      const workbook = new ExcelJS.Workbook();
+      const workbook = new Workbook();
       const sheet = workbook.addWorksheet("Facturación");
 
       sheet.columns = [
