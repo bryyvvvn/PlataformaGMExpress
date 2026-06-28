@@ -12,12 +12,15 @@ async function obtenerConvenioEmpresa(empresaId?: number, usuarioId?: string) {
       where: { id: empresaId },
       select: {
         ConvenioEmpresa: {
-          select: { trabajaFinDeSemana: true },
+          select: { trabajaFinDeSemana: true, permiteCena: true },
         },
       },
     });
 
-    return { trabajaFinDeSemana: Boolean(empresa?.ConvenioEmpresa?.trabajaFinDeSemana) };
+    return {
+      trabajaFinDeSemana: Boolean(empresa?.ConvenioEmpresa?.trabajaFinDeSemana),
+      permiteCena: Boolean(empresa?.ConvenioEmpresa?.permiteCena),
+    };
   }
 
   if (usuarioId) {
@@ -27,17 +30,20 @@ async function obtenerConvenioEmpresa(empresaId?: number, usuarioId?: string) {
         empresa: {
           select: {
             ConvenioEmpresa: {
-              select: { trabajaFinDeSemana: true },
+              select: { trabajaFinDeSemana: true, permiteCena: true },
             },
           },
         },
       },
     });
 
-    return { trabajaFinDeSemana: Boolean(usuario?.empresa?.ConvenioEmpresa?.trabajaFinDeSemana) };
+    return {
+      trabajaFinDeSemana: Boolean(usuario?.empresa?.ConvenioEmpresa?.trabajaFinDeSemana),
+      permiteCena: Boolean(usuario?.empresa?.ConvenioEmpresa?.permiteCena),
+    };
   }
 
-  return { trabajaFinDeSemana: false };
+  return { trabajaFinDeSemana: false, permiteCena: false };
 }
 
 export async function POST(request: Request) {
@@ -98,6 +104,7 @@ export async function POST(request: Request) {
         gte: inicioSemana,
         lte: finSemana,
       },
+      ...(convenio.permiteCena ? {} : { esCena: false }),
     };
 
     if (usuarioId) whereClause.usuarioId = usuarioId;

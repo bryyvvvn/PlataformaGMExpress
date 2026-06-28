@@ -5,6 +5,7 @@ export interface ResumenEmpresa {
   totalTrabajadores: number;
   pedidosListos: number;
   enviadoAGM: boolean;
+  permiteCena?: boolean;
 }
 
 export const useTrabajadores = (empresaId: number | null, fechaSeleccionada?: string) => {

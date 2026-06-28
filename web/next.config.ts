@@ -1,8 +1,6 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-
-
   turbopack: {
     root: __dirname,
   },
@@ -10,6 +8,7 @@ const nextConfig: NextConfig = {
   // Permite que el emulador Android y ngrok accedan a los recursos de dev de Next.js
   allowedDevOrigins: [
     '192.168.1.25',
+    '192.168.1.83', // 🔥 AGREGAMOS LA IP EXACTA QUE TE GRITA LA CONSOLA
     'collide-imaginary-thermos.ngrok-free.dev' 
   ],
 

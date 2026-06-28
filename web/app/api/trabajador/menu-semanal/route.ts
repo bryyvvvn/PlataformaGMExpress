@@ -20,6 +20,7 @@ type ConvenioMenuDia = {
   permiteJugo: boolean;
   permiteAguaSaborizada: boolean;
   trabajaFinDeSemana: boolean;
+  permiteCena: boolean;
 };
 
 type PlatoBebida = {
@@ -92,6 +93,7 @@ async function obtenerConvenioUsuario(usuarioId: string | null): Promise<Conveni
               permiteJugo: true,
               permiteAguaSaborizada: true,
               trabajaFinDeSemana: true,
+              permiteCena: true,
             },
           },
         },
@@ -214,6 +216,7 @@ export async function GET(req: NextRequest) {
         menuDia: null,
         convenio: {
           trabajaFinDeSemana: Boolean(convenio?.trabajaFinDeSemana),
+          permiteCena: Boolean(convenio?.permiteCena),
         },
       });
     }
@@ -257,6 +260,7 @@ export async function GET(req: NextRequest) {
       menuDia: seleccion ? formatearSeleccion(seleccion, convenio) : null,
       convenio: {
         trabajaFinDeSemana: Boolean(convenio?.trabajaFinDeSemana),
+        permiteCena: Boolean(convenio?.permiteCena),
       },
     };
 

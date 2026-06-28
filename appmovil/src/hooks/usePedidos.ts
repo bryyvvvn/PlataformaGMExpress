@@ -155,7 +155,6 @@ export const usePedidos = (
     }
   };
 
-  // 🔥 NUEVO: Recibimos observacion como parámetro y la enviamos en el payload
   const enviarItems = async (items: Array<{ platoId: number; guarnicionId?: number | null; cantidad?: number }>, observacion?: string | null): Promise<boolean> => {
     if (!usuarioId) return false;
 

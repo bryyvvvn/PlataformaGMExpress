@@ -37,6 +37,7 @@ export interface MenuDia {
   } | null;
   convenio?: {
     trabajaFinDeSemana?: boolean | null;
+    permiteCena?: boolean | null;
   };
 }
 

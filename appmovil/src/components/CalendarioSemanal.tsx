@@ -12,7 +12,7 @@ interface CalendarioSemanalProps {
   todosBloqueados: boolean;
   setDiaSeleccionadoIdx: (idx: number) => void;
   fechasHorarioBloqueado?: Set<string>;
-  estadoFechas?: EstadoFechas;
+  estadoFechas?: Record<string, { almuerzo: boolean; cena: boolean }>;
 }
 
 export const CalendarioSemanal: React.FC<CalendarioSemanalProps> = ({
@@ -40,21 +40,15 @@ export const CalendarioSemanal: React.FC<CalendarioSemanalProps> = ({
         </button>
       </div>
 
-      {/* Estilo para ocultar la barra de scroll nativa pero mantener la funcionalidad */}
       <style>{`
         .hide-scrollbar::-webkit-scrollbar {
           display: none;
         }
       `}</style>
 
-      {/* Contenedor con Scroll Horizontal Suave */}
       <div 
         className="flex items-center overflow-x-auto snap-x snap-mandatory hide-scrollbar pb-4 pt-2 -mx-2 px-2"
-        style={{ 
-          scrollbarWidth: 'none', 
-          msOverflowStyle: 'none', 
-          gap: 'calc(15% / 4)' // Mantiene el espaciado perfecto original de los 5 días
-        }} 
+        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', gap: 'calc(15% / 4)' }} 
       >
         {diasSemanaArray.map((dia, index) => {
           const tienePedido = fechasBloqueadas.has(dia.iso);
@@ -98,8 +92,8 @@ export const CalendarioSemanal: React.FC<CalendarioSemanalProps> = ({
           }
 
           // Efecto de selección flotante (Outline externo)
-          const selectionEffect = isSelectedAndValid
-            ? 'scale-110 shadow-md ring-2 ring-[#70a344] ring-offset-2'
+          const selectionEffect = isSelectedAndValid 
+            ? 'scale-110 shadow-md ring-2 ring-[#70a344] ring-offset-2' 
             : 'border shadow-sm';
 
           return (

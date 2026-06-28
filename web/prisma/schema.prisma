@@ -139,15 +139,17 @@ model MenuDiaSeleccion {
 }
 
 model Pedido {
-  id          Int             @id @default(autoincrement())
-  fecha       DateTime        @default(now())
-  estado      EstadoPedido    @default(PENDIENTE)
-  empresaId   Int
-  usuarioId   String
-  observacion String?         @db.VarChar(500)
-  detalles    DetallePedido[]
-  empresa     Empresa         @relation(fields: [empresaId], references: [id])
-  usuario     Usuario         @relation(fields: [usuarioId], references: [id])
+  id        Int             @id @default(autoincrement())
+  fecha     DateTime        @default(now())
+  estado    EstadoPedido    @default(PENDIENTE)
+  empresaId Int
+  usuarioId String
+  observacion String? @db.VarChar(500)
+  detalles  DetallePedido[]
+  empresa   Empresa         @relation(fields: [empresaId], references: [id])
+  usuario   Usuario         @relation(fields: [usuarioId], references: [id])
+  esCena                Boolean          @default(false) 
+  tipoCena              String?          @db.VarChar(50) 
 
   @@index([empresaId, fecha])
 }
@@ -217,6 +219,7 @@ model ConvenioEmpresa {
   permiteBebida         Boolean          @default(false)
   permiteAguaSaborizada Boolean          @default(false)
   trabajaFinDeSemana    Boolean          @default(false)
+  permiteCena           Boolean          @default(false)
   tipoEmpaquetado       TipoEmpaquetado?
   creado_en             DateTime         @default(now())
   actualizado_en        DateTime         @default(now())

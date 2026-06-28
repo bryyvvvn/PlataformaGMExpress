@@ -8,12 +8,15 @@ async function obtenerConvenioEmpresa(empresaId: number) {
     where: { id: empresaId },
     select: {
       ConvenioEmpresa: {
-        select: { trabajaFinDeSemana: true },
+        select: { trabajaFinDeSemana: true, permiteCena: true },
       },
     },
   });
 
-  return { trabajaFinDeSemana: Boolean(empresa?.ConvenioEmpresa?.trabajaFinDeSemana) };
+  return {
+    trabajaFinDeSemana: Boolean(empresa?.ConvenioEmpresa?.trabajaFinDeSemana),
+    permiteCena: Boolean(empresa?.ConvenioEmpresa?.permiteCena),
+  };
 }
 
 export async function POST(request: Request) {
@@ -58,6 +61,7 @@ export async function POST(request: Request) {
       where: {
         empresaId: empresaIdSeguro,
         estado: 'PENDIENTE',
+        ...(convenio.permiteCena ? {} : { esCena: false }),
         fecha: {
           gte: inicioSemana,
           lte: finSemana,

@@ -145,15 +145,16 @@ function LoginScreen({
                   </p>
                 </div>
 
-                <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+                {/* 🔥 Aquí se eliminó el borde y la sombra. Ahora solo centra el contenido */}
+                <div className="flex w-full flex-col items-center justify-center">
                   {showNoAdminError && (
-                    <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold leading-5 text-red-700">
+                    <div className="mb-4 w-full max-w-[400px] rounded-md border border-red-200 bg-red-50 px-4 py-3 text-center text-sm font-semibold leading-5 text-red-700">
                       {NO_ADMIN_MESSAGE}
                     </div>
                   )}
 
                   {isValidating ? (
-                    <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-5 text-center text-sm font-semibold text-[#1B2C56]">
+                    <div className="w-full max-w-[400px] rounded-md border border-slate-200 bg-slate-50 px-4 py-5 text-center text-sm font-semibold text-[#1B2C56]">
                       Validando credenciales...
                     </div>
                   ) : showSignIn ? (
@@ -161,7 +162,7 @@ function LoginScreen({
                   ) : null}
                 </div>
 
-                <p className="mx-auto mt-4 max-w-sm text-center text-xs leading-5 text-slate-500">
+                <p className="mx-auto mt-6 max-w-sm text-center text-xs leading-5 text-slate-500">
                   Plataforma privada para administración, carga de minutas, pedidos y facturación.
                 </p>
               </div>

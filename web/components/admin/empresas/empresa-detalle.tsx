@@ -300,6 +300,11 @@ export function EmpresaDetalleConvenio({
               value={Boolean(empresa.convenio.trabajaFinDeSemana) ? "Sí" : "No"}
             />
 
+            <Dato
+              label="Cena permitida"
+              value={Boolean(empresa.convenio.permiteCena) ? "Si" : "No"}
+            />
+
             <div className="grid gap-3 sm:grid-cols-2">
               {PRODUCTOS_CONVENIO.map((producto) => {
                 const permitido = empresa.convenio?.[producto.campo] ?? false

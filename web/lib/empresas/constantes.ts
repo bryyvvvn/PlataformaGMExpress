@@ -20,6 +20,7 @@ export const CONVENIO_DEFAULTS: ConvenioForm = {
   permiteBebida: false,
   permiteAguaSaborizada: false,
   trabajaFinDeSemana: false,
+  permiteCena: false,
   tipoEmpaquetado: null,
 }
 
@@ -75,6 +76,12 @@ export const OPCIONES_CONVENIO: Array<{
     label: "¿Trabaja fin de semana?",
     ayuda:
       "Si está activado, la empresa podrá operar y visualizar pedidos de lunes a domingo.",
+  },
+  {
+    campo: "permiteCena",
+    label: "Permite pedidos de cena",
+    ayuda:
+      "Activa esta opcion si la empresa puede solicitar cenas ademas de almuerzos.",
   },
 ]
 
