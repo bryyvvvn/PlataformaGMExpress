@@ -4,7 +4,6 @@ import { chileStartOfDay, chileEndOfDay } from '../../../../lib/chile-time';
 
 export const dynamic = 'force-dynamic';
 
-// CAMBIADO A POST PARA PRODUCCIÓN
 export async function POST(request: NextRequest) {
   
   // 1. SEGURIDAD ACTIVADA: Solo Railway con el CRON_SECRET puede ejecutar esto
@@ -14,10 +13,57 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    // 2. OBTENER Y NORMALIZAR LA HORA ACTUAL EN CHILE (AL CUARTO DE HORA)
+    const ahora = new Date();
+    const formatter = new Intl.DateTimeFormat('es-CL', {
+      timeZone: 'America/Santiago',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+    
+    const [horaStr, minutoStr] = formatter.format(ahora).split(':');
+    let hora = parseInt(horaStr);
+    const m = parseInt(minutoStr);
+    
+    // Redondeo robusto al cuarto de hora más cercano
+    let minutoNormalizado = '00';
+    if (m >= 53) {
+      minutoNormalizado = '00';
+      hora = hora === 23 ? 0 : hora + 1; // Ajuste por si cambia de día/hora
+    } else if (m >= 38) {
+      minutoNormalizado = '45';
+    } else if (m >= 23) {
+      minutoNormalizado = '30';
+    } else if (m >= 8) {
+      minutoNormalizado = '15';
+    }
+
+    const horaFinal = hora.toString().padStart(2, '0');
+    const horaActualStr = `${horaFinal}:${minutoNormalizado}`; 
+
+    console.log(`[CRON] Revisando cierres para la hora: ${horaActualStr}`);
+
+    // 3. BUSCAR EMPRESAS QUE TIENEN CONFIGURADA ESTA HORA DE DESPACHO
+    const empresasAlCierre = await db.empresa.findMany({
+      where: { horaDespacho: horaActualStr },
+      select: { id: true, nombre: true }
+    });
+
+    if (empresasAlCierre.length === 0) {
+      return NextResponse.json({ 
+        success: true, 
+        mensaje: `Ninguna empresa tiene configurado el cierre a las ${horaActualStr}.` 
+      });
+    }
+
+    const idsEmpresasCierre = empresasAlCierre.map((e) => e.id);
+    console.log(`[CRON] Empresas a procesar:`, empresasAlCierre.map(e => e.nombre));
+
+    // 4. OBTENER EL MENÚ DEL DÍA EXACTO PARA HOY
     const inicioDia = chileStartOfDay();
     const finDia = chileEndOfDay();
 
-    // 2. OBTENER EL MENÚ DEL DÍA EXACTO PARA HOY
     const menuHoy = await db.menuDiaSeleccion.findFirst({
       where: {
         fecha_dia: {
@@ -29,9 +75,7 @@ export async function POST(request: NextRequest) {
         entradaDetalle: true,
         fondoDetalle: true,
         postreDetalle: true,
-        entradasSeleccionadas: {
-          include: { menuDetalle: true }
-        }
+        entradasSeleccionadas: { include: { menuDetalle: true } }
       }
     });
 
@@ -40,7 +84,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, mensaje: 'Sin menú configurado, no se asignó nada.' });
     }
 
-    // 3. ARMAR EL PLATO PERFECTO
+    // 5. ARMAR EL PLATO PERFECTO
     const detallesData: { platoId: number; guarnicionId?: number | null; cantidad: number }[] = [];
 
     // -- Entradas
@@ -71,10 +115,10 @@ export async function POST(request: NextRequest) {
       detallesData.push({ platoId: menuHoy.bebidaPlatoId, cantidad: 1 });
     }
 
-    // 4. BUSCAR A LOS USUARIOS REZAGADOS
+    // 6. BUSCAR A LOS USUARIOS REZAGADOS SÓLO DE LAS EMPRESAS QUE CIERRAN AHORA
     const usuariosSinPedido = await db.usuario.findMany({
       where: {
-        empresaId: { not: null },
+        empresaId: { in: idsEmpresasCierre },
         pedidos: {
           none: {
             fecha: {
@@ -91,10 +135,10 @@ export async function POST(request: NextRequest) {
     });
 
     if (usuariosSinPedido.length === 0) {
-      return NextResponse.json({ success: true, mensaje: 'Todos los usuarios ya pidieron o no hay trabajadores disponibles. Nada que asignar.' });
+      return NextResponse.json({ success: true, mensaje: 'Los trabajadores de estas empresas ya pidieron o no hay rezagados. Nada que asignar.' });
     }
 
-    // 5. CREACIÓN MASIVA CON TRANSACCIÓN
+    // 7. CREACIÓN MASIVA CON TRANSACCIÓN
     const transacciones = usuariosSinPedido.map((usuario) => {
       return db.pedido.create({
         data: {
@@ -113,7 +157,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ 
       success: true, 
-      mensaje: `¡Éxito! Se asignó el menú del día a ${usuariosSinPedido.length} usuarios rezagados.` 
+      mensaje: `¡Éxito! Se asignó el menú del día a ${usuariosSinPedido.length} rezagados de las empresas: ${empresasAlCierre.map(e => e.nombre).join(', ')}.` 
     });
 
   } catch (error) {
