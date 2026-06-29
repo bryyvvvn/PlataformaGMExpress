@@ -50,6 +50,7 @@ model Usuario {
   nombreUsuario  String?  @db.VarChar(100)
   rol            Rol      @default(TRABAJADOR)
   rut            String?  @unique @db.VarChar(20) // 🔥 NUEVO: Opcional para que no choque con Clerk
+  telefono       String?  @db.VarChar(30)
   empresaId      Int?
   correo         String?  @db.VarChar(100)
   pedidos        Pedido[]

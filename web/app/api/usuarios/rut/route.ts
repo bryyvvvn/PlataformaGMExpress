@@ -52,12 +52,16 @@ export async function PATCH(request: Request) {
   try {
     const usuarioActualizado = await db.usuario.update({
       where: { id: result.data.clerkId },
-      data: { rut: result.data.rut },
+      // 🔥 AQUÍ LE DECIMOS A PRISMA QUE TAMBIÉN GUARDE EL TELÉFONO
+      data: { 
+        rut: result.data.rut,
+        telefono: result.data.telefono 
+      },
     });
 
     return NextResponse.json({ success: true, usuario: usuarioActualizado });
   } catch (error) {
-    console.error('[API GUARDAR RUT] Error:', error);
+    console.error('[API GUARDAR DATOS] Error:', error);
 
     // Si el error es por RUT duplicado, avisamos al frontend
     if (
@@ -72,6 +76,6 @@ export async function PATCH(request: Request) {
       );
     }
 
-    return NextResponse.json({ error: 'Error interno guardando el RUT' }, { status: 500 });
+    return NextResponse.json({ error: 'Error interno guardando los datos' }, { status: 500 });
   }
 }
