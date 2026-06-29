@@ -71,8 +71,7 @@ export const CalendarioSemanal: React.FC<CalendarioSemanalProps> = ({
           let subTextClass = 'text-gray-400';
 
           if (ambasComidas) {
-            // 🔥 CORTE EXACTO DIAGONAL: 50% Verde (Almuerzo) y 50% Azul Oscuro (Cena)
-            bgClass = 'bg-[linear-gradient(135deg,#70a344_50%,#1d2d50_50%)] border-transparent shadow-md';
+            bgClass = 'border-transparent shadow-md';
             textClass = 'text-white';
             subTextClass = 'text-white/90';
           } else if (soloCena) {
@@ -100,19 +99,27 @@ export const CalendarioSemanal: React.FC<CalendarioSemanalProps> = ({
             <button
               key={index}
               onClick={() => { if (!noSeleccionable) setDiaSeleccionadoIdx(index); }}
-              className={['flex flex-col items-center justify-center shrink-0 w-[17%] aspect-square rounded-[20px] transition-all snap-center',
+              className={['relative flex flex-col items-center justify-center shrink-0 w-[17%] aspect-square rounded-[20px] transition-all snap-center overflow-hidden',
                 selectionEffect,
                 bgClass,
                 noSeleccionable ? 'cursor-not-allowed' : 'cursor-pointer'
               ].join(' ')}
             >
-              <span className={`text-[10px] font-black mb-1 uppercase ${subTextClass}`}>
+              {/* Split limpio mitad izquierda verde / mitad derecha azul */}
+              {ambasComidas && (
+                <>
+                  <div className="absolute inset-0 right-1/2 bg-[#70a344]" />
+                  <div className="absolute inset-0 left-1/2 bg-[#1d2d50]" />
+                </>
+              )}
+
+              <span className={`relative z-10 text-[10px] font-black mb-1 uppercase ${subTextClass}`}>
                 {dia.letra}
               </span>
               {esBloqueadoPorHorario ? (
-                <Lock size={16} className="text-gray-400" />
+                <Lock size={16} className="relative z-10 text-gray-400" />
               ) : (
-                <span className={`text-lg font-black ${textClass}`}>
+                <span className={`relative z-10 text-lg font-black ${textClass}`}>
                   {dia.numero}
                 </span>
               )}

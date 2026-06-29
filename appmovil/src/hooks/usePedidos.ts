@@ -31,7 +31,11 @@ export const usePedidos = (
   const [pedidoExistente,       setPedidoExistente]       = useState<any | null>(null);
 
   const refrescarVerificacion = useCallback(async () => {
-    if (!usuarioId || token === undefined) {
+    // Si el token aún no resolvió (undefined = cargando), no hacemos nada y esperamos
+    if (!usuarioId || token === undefined) return;
+
+    // Si no hay token (null = sin sesión), limpiamos el estado y salimos
+    if (!token) {
       setCargandoVerificacion(false);
       return;
     }
@@ -43,7 +47,7 @@ export const usePedidos = (
     try {
       const url = `${API_BASE_URL}/api/trabajador/pedidos?usuarioId=${usuarioId}${fecha ? `&fecha=${fecha}` : ''}&esCena=${esCena}`;
       const res  = await fetch(url, {
-        headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}) },
+        headers: { 'Authorization': `Bearer ${token}` }, // Ya sabemos seguro que el token existe
       });
       const data = await res.json();
       setYaPedioHoy(data.existe);
@@ -60,7 +64,7 @@ export const usePedidos = (
   }, [refrescarVerificacion]);
 
   const enviarPedido = async (pedido: PedidoPayload): Promise<boolean> => {
-    if (!usuarioId) return false;
+    if (!usuarioId || !token) return false; // Freno de seguridad
 
     setEnviando(true);
     try {
@@ -86,7 +90,7 @@ export const usePedidos = (
         headers: {
           'Content-Type': 'application/json',
           Accept: 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify(payload),
       });
@@ -95,7 +99,7 @@ export const usePedidos = (
         setYaPedioHoy(true);
         try {
           const check = await fetch(`${API_BASE_URL}/api/trabajador/pedidos?usuarioId=${usuarioId}${fecha ? `&fecha=${fecha}` : ''}&esCena=${esCena}`, {
-            headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}) },
+            headers: { 'Authorization': `Bearer ${token}` },
           });
           const data = await check.json();
           setPedidoExistente(data.pedido ?? null);
@@ -131,14 +135,14 @@ export const usePedidos = (
   };
 
   const eliminarPedido = async (fechaParam?: string): Promise<boolean> => {
-    if (!usuarioId) return false;
+    if (!usuarioId || !token) return false; // Freno de seguridad
 
     setEliminando(true);
     try {
       const url = `${API_BASE_URL}/api/trabajador/pedidos?usuarioId=${usuarioId}${fechaParam ? `&fecha=${fechaParam}` : (fecha ? `&fecha=${fecha}` : '')}&esCena=${esCena}`;
       const res = await fetch(url, {
         method: 'DELETE',
-        headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}) },
+        headers: { 'Authorization': `Bearer ${token}` },
       });
       if (res.ok) {
         setPedidoExistente(null);
@@ -156,7 +160,7 @@ export const usePedidos = (
   };
 
   const enviarItems = async (items: Array<{ platoId: number; guarnicionId?: number | null; cantidad?: number }>, observacion?: string | null): Promise<boolean> => {
-    if (!usuarioId) return false;
+    if (!usuarioId || !token) return false; // Freno de seguridad
 
     setEnviando(true);
     try {
@@ -173,7 +177,7 @@ export const usePedidos = (
         headers: {
           'Content-Type': 'application/json',
           Accept: 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify(payload),
       });
@@ -182,7 +186,7 @@ export const usePedidos = (
         setYaPedioHoy(true);
         try {
           const check = await fetch(`${API_BASE_URL}/api/trabajador/pedidos?usuarioId=${usuarioId}${fecha ? `&fecha=${fecha}` : ''}&esCena=${esCena}`, {
-            headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}) },
+            headers: { 'Authorization': `Bearer ${token}` },
           });
           const data = await check.json();
           setPedidoExistente(data.pedido ?? null);

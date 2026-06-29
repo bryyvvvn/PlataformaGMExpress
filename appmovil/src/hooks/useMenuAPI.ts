@@ -58,7 +58,11 @@ export const useMenuAPI = (fecha?: string, usuarioId?: string, token?: string | 
   useEffect(() => {
     let cancelado = false; // evita set de estado si el componente se desmontó
 
-    if (!usuarioId || token === undefined) {
+    // Token aún resolviendo → esperamos sin tocar el estado de carga
+    if (!usuarioId || token === undefined) return;
+
+    // Sin sesión → salimos limpiamente
+    if (!token) {
       setCargando(false);
       return;
     }

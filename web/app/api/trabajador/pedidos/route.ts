@@ -148,10 +148,11 @@ export async function GET(request: Request) {
       pedido: {
         id: pedidoExistente.id,
         fecha: pedidoExistente.fecha.toISOString(),
+        estado: pedidoExistente.estado,
         resumen,
         tipoFinde,
-        esCena: pedidoExistente.esCena,     // 🔥 Devuelve si es cena
-        tipoCena: pedidoExistente.tipoCena, // 🔥 Devuelve qué tipo de cena es
+        esCena: pedidoExistente.esCena,
+        tipoCena: pedidoExistente.tipoCena,
         observacion: pedidoExistente.observacion ?? null
       },
     });
@@ -282,6 +283,13 @@ export async function POST(request: Request) {
 
     // SI YA EXISTE, LO ACTUALIZAMOS
     if (pedidoExistente) {
+      if (pedidoExistente.estado === 'EN_PRODUCCION') {
+        return NextResponse.json(
+          { error: 'El pedido ya está en producción y no puede modificarse.' },
+          { status: 403 }
+        );
+      }
+
       await db.$transaction(async (tx) => {
         await tx.detallePedido.deleteMany({ where: { pedidoId: pedidoExistente.id } });
         await tx.detallePedido.createMany({
@@ -348,6 +356,13 @@ export async function DELETE(request: Request) {
     });
 
     if (!pedidoParaEliminar) return NextResponse.json({ error: 'Pedido no encontrado' }, { status: 404 });
+
+    if (pedidoParaEliminar.estado === 'EN_PRODUCCION') {
+      return NextResponse.json(
+        { error: 'El pedido ya está en producción y no puede eliminarse.' },
+        { status: 403 }
+      );
+    }
 
     await db.$transaction(async (tx) => {
       await tx.detallePedido.deleteMany({ where: { pedidoId: pedidoParaEliminar.id } });

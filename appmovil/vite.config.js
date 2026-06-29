@@ -13,10 +13,11 @@ export default defineConfig({
     allowedHosts: [
       "collide-imaginary-thermos.ngrok-free.dev",
       "exciting-ward-fans-theorem.trycloudflare.com",
+      "tea-gel-another-she.trycloudflare.com"
     ],
     proxy: {
       "/api": {
-        target: "https://plataformagmexpress-production-50b8.up.railway.app",
+        target: "http//localhost:3000",
         changeOrigin: true,
         secure: true,
       },

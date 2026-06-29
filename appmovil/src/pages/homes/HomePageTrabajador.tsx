@@ -2,7 +2,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Clock, Menu, ChevronDown, ChevronUp, X, CalendarOff, Lock, Check } from 'lucide-react';
 import { THEME, DEADLINE_HOUR } from '../../constants/theme';
-import { API_BASE_URL } from '../../constants/api';
 import { useUser } from '@clerk/clerk-react';
 import { useLocation } from 'react-router-dom';
 import { TarjetaPlato } from '../../components/TarjetaPlato';
@@ -25,7 +24,8 @@ import { useClerkToken } from '../../hooks/useClerkToken';
 import { MenuSkeleton } from '../../components/MenuSkeleton';
 import { CalendarioSemanal } from '../../components/CalendarioSemanal';
 import { ResumenPedido } from '../../components/ResumenPedido';
-import { HorarioBloqueado, type EstadoHorarioResponse } from '../../components/HorarioBloqueado';
+import { HorarioBloqueado } from '../../components/HorarioBloqueado';
+import { useHorario } from '../../hooks/useHorario';
 import type { Plato } from '../../hooks/useMenuAPI';
 
 type Categoria = 'ENTRADA' | 'FONDO' | 'POSTRE' | 'JUGO' | null;
@@ -91,34 +91,7 @@ const HomePageTrabajador: React.FC = () => {
 
   useConfigurarNotificaciones(user?.id, clerkToken);
 
-  const [estadoHorario, setEstadoHorario] = useState<EstadoHorarioResponse | null>(null);
-  const [cargandoHorario, setCargandoHorario] = useState(true);
-
-  useEffect(() => {
-    if (!user?.id) return;
-    let cancelado = false;
-    const fetchHorario = async () => {
-      try {
-        const res = await fetch(
-          `${API_BASE_URL}/api/trabajador/horario?usuarioId=${user.id}`,
-          {
-            cache: 'no-store',
-            headers: clerkToken
-              ? { 'Authorization': `Bearer ${clerkToken}` }
-              : {},
-          }
-        );
-        const data: EstadoHorarioResponse = await res.json();
-        if (!cancelado) setEstadoHorario(data);
-      } catch (e) {
-        if (!cancelado) setEstadoHorario({ permitido: true, fechaBloqueada: null });
-      } finally {
-        if (!cancelado) setCargandoHorario(false);
-      }
-    };
-    fetchHorario();
-    return () => { cancelado = true; };
-  }, [user?.id, clerkToken]);
+  const { estadoHorario, cargandoHorario } = useHorario(user?.id, clerkToken);
 
   const { diasBloqueadosAdmin, convenio } = usePerfilTrabajador(user?.id);
   const trabajaFinDeSemana = Boolean(convenio?.trabajaFinDeSemana);
@@ -166,7 +139,7 @@ const HomePageTrabajador: React.FC = () => {
   const { pedidoExistente, cargandoVerificacion, enviarPedido, enviarItems, enviando, refrescarVerificacion, eliminarPedido, eliminando } = usePedidos(user?.id, fechaSeleccionadaISO, clerkToken, modoComida === 'CENA');
 
   // 🔥 EXTRAEMOS estadoFechas DEL HISTORIAL
-  const { historial, estadoFechas, cargando: cargandoHistorial, cargarHistorial } = useHistorial(user?.id);
+  const { historial, estadoFechas, cargando: cargandoHistorial, cargarHistorial } = useHistorial(user?.id, clerkToken);
 
   const estadoFechasVisibles = useMemo(() => {
     if (permiteCena) return estadoFechas;

@@ -8,19 +8,21 @@ export interface EstadoFecha {
 
 export type EstadoFechas = Record<string, EstadoFecha>;
 
-export const useHistorial = (usuarioId: string | undefined) => {
-  const [historial, setHistorial] = useState([]);
+export const useHistorial = (usuarioId: string | undefined, token?: string | null) => {
+  const [historial, setHistorial] = useState<any[]>([]);
   // 🔥 NUEVO: Creamos un mapa inteligente que guardará qué comidas se pidieron cada día
   const [estadoFechas, setEstadoFechas] = useState<Record<string, { almuerzo: boolean, cena: boolean }>>({});
   const [cargando, setCargando] = useState(false);
 
   const cargarHistorial = useCallback(async () => {
-    if (!usuarioId) return;
+    if (!usuarioId || token === undefined) return;
 
     setCargando(true);
     try {
       const url = `${API_BASE_URL}/api/trabajador/pedidos?usuarioId=${usuarioId}&historial=true`;
-      const res = await fetch(url);
+      const res = await fetch(url, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
       const data = await res.json();
 
       // Si la respuesta no es un array, retornar vacío
@@ -58,7 +60,7 @@ export const useHistorial = (usuarioId: string | undefined) => {
     } finally {
       setCargando(false);
     }
-  }, [usuarioId]);
+  }, [usuarioId, token]);
 
   return { historial, estadoFechas, cargando, cargarHistorial };
 };
