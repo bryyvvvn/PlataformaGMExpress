@@ -23,6 +23,8 @@ export const ResumenPedido: React.FC<ResumenPedidoProps> = ({
   convenio,
   observacion,
 }) => {
+  const enProduccion = pedidoExistente?.estado === 'EN_PRODUCCION';
+  const bloqueado = isDeadlinePassed || fechaBloqueada || enProduccion;
   return (
     <div className="p-6 rounded-3xl bg-white border border-gray-100 shadow-sm relative overflow-hidden mt-4 grow flex flex-col">
       <div className="flex items-center justify-between mb-5 relative z-10">
@@ -30,7 +32,11 @@ export const ResumenPedido: React.FC<ResumenPedidoProps> = ({
           <CheckCircle2 size={24} className="text-[#70a344]" />
           <h3 className="font-black text-xl text-[#1d2d50]">Pedido Listo</h3>
         </div>
-        <button onClick={manejarEliminar} className="p-2 text-red-400 bg-red-50 rounded-xl relative z-10 active:scale-90 transition-transform">
+        <button
+          onClick={manejarEliminar}
+          disabled={enProduccion}
+          className={`p-2 rounded-xl relative z-10 transition-transform ${enProduccion ? 'text-gray-300 bg-gray-100 cursor-not-allowed' : 'text-red-400 bg-red-50 active:scale-90'}`}
+        >
           <Trash2 size={20} />
         </button>
       </div>
@@ -97,10 +103,10 @@ export const ResumenPedido: React.FC<ResumenPedidoProps> = ({
 
       <button
         onClick={onModificar}
-        disabled={isDeadlinePassed || fechaBloqueada}
-        className={`w-full py-4 rounded-xl font-black text-center transition-all relative z-10 text-white mt-auto ${(isDeadlinePassed || fechaBloqueada) ? 'bg-gray-100 text-gray-400' : 'bg-[#70a344] shadow-md active:scale-95'}`}
+        disabled={bloqueado}
+        className={`w-full py-4 rounded-xl font-black text-center transition-all relative z-10 mt-auto ${bloqueado ? 'bg-gray-100 text-gray-400' : 'bg-[#70a344] text-white shadow-md active:scale-95'}`}
       >
-        {(isDeadlinePassed || fechaBloqueada) ? 'Modificación cerrada' : 'Modificar pedido'}
+        {enProduccion ? 'Pedido en producción' : bloqueado ? 'Modificación cerrada' : 'Modificar pedido'}
       </button>
     </div>
   );

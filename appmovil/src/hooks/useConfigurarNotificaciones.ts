@@ -1,18 +1,15 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { Capacitor } from '@capacitor/core';
-import { API_BASE_URL } from '../constants/api'; // Verifica que esta ruta apunte bien a tu archivo de constantes
+import { API_BASE_URL } from '../constants/api';
 
 export const useConfigurarNotificaciones = (usuarioId: string | undefined, token?: string | null) => {
-  // El token de Clerk llega async y suele actualizarse después de montar
-  // el listener; el ref evita re-registrar el listener en cada cambio.
-  const tokenRef = useRef(token);
-  tokenRef.current = token;
-
   useEffect(() => {
-    // Si no hay usuario o estamos probando en el navegador web (computador), cancelamos.
-    // Las notificaciones nativas solo funcionan cuando la app corre en un celular.
-    if (!usuarioId || Capacitor.getPlatform() === 'web') return;
+    // Esperamos a tener usuarioId y token resuelto antes de registrar nada.
+    // token === undefined → Clerk aún no resolvió, esperamos.
+    // !token (null) → sin sesión, no tiene sentido registrar.
+    // Solo corremos en dispositivo nativo, no en el navegador web.
+    if (!usuarioId || token === undefined || !token || Capacitor.getPlatform() === 'web') return;
 
     const registrarDispositivo = async () => {
       // 1. Revisar y pedir permiso al usuario (La ventana nativa del celular)
@@ -37,22 +34,23 @@ export const useConfigurarNotificaciones = (usuarioId: string | undefined, token
     const registroListener = PushNotifications.addListener('registration', async (pushToken) => {
       console.log('¡Token FCM capturado en el celular!: ', pushToken.value);
 
-      // 4. Mandamos este Token a la ruta POST que armaste en Next.js (Railway)
+      // 4. Mandamos este Token a la ruta POST en Next.js
+      // En este punto sabemos seguro que `token` existe porque pasó la guarda de arriba
       try {
         const respuesta = await fetch(`${API_BASE_URL}/api/usuarios/token`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            ...(tokenRef.current ? { 'Authorization': `Bearer ${tokenRef.current}` } : {}),
+            'Authorization': `Bearer ${token}`,
           },
           body: JSON.stringify({
-            usuarioId: usuarioId,
-            fcmToken: pushToken.value
-          })
+            usuarioId,
+            fcmToken: pushToken.value,
+          }),
         });
-        
+
         if (respuesta.ok) {
-          console.log('✅ Token guardado exitosamente en la base de datos de Neon.');
+          console.log('✅ Token guardado exitosamente en la base de datos.');
         } else {
           console.error('❌ Error del backend al guardar el token');
         }
@@ -66,12 +64,11 @@ export const useConfigurarNotificaciones = (usuarioId: string | undefined, token
       console.error('Fallo al registrar el dispositivo para push:', error);
     });
 
-    // Limpieza de memoria cuando el componente se cierra
-    // Limpieza de memoria cuando el componente se cierra
+    // Limpieza cuando el componente se desmonta o cambian las dependencias
     return () => {
       registroListener.then(listener => listener.remove());
       errorListener.then(listener => listener.remove());
     };
 
-  }, [usuarioId]);
+  }, [usuarioId, token]); // token en dependencias → se re-ejecuta cuando Clerk resuelve
 };

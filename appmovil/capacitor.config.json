@@ -2,6 +2,10 @@
   "appId": "com.gmexpress.app",
   "appName": "GM Express",
   "webDir": "dist",
+  "server": {
+    "url": "https://tea-gel-another-she.trycloudflare.com/",
+    "cleartext": false
+  },
   "plugins": {
     "CapacitorHttp": {
       "enabled": false
