@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}` && querySecret !== process.env.CRON_SECRET) {
     return new NextResponse('Acceso denegado', { status: 401 });
   }
-
+// pelao puro wn
   try {
     // 2. HORA ACTUAL EN CHILE, en minutos desde medianoche
     const ahora = new Date();
