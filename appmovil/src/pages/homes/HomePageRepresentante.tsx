@@ -8,6 +8,7 @@ import { useCalendario } from '../../hooks/useCalendario';
 import { usePlanilla } from '../../hooks/usePlanilla';
 import { VerificadorRut } from '../../components/VerificadorRut';
 import { useUser } from '@clerk/clerk-react';
+import { useClerkToken } from '../../hooks/useClerkToken';
 import type { ConvenioEmpresa } from '../../hooks/usePerfil';
 
 interface HomePageRepresentanteProps {
@@ -23,14 +24,15 @@ const capitalizar = (texto: string | null | undefined) => {
 
 const HomePageRepresentante: React.FC<HomePageRepresentanteProps> = ({ empresaId, empresaNombre, convenio }) => {
   const { user } = useUser();
+  const { token: clerkToken } = useClerkToken();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const { enviarPlanilla, loading: enviandoTodo } = usePlanilla();
+  const { enviarPlanilla, loading: enviandoTodo } = usePlanilla(clerkToken);
   const trabajaFinDeSemana = Boolean(convenio?.trabajaFinDeSemana);
   const permiteCena = Boolean(convenio?.permiteCena);
-  
+
   // 🔥 Extraemos semanaOffset del hook para saber si estamos en el pasado
   const { setSemanaOffset, getSemanaTexto, fechaSeleccionadaISO, fechaTexto, semanaOffset } = useCalendario(trabajaFinDeSemana);
-  const { trabajadores, cargando, resumenEmpresa } = useTrabajadores(empresaId, fechaSeleccionadaISO);
+  const { trabajadores, cargando, resumenEmpresa } = useTrabajadores(empresaId, fechaSeleccionadaISO, clerkToken);
 
   // 🔥 LÓGICA PARA DETECTAR SEMANAS PASADAS
   const esSemanaPasada = semanaOffset !== undefined 

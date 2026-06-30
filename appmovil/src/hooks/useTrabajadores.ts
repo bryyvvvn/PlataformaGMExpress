@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { API_BASE_URL } from '../constants/api';
 
 export interface ResumenEmpresa {
@@ -8,10 +8,20 @@ export interface ResumenEmpresa {
   permiteCena?: boolean;
 }
 
-export const useTrabajadores = (empresaId: number | null, fechaSeleccionada?: string) => {
+export const useTrabajadores = (empresaId: number | null, fechaSeleccionada?: string, token?: string | null) => {
   const [resumenEmpresa, setResumenEmpresa] = useState<ResumenEmpresa | null>(null);
   const [trabajadores, setTrabajadores] = useState<any[]>([]);
   const [cargando, setCargando] = useState(true);
+  const [tokenListo, setTokenListo] = useState(false);
+
+  // Ref para usar siempre el token más reciente sin causar re-ejecuciones
+  const tokenRef = useRef(token);
+  tokenRef.current = token;
+
+  // tokenListo pasa a true una sola vez cuando llega el primer token válido
+  useEffect(() => {
+    if (token && !tokenListo) setTokenListo(true);
+  }, [token]);
 
   useEffect(() => {
     const obtenerDatos = async () => {
@@ -22,12 +32,16 @@ export const useTrabajadores = (empresaId: number | null, fechaSeleccionada?: st
         return;
       }
 
+      if (!tokenListo) return;
+
       setCargando(true);
 
       try {
+        const headers: HeadersInit = { 'Authorization': `Bearer ${tokenRef.current}` };
+
         // Obtener resumen de la empresa
         const resumenUrl = `${API_BASE_URL}/api/representante/resumen?empresaId=${empresaId}`;
-        const resumenRes = await fetch(resumenUrl);
+        const resumenRes = await fetch(resumenUrl, { headers });
         const resumenData = resumenRes.ok ? await resumenRes.json() : null;
         if (resumenData) {
           setResumenEmpresa(resumenData);
@@ -38,7 +52,7 @@ export const useTrabajadores = (empresaId: number | null, fechaSeleccionada?: st
         if (fechaSeleccionada) {
           empleadosUrl += `&fecha=${fechaSeleccionada}`;
         }
-        const empleadosRes = await fetch(empleadosUrl);
+        const empleadosRes = await fetch(empleadosUrl, { headers });
         const empleadosData = empleadosRes.ok ? await empleadosRes.json() : [];
         const empleados = Array.isArray(empleadosData) ? empleadosData : [];
         setTrabajadores(
@@ -57,7 +71,7 @@ export const useTrabajadores = (empresaId: number | null, fechaSeleccionada?: st
     };
 
     obtenerDatos();
-  }, [empresaId, fechaSeleccionada]);
+  }, [empresaId, fechaSeleccionada, tokenListo]); // token fuera — usa tokenRef internamente
 
   return { resumenEmpresa, trabajadores, cargando };
 };

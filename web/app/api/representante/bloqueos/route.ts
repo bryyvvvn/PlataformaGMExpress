@@ -4,7 +4,7 @@ import { bloqueoSchema } from "@/lib/schemas/representante";
 import { verificarRepresentante } from "@/lib/representante/verificar-representante";
 
 export async function PATCH(req: NextRequest) {
-  const rep = await verificarRepresentante();
+  const rep = await verificarRepresentante(req);
   if ("error" in rep) {
     return NextResponse.json({ error: rep.error }, { status: rep.status });
   }

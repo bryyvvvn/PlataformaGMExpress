@@ -3,15 +3,16 @@ import { ArrowLeft, CalendarOff, Loader2, UserPlus, Search, X, CheckCircle2 } fr
 import { useNavigate } from 'react-router-dom';
 import { usePerfil } from '../../hooks/usePerfil';
 import { useTrabajadores } from '../../hooks/useTrabajadores';
+import { useClerkToken } from '../../hooks/useClerkToken';
 
 // NUEVOS HOOKS
 import { useVincularTrabajador } from '../../hooks/useVincularTrabajador';
 import { useBloqueoDias } from '../../hooks/useBloqueoDias';
 
 // --- Componente TarjetaTrabajadorListado ---
-const TarjetaTrabajadorListado = ({ t }: { t: any }) => {
+const TarjetaTrabajadorListado = ({ t, token }: { t: any; token?: string | null }) => {
   const [diasBloqueados, setDiasBloqueados] = useState<number[]>(t.diasBloqueados || []);
-  const { toggleDiaBloqueado, loadingDia } = useBloqueoDias();
+  const { toggleDiaBloqueado, loadingDia } = useBloqueoDias(token);
 
   useEffect(() => {
     if (t.diasBloqueados) setDiasBloqueados(t.diasBloqueados);
@@ -78,14 +79,15 @@ const TarjetaTrabajadorListado = ({ t }: { t: any }) => {
 // --- Componente Principal ---
 const Trabajadores: React.FC = () => {
   const navigate = useNavigate();
+  const { token: clerkToken } = useClerkToken();
   const { empresaId, empresaNombre } = usePerfil();
-  const { trabajadores, cargando } = useTrabajadores(empresaId);
+  const { trabajadores, cargando } = useTrabajadores(empresaId, undefined, clerkToken);
 
   // Hook personalizado de vinculación
-  const { 
-    buscando, vinculando, trabajadorEncontrado, errorBusqueda, 
-    buscarTrabajador, vincularTrabajador, limpiarBusqueda 
-  } = useVincularTrabajador();
+  const {
+    buscando, vinculando, trabajadorEncontrado, errorBusqueda,
+    buscarTrabajador, vincularTrabajador, limpiarBusqueda
+  } = useVincularTrabajador(clerkToken);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [rutBusqueda, setRutBusqueda] = useState('');
@@ -197,7 +199,7 @@ const Trabajadores: React.FC = () => {
 
             {/* LISTA DE TRABAJADORES (FILTRADOS) */}
             {trabajadoresFiltrados.length > 0 ? (
-              trabajadoresFiltrados.map((t) => <TarjetaTrabajadorListado key={t.id} t={t} />)
+              trabajadoresFiltrados.map((t) => <TarjetaTrabajadorListado key={t.id} t={t} token={clerkToken} />)
             ) : trabajadores.length > 0 ? (
               <div className="text-center bg-white p-8 rounded-3xl border border-gray-100 shadow-sm mt-4">
                 <p className="text-[#1d2d50] font-black text-lg mb-1">Sin resultados</p>
