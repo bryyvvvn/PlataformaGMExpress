@@ -92,7 +92,17 @@ export async function GET(request: Request) {
           ...(permiteCena ? {} : { esCena: false }),
         },
         orderBy: { fecha: 'desc' },
-        include: { detalles: { include: { plato: true, guarnicion: true } } }
+        select: {
+          id: true,
+          fecha: true,
+          esCena: true,
+          detalles: {
+            select: {
+              id: true,
+              plato: { select: { nombre: true } },
+            },
+          },
+        }
       });
       return NextResponse.json(pedidos);
     } catch (error) {
@@ -121,8 +131,21 @@ export async function GET(request: Request) {
         fecha: { gte: inicioDia, lte: finDia },
         esCena: esCenaQuery // Buscamos almuerzo (false) o cena (true)
       },
-      include: {
-        detalles: { include: { plato: true, guarnicion: true } }
+      select: {
+        id: true,
+        fecha: true,
+        estado: true,
+        esCena: true,
+        tipoCena: true,
+        observacion: true,
+        detalles: {
+          select: {
+            platoId: true,
+            guarnicionId: true,
+            plato: { select: { nombre: true, categoria: true } },
+            guarnicion: { select: { nombre: true } },
+          },
+        },
       }
     });
 
