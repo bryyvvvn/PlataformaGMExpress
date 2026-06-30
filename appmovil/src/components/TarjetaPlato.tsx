@@ -15,7 +15,7 @@ interface TarjetaPlatoProps {
   onSelect: (categoria: string, id: number) => void;
 }
 
-export const TarjetaPlato: React.FC<TarjetaPlatoProps> = ({ 
+const TarjetaPlatoBase: React.FC<TarjetaPlatoProps> = ({
   plato, 
   categoriaKey, 
   isSelected, 
@@ -140,3 +140,5 @@ export const TarjetaPlato: React.FC<TarjetaPlatoProps> = ({
     </button>
   );
 };
+
+export const TarjetaPlato = React.memo(TarjetaPlatoBase);

@@ -1,5 +1,5 @@
 // HomePageTrabajador.tsx
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Clock, Menu, ChevronDown, ChevronUp, X, CalendarOff, Lock, Check } from 'lucide-react';
 import { THEME, DEADLINE_HOUR } from '../../constants/theme';
 import { useUser } from '@clerk/clerk-react';
@@ -31,6 +31,18 @@ import type { Plato } from '../../hooks/useMenuAPI';
 type Categoria = 'ENTRADA' | 'FONDO' | 'POSTRE' | 'JUGO' | null;
 type TipoMenu = 'MENU_DIA' | 'PERSONALIZADO' | 'OTRO';
 type ModoComida = 'ALMUERZO' | 'CENA';
+
+interface PedidoState {
+  entradasIds: number[];
+  fondoId: number | null;
+  postreId: number | null;
+  guarnicionId: number | null;
+  canjeId: number | null;
+  sandwichId: number | null;
+  bebidaId: number | null;
+  jugoId: number | null;
+  isDoblePostre: boolean;
+}
 
 const capitalizar = (texto: string | null | undefined) => {
   if (!texto) return '';
@@ -79,6 +91,82 @@ const OPCIONES_PREFIJADAS = [
   { id: 'COLACION', nombre: 'COLACIÓN', descripcion: 'Opción rápida o sándwich.' },
 ];
 
+interface SeccionMenuPersonalizadoProps {
+  cat: 'ENTRADA' | 'FONDO' | 'POSTRE' | 'JUGO';
+  isOpen: boolean;
+  isHeaderSelected: boolean;
+  isSeccionBloqueada: boolean;
+  textoBloqueo: string;
+  platos: Plato[];
+  pedido: PedidoState;
+  bloquearUI: boolean;
+  isHipocalorico: boolean;
+  toggleSeccion: (cat: Categoria) => void;
+  seleccionarEntrada: (plato: any) => void;
+  seleccionarPlato: (categoria: 'fondoId' | 'postreId' | 'jugoId', id: number) => void;
+}
+
+// Memoizada: evita re-renderizar la lista de platos de cada sección cuando el padre
+// re-renderiza por cambios ajenos (ej. al escribir en el textarea de observaciones).
+const SeccionMenuPersonalizadoBase: React.FC<SeccionMenuPersonalizadoProps> = ({
+  cat, isOpen, isHeaderSelected, isSeccionBloqueada, textoBloqueo, platos, pedido,
+  bloquearUI, isHipocalorico, toggleSeccion, seleccionarEntrada, seleccionarPlato,
+}) => {
+  return (
+    <section id={`seccion-${cat}`} className="flex flex-col grow overflow-hidden bg-white rounded-3xl border border-gray-100 shadow-sm transition-all">
+      <button onClick={() => toggleSeccion(cat)} className="w-full grow min-h-[100px] flex items-center justify-between px-7 py-4 sm:px-8">
+        <div className="flex items-center gap-4 sm:gap-5">
+          <div className={`shrink-0 w-7 h-7 rounded-lg border-2 flex items-center justify-center transition-all ${isHeaderSelected ? 'bg-[#70a344] border-[#70a344]' : 'bg-transparent border-gray-300'} ${isSeccionBloqueada ? 'opacity-30' : ''}`}>
+            {isHeaderSelected && <Check size={18} strokeWidth={4} className="text-white" />}
+          </div>
+          <div className="flex flex-col text-left">
+            <h3 className={`text-xl font-black uppercase tracking-widest flex items-center gap-2 ${isSeccionBloqueada ? 'text-gray-300' : 'text-[#1d2d50]'}`}>
+              {cat === 'JUGO' ? 'BEBESTIBLE' : cat}
+              {cat === 'POSTRE' && pedido.isDoblePostre && !isSeccionBloqueada && (
+                <span className="text-[#70a344] text-[14px] px-2 py-1 rounded-md font-black uppercase tracking-wider ml-1">X2 PORCIONES</span>
+              )}
+            </h3>
+            {isSeccionBloqueada && <p className="text-[10px] font-black text-red-400 uppercase">{textoBloqueo}</p>}
+          </div>
+        </div>
+        <div className="shrink-0 ml-2">{isOpen ? <ChevronUp size={24} className="text-gray-300" /> : <ChevronDown size={24} className="text-gray-300" />}</div>
+      </button>
+
+      <div className={`shrink-0 flex flex-col transition-all duration-500 ${isOpen ? 'max-h-[8000px] opacity-100 px-6 pb-6 visible' : 'max-h-0 opacity-0 px-6 pb-0 invisible overflow-hidden'}`}>
+        {isOpen && (
+          <>
+            <div className="w-full border-b border-gray-200 pb-3 mb-4" />
+            <div className="flex flex-col gap-4">
+              {platos.map((plato: any) => {
+                const isPlatoSelected = cat === 'ENTRADA' ? pedido.entradasIds.includes(plato.id) : pedido[(cat.toLowerCase() + 'Id') as 'fondoId' | 'postreId' | 'jugoId'] === plato.id;
+                const nombre = String(plato?.nombre || '').toLowerCase();
+                const isDisabled = isSeccionBloqueada || (cat === 'ENTRADA' && isHipocalorico && !nombre.includes('sopa') && !nombre.includes('crema'));
+
+                return (
+                  <TarjetaPlato
+                    key={plato.id} plato={plato}
+                    categoriaKey={cat === 'ENTRADA' ? 'entradaId' as any : (cat.toLowerCase() + 'Id') as any}
+                    isSelected={isPlatoSelected}
+                    isDeadlinePassed={bloquearUI || isDisabled}
+                    disabled={isDisabled}
+                    onSelect={() => {
+                      if (isDisabled) return;
+                      if (cat === 'ENTRADA') seleccionarEntrada(plato);
+                      else seleccionarPlato((cat.toLowerCase() + 'Id') as 'fondoId' | 'postreId' | 'jugoId', plato.id);
+                    }}
+                  />
+                );
+              })}
+            </div>
+          </>
+        )}
+      </div>
+    </section>
+  );
+};
+
+const SeccionMenuPersonalizado = React.memo(SeccionMenuPersonalizadoBase);
+
 const HomePageTrabajador: React.FC = () => {
   const { user } = useUser();
   const location = useLocation();
@@ -107,10 +195,10 @@ const HomePageTrabajador: React.FC = () => {
     _setSemanaOffset(delta);
   };
 
-  const [pedido, setPedido] = useState({
-    entradasIds:  [] as number[], fondoId: null as number | null, postreId: null as number | null,
-    guarnicionId: null as number | null, canjeId: null as number | null, sandwichId: null as number | null, 
-    bebidaId: null as number | null, jugoId: null as number | null, isDoblePostre: false
+  const [pedido, setPedido] = useState<PedidoState>({
+    entradasIds:  [], fondoId: null, postreId: null,
+    guarnicionId: null, canjeId: null, sandwichId: null,
+    bebidaId: null, jugoId: null, isDoblePostre: false
   });
 
   const [modoComida, setModoComida] = useState<ModoComida>('ALMUERZO');
@@ -137,6 +225,27 @@ const HomePageTrabajador: React.FC = () => {
   const { timeRemaining } = useCountdown(DEADLINE_HOUR);
   const { menuHoy, cargando: cargandoMenu } = useMenuAPI(fechaSeleccionadaISO, user?.id, clerkToken);
   const { pedidoExistente, cargandoVerificacion, enviarPedido, enviarItems, enviando, refrescarVerificacion, eliminarPedido, eliminando } = usePedidos(user?.id, fechaSeleccionadaISO, clerkToken, modoComida === 'CENA');
+
+  // Listas filtradas/agrupadas memoizadas — evitan recalcular .filter() en cada render (ej. al tipear en observaciones)
+  const menuEntradas = useMemo(() => menuHoy?.entradas ?? [], [menuHoy]);
+  const menuFondos = useMemo(() => menuHoy?.fondos ?? [], [menuHoy]);
+  const menuPostres = useMemo(() => menuHoy?.postres ?? [], [menuHoy]);
+  const platosBebestible = useMemo(
+    () => (otrosPlatos || []).filter((p: any) => p?.categoria === 'JUGO' || p?.categoria === 'BEBIDA' || p?.categoria === 'AGUA_SABORIZADA'),
+    [otrosPlatos]
+  );
+  const platosCanje = useMemo(() => (otrosPlatos || []).filter((p: any) => p?.categoria === 'CANJE'), [otrosPlatos]);
+  const platosSandwich = useMemo(() => (otrosPlatos || []).filter((p: any) => p?.categoria === 'SANDWICH'), [otrosPlatos]);
+  const platosBebidaPremium = useMemo(
+    () => (otrosPlatos || []).filter((p: any) => p?.categoria === 'BEBIDA' || p?.categoria === 'JUGO' || p?.categoria === 'AGUA_SABORIZADA'),
+    [otrosPlatos]
+  );
+  const platosPorCategoriaPersonalizado = useMemo(() => ({
+    ENTRADA: menuEntradas,
+    FONDO: menuFondos,
+    POSTRE: menuPostres,
+    JUGO: platosBebestible,
+  }), [menuEntradas, menuFondos, menuPostres, platosBebestible]);
 
   // 🔥 EXTRAEMOS estadoFechas DEL HISTORIAL
   const { historial, estadoFechas, cargando: cargandoHistorial, cargarHistorial } = useHistorial(user?.id, clerkToken);
@@ -259,7 +368,7 @@ const HomePageTrabajador: React.FC = () => {
     }
   }, [activeTab, cargandoMenu, bloquearUI, pedidoDeEstaVista, modoEdicion]);
 
-  const toggleSeccion = (cat: Categoria) => setSeccionAbierta(prev => (prev === cat ? null : cat));
+  const toggleSeccion = useCallback((cat: Categoria) => setSeccionAbierta(prev => (prev === cat ? null : cat)), []);
 
   const handleSeleccionarTipoOtro = (tipo: 'CANJE' | 'PREMIUM') => {
     if (tipoOtroSeleccionado === tipo) {
@@ -271,13 +380,13 @@ const HomePageTrabajador: React.FC = () => {
     }
   };
 
-  const seleccionarOtro = (categoria: 'canjeId' | 'sandwichId' | 'bebidaId', id: number) => {
+  const seleccionarOtro = useCallback((categoria: 'canjeId' | 'sandwichId' | 'bebidaId', id: number) => {
     if (bloquearUI) return;
     setPedido(prev => {
       if (categoria === 'canjeId') {
         const isCurrentlySelected = prev.canjeId === id;
         return { ...prev, canjeId: isCurrentlySelected ? null : id, sandwichId: null, bebidaId: null };
-      } 
+      }
       let nextSandwich = prev.sandwichId;
       let nextBebida = prev.bebidaId;
       if (categoria === 'sandwichId') {
@@ -287,9 +396,9 @@ const HomePageTrabajador: React.FC = () => {
       if (categoria === 'bebidaId') nextBebida = prev.bebidaId === id ? null : id;
       return { ...prev, canjeId: null, sandwichId: nextSandwich, bebidaId: nextBebida };
     });
-  };
+  }, [bloquearUI]);
 
-  const seleccionarPlato = (categoria: 'fondoId' | 'postreId' | 'jugoId', id: number) => {
+  const seleccionarPlato = useCallback((categoria: 'fondoId' | 'postreId' | 'jugoId', id: number) => {
     if (bloquearUI) return;
     if (categoria === 'jugoId') {
       const selectedPlato = (otrosPlatos || []).find((p: any) => p?.id === id);
@@ -316,13 +425,13 @@ const HomePageTrabajador: React.FC = () => {
       setTimeout(() => setSeccionAbierta('POSTRE'), 400); return;
     }
     setPedido(prev => ({ ...prev, [categoria]: prev[categoria] === id ? null : id }));
-    if (categoria === 'postreId' && pedido.postreId !== id) setTimeout(() => setSeccionAbierta('JUGO'), 200);  
-  };
+    if (categoria === 'postreId' && pedido.postreId !== id) setTimeout(() => setSeccionAbierta('JUGO'), 200);
+  }, [bloquearUI, otrosPlatos, menuHoy, convenio, pedido.fondoId, pedido.postreId]);
 
-  const seleccionarEntrada = (plato: any) => {
+  const seleccionarEntrada = useCallback((plato: any) => {
     if (bloquearUI || penalizaEntradaPostre || pedido.isDoblePostre) return;
-    const nombre = String(plato?.nombre || '').toLowerCase(); 
-    const isSopa = nombre.includes('sopa') || nombre.includes('crema'); 
+    const nombre = String(plato?.nombre || '').toLowerCase();
+    const isSopa = nombre.includes('sopa') || nombre.includes('crema');
     const isSurtida = nombre.includes('surtida');
     const isCurrentlySelected = pedido.entradasIds.includes(plato.id);
     if (isHipocalorico && !isSopa) return;
@@ -338,7 +447,7 @@ const HomePageTrabajador: React.FC = () => {
       return { ...prev, entradasIds: [...nuevas, plato.id] };
     });
     if ((isSopa || isSurtida) && !isCurrentlySelected) setTimeout(() => setSeccionAbierta('FONDO'), 400);
-  };
+  }, [bloquearUI, penalizaEntradaPostre, pedido.isDoblePostre, pedido.entradasIds, isHipocalorico, menuHoy]);
 
   const manejarEnvio = async () => {
     if (modoComida === 'CENA') {
@@ -516,7 +625,7 @@ const HomePageTrabajador: React.FC = () => {
             <h3 className="font-black text-xl text-[#1d2d50] mb-2">Sin días disponibles</h3>
             <p className="text-gray-400 text-sm font-medium">No tienes días habilitados para realizar pedidos durante esta semana.</p>
           </div>
-        ) : (cargandoVerificacion || cargandoMenu) ? (
+        ) : cargandoMenu ? (
           <MenuSkeleton />
         ) : pedidoDeEstaVista && !modoEdicion ? (
           <ResumenPedido
@@ -640,65 +749,32 @@ const HomePageTrabajador: React.FC = () => {
                       const categoriaFormato = cat as Categoria;
                       const isOpen = seccionAbierta === categoriaFormato;
                       const isHeaderSelected = cat === 'ENTRADA' ? pedido.entradasIds.length > 0 : pedido[(cat.toLowerCase() + 'Id') as 'fondoId' | 'postreId' | 'jugoId'] !== null;
-                      
-                      const platos = cat === 'JUGO'
-                        ? (otrosPlatos || []).filter((p: any) => p?.categoria === 'JUGO' || p?.categoria === 'BEBIDA' || p?.categoria === 'AGUA_SABORIZADA')
-                        : (menuHoy as any)?.[cat === 'ENTRADA' ? 'entradas' : cat === 'FONDO' ? 'fondos' : 'postres'] ?? [];
+
+                      const platos = (platosPorCategoriaPersonalizado as any)[cat] ?? [];
 
                       let isSeccionBloqueada = false;
                       let textoBloqueo = "";
-                      
-                      if (cat === 'ENTRADA' && penalizaEntradaPostre) { isSeccionBloqueada = true; textoBloqueo = "Reemplazado por Bebida/Agua"; } 
-                      else if (cat === 'POSTRE' && penalizaEntradaPostre) { isSeccionBloqueada = true; textoBloqueo = "Reemplazado por Bebida/Agua"; } 
+
+                      if (cat === 'ENTRADA' && penalizaEntradaPostre) { isSeccionBloqueada = true; textoBloqueo = "Reemplazado por Bebida/Agua"; }
+                      else if (cat === 'POSTRE' && penalizaEntradaPostre) { isSeccionBloqueada = true; textoBloqueo = "Reemplazado por Bebida/Agua"; }
                       else if (cat === 'ENTRADA' && pedido.isDoblePostre) { isSeccionBloqueada = true; textoBloqueo = "Reemplazado por Doble Postre"; }
 
                       return (
-                        <section key={cat} id={`seccion-${cat}`} className="flex flex-col grow overflow-hidden bg-white rounded-3xl border border-gray-100 shadow-sm transition-all">
-                          <button onClick={() => toggleSeccion(categoriaFormato)} className="w-full grow min-h-[100px] flex items-center justify-between px-7 py-4 sm:px-8">
-                            <div className="flex items-center gap-4 sm:gap-5">
-                              <div className={`shrink-0 w-7 h-7 rounded-lg border-2 flex items-center justify-center transition-all ${isHeaderSelected ? 'bg-[#70a344] border-[#70a344]' : 'bg-transparent border-gray-300'} ${isSeccionBloqueada ? 'opacity-30' : ''}`}>
-                                {isHeaderSelected && <Check size={18} strokeWidth={4} className="text-white" />}
-                              </div>
-                              <div className="flex flex-col text-left">
-                                <h3 className={`text-xl font-black uppercase tracking-widest flex items-center gap-2 ${isSeccionBloqueada ? 'text-gray-300' : 'text-[#1d2d50]'}`}>
-                                  {cat === 'JUGO' ? 'BEBESTIBLE' : cat}
-                                  {cat === 'POSTRE' && pedido.isDoblePostre && !isSeccionBloqueada && (
-                                    <span className="text-[#70a344] text-[14px] px-2 py-1 rounded-md font-black uppercase tracking-wider ml-1">X2 PORCIONES</span>
-                                  )}
-                                </h3>
-                                {isSeccionBloqueada && <p className="text-[10px] font-black text-red-400 uppercase">{textoBloqueo}</p>}
-                              </div>
-                            </div>
-                            <div className="shrink-0 ml-2">{isOpen ? <ChevronUp size={24} className="text-gray-300" /> : <ChevronDown size={24} className="text-gray-300" />}</div>
-                          </button>
-
-                          <div className={`shrink-0 flex flex-col transition-all duration-500 ${isOpen ? 'max-h-[8000px] opacity-100 px-6 pb-6 visible' : 'max-h-0 opacity-0 px-6 pb-0 invisible overflow-hidden'}`}>
-                            <div className="w-full border-b border-gray-200 pb-3 mb-4" />
-                            
-                            <div className="flex flex-col gap-4">
-                              {platos.map((plato: any) => {
-                                const isPlatoSelected = cat === 'ENTRADA' ? pedido.entradasIds.includes(plato.id) : pedido[(cat.toLowerCase() + 'Id') as 'fondoId' | 'postreId' | 'jugoId'] === plato.id;
-                                const nombre = String(plato?.nombre || '').toLowerCase();
-                                const isDisabled = isSeccionBloqueada || (cat === 'ENTRADA' && isHipocalorico && !nombre.includes('sopa') && !nombre.includes('crema'));
-
-                                return (
-                                  <TarjetaPlato 
-                                    key={plato.id} plato={plato} 
-                                    categoriaKey={cat === 'ENTRADA' ? 'entradaId' as any : (cat.toLowerCase() + 'Id')} 
-                                    isSelected={isPlatoSelected} 
-                                    isDeadlinePassed={bloquearUI || isDisabled} 
-                                    disabled={isDisabled} 
-                                    onSelect={() => { 
-                                      if (isDisabled) return;
-                                      if (cat === 'ENTRADA') seleccionarEntrada(plato); 
-                                      else seleccionarPlato((cat.toLowerCase() + 'Id') as 'fondoId' | 'postreId' | 'jugoId', plato.id); 
-                                    }}
-                                  />
-                                );
-                              })}
-                            </div>
-                          </div>
-                        </section>
+                        <SeccionMenuPersonalizado
+                          key={cat}
+                          cat={categoriaFormato as 'ENTRADA' | 'FONDO' | 'POSTRE' | 'JUGO'}
+                          isOpen={isOpen}
+                          isHeaderSelected={isHeaderSelected}
+                          isSeccionBloqueada={isSeccionBloqueada}
+                          textoBloqueo={textoBloqueo}
+                          platos={platos}
+                          pedido={pedido}
+                          bloquearUI={bloquearUI}
+                          isHipocalorico={isHipocalorico}
+                          toggleSeccion={toggleSeccion}
+                          seleccionarEntrada={seleccionarEntrada}
+                          seleccionarPlato={seleccionarPlato}
+                        />
                       );
                     })}
                   </div>
@@ -727,10 +803,10 @@ const HomePageTrabajador: React.FC = () => {
                           {!loadingOtros && (
                             <>
                               <h4 className="text-base font-black text-[#1d2d50] uppercase tracking-wider mb-2 ml-1 flex items-center gap-2"><span className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center text-[10px]">1</span> Elige tu Combo</h4>
-                              {((otrosPlatos || []).filter(p => p?.categoria === 'CANJE').length === 0) ? (
+                              {(platosCanje.length === 0) ? (
                                 <div className="text-center text-[10px] font-black uppercase text-gray-400 bg-gray-50 p-3 rounded-2xl">No hay opciones disponibles</div>
                               ) : (
-                                (otrosPlatos || []).filter(p => p?.categoria === 'CANJE').map((plato: any) => (
+                                platosCanje.map((plato: any) => (
                                   <TarjetaPlato key={plato.id} plato={plato} categoriaKey="canjeId" isSelected={pedido.canjeId === plato.id} isDeadlinePassed={bloquearUI} disabled={false} onSelect={() => seleccionarOtro('canjeId', plato.id)} />
                                 ))
                               )}
@@ -763,10 +839,10 @@ const HomePageTrabajador: React.FC = () => {
                             <div>
                               <h4 className="text-base font-black text-[#1d2d50] uppercase tracking-wider mb-4 ml-1 flex items-center gap-2"><span className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center text-[10px]">1</span> Elige tu Sándwich</h4>
                               <div className="flex flex-col gap-3">
-                                {((otrosPlatos || []).filter(p => p?.categoria === 'SANDWICH').length === 0) ? (
+                                {(platosSandwich.length === 0) ? (
                                   <div className="text-center text-[10px] font-black uppercase text-gray-400 bg-gray-50 p-3 rounded-2xl">No hay opciones disponibles</div>
                                 ) : (
-                                  (otrosPlatos || []).filter(p => p?.categoria === 'SANDWICH').map((plato: any) => (
+                                  platosSandwich.map((plato: any) => (
                                     <TarjetaPlato key={plato.id} plato={plato} categoriaKey="sandwichId" isSelected={pedido.sandwichId === plato.id} isDeadlinePassed={bloquearUI} disabled={false} onSelect={() => seleccionarOtro('sandwichId', plato.id)} />
                                   ))
                                 )}
@@ -776,10 +852,10 @@ const HomePageTrabajador: React.FC = () => {
                             <div>
                               <h4 className="text-base font-black text-[#1d2d50] uppercase tracking-wider mb-4 ml-1 flex items-center gap-2"><span className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center text-[10px]">2</span> Elige tu Bebida</h4>
                               <div className="flex flex-col gap-3">
-                                {((otrosPlatos || []).filter(p => p?.categoria === 'BEBIDA' || p?.categoria === 'JUGO' || p?.categoria === 'AGUA_SABORIZADA').length === 0) ? (
+                                {(platosBebidaPremium.length === 0) ? (
                                   <div className="text-center text-[10px] font-black uppercase text-gray-400 bg-gray-50 p-3 rounded-2xl">No hay opciones disponibles</div>
                                 ) : (
-                                  (otrosPlatos || []).filter(p => p?.categoria === 'BEBIDA' || p?.categoria === 'JUGO' || p?.categoria === 'AGUA_SABORIZADA').map((plato: any) => (
+                                  platosBebidaPremium.map((plato: any) => (
                                     <TarjetaPlato key={plato.id} plato={plato} categoriaKey="bebidaId" isSelected={pedido.bebidaId === plato.id} isDeadlinePassed={bloquearUI} disabled={false} onSelect={() => seleccionarOtro('bebidaId', plato.id)} />
                                   ))
                                 )}
@@ -906,7 +982,7 @@ const HomePageTrabajador: React.FC = () => {
         </div>
       </BottomSheet>
 
-      {!(cargandoVerificacion || cargandoMenu) && !bloquearUI && (!pedidoDeEstaVista || modoEdicion) && (
+      {!cargandoMenu && !bloquearUI && (!pedidoDeEstaVista || modoEdicion) && (
         <div
           className="fixed bottom-0 left-0 w-full px-6 pt-4 pb-6 bg-white/90 backdrop-blur-xl shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-40 transform-gpu"
           onClick={(e) => e.stopPropagation()}
@@ -926,7 +1002,7 @@ const HomePageTrabajador: React.FC = () => {
               </p>
             )}
           </div>
-          <button onClick={manejarEnvio} disabled={!puedeEnviar || enviando} className={`w-full py-5 rounded-[24px] font-black text-lg transition-all flex items-center justify-center gap-3 ${puedeEnviar ? 'bg-[#70a344] shadow-xl text-white' : 'bg-gray-200 text-gray-500'}`}>
+          <button onClick={manejarEnvio} disabled={!puedeEnviar || enviando || cargandoVerificacion} className={`w-full py-5 rounded-[24px] font-black text-lg transition-all flex items-center justify-center gap-3 ${puedeEnviar && !cargandoVerificacion ? 'bg-[#70a344] shadow-xl text-white' : 'bg-gray-200 text-gray-500'}`}>
             {enviando ? 'Enviando...' : modoEdicion ? 'Guardar Cambios' : 'Confirmar Pedido'}
           </button>
         </div>

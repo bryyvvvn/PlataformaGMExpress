@@ -57,6 +57,7 @@ export const useMenuAPI = (fecha?: string, usuarioId?: string, token?: string | 
   const [tokenListo, setTokenListo] = useState(false);
   const tokenRef = useRef(token);
   tokenRef.current = token;
+  const cacheRef = useRef<Map<string, MenuDia>>(new Map());
 
   // Marca tokenListo la primera vez que llega un token válido — nunca vuelve a false
   useEffect(() => {
@@ -64,12 +65,22 @@ export const useMenuAPI = (fecha?: string, usuarioId?: string, token?: string | 
   }, [token]);
 
   useEffect(() => {
-    let cancelado = false;
-
     if (!usuarioId || !tokenListo) return;
 
-    const cargarMenu = async () => {
+    const cacheKey = `${usuarioId}|${fecha ?? ""}`;
+    const cacheado = cacheRef.current.get(cacheKey);
+    if (cacheado) {
+      // Hit de cache: mostramos el menú ya conocido sin pasar por el skeleton,
+      // y revalidamos en segundo plano más abajo.
+      setMenuHoy(cacheado);
+      setCargando(false);
+    } else {
       setCargando(true);
+    }
+
+    const controller = new AbortController();
+
+    const cargarMenu = async () => {
       try {
         const params = new URLSearchParams();
         if (fecha) params.set("fecha", fecha);
@@ -81,26 +92,28 @@ export const useMenuAPI = (fecha?: string, usuarioId?: string, token?: string | 
         if (tokenRef.current) {
           headers['Authorization'] = `Bearer ${tokenRef.current}`;
         }
-        const respuesta = await fetch(url, { headers });
+        const respuesta = await fetch(url, { headers, signal: controller.signal });
 
         if (!respuesta.ok) {
           console.error("[useMenuAPI] Error HTTP:", respuesta.status);
-          if (!cancelado) setMenuHoy(MENU_VACIO);
+          if (!cacheado) setMenuHoy(MENU_VACIO);
           return;
         }
 
         const datos: MenuDia = await respuesta.json();
-        if (!cancelado) setMenuHoy(datos);
+        cacheRef.current.set(cacheKey, datos);
+        setMenuHoy(datos);
       } catch (error) {
+        if ((error as { name?: string })?.name === "AbortError") return;
         console.error("[useMenuAPI] Error de red:", error);
-        if (!cancelado) setMenuHoy(MENU_VACIO);
+        if (!cacheado) setMenuHoy(MENU_VACIO);
       } finally {
-        if (!cancelado) setCargando(false);
+        setCargando(false);
       }
     };
 
     cargarMenu();
-    return () => { cancelado = true; };
+    return () => controller.abort();
   }, [fecha, usuarioId, tokenListo]); // token fuera, solo re-fetch por fecha/usuario/tokenListo
 
   return { menuHoy, cargando };
