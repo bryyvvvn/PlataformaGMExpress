@@ -205,12 +205,14 @@ const HomePageRepresentante: React.FC<HomePageRepresentanteProps> = ({ empresaId
             Aún no hay trabajadores registrados en tu empresa.
           </div>
         ) : (
-          <div className="space-y-3">
-            {trabajadores.map((trabajador) => (
-              <TarjetaTrabajador
-                key={trabajador.id}
-                trabajador={trabajador}
-                permiteCena={permiteCena}
+          <div>
+            {/* 2. Cuando pintas las tarjetas (el .map), le pasas el token como Prop */}
+            {trabajadores.map(trabajador => (
+              <TarjetaTrabajador 
+                key={trabajador.id} 
+                trabajador={trabajador} 
+                permiteCena={resumenEmpresa?.permiteCena} 
+                token={clerkToken} // 🔥 AQUÍ LE INYECTAMOS EL TOKEN
               />
             ))}
           </div>

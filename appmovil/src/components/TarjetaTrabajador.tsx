@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { ChevronDown, ChevronUp, Utensils, CheckCircle2, CalendarPlus } from 'lucide-react';
+// 🔥 Importamos tu nuevo hook
+import { useAsignarManual } from '../hooks/useAsignarManual';
 
 interface Pedido {
   id: number;
@@ -16,6 +18,7 @@ interface TarjetaTrabajadorProps {
     pedidos?: Pedido[];
   };
   permiteCena?: boolean;
+  token?: string | null; // 🔥 Agregamos el token a las Props
 }
 
 const getNombreDia = (fechaStr: string) => {
@@ -24,7 +27,7 @@ const getNombreDia = (fechaStr: string) => {
   return dias[d.getDay()];
 };
 
-export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({ trabajador, permiteCena = false }) => {
+export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({ trabajador, permiteCena = false, token }) => {
   const nombreTrabajador = trabajador?.nombre?.trim() || 'Usuario sin nombre';
   const [isExpanded, setIsExpanded] = useState(false);
   const [modoComida, setModoComida] = useState<'ALMUERZO' | 'CENA'>('ALMUERZO');
@@ -38,8 +41,11 @@ export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({ trabajador
   
   const [pedidoActivoId, setPedidoActivoId] = useState<number | null>(null);
   const [diaManualActivo, setDiaManualActivo] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // 🔥 Usamos el nuevo hook pasándole el token
+  const { asignarPedido, isSubmitting } = useAsignarManual(token);
+
+  // ... (getDiasSemana y useEffects se mantienen igualitos) ...
   const getDiasSemana = () => {
     let refDate = new Date();
     if (pedidosVisibles.length > 0 && pedidosVisibles[0].fecha) {
@@ -82,32 +88,22 @@ export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({ trabajador
   const estaTotalmenteConfirmado = cantidadPedidos > 0 && cantidadPendientes === 0;
   const tieneParciales = cantidadConfirmados > 0 && cantidadPendientes > 0;
 
-  const asignarPedidoManual = async (tipo: string) => {
+  // 🔥 Nueva función súper limpia llamando al hook
+  const manejarAsignacionManual = async (tipo: string) => {
     if (!diaManualActivo) return;
-    setIsSubmitting(true);
-    try {
-      const response = await fetch('/api/representante/pedido-manual-representante', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          usuarioId: trabajador.id,
-          fecha: diaManualActivo,
-          tipoMenu: tipo,
-          esCena: modoComida === 'CENA'
-        })
-      });
-
-      if (response.ok) {
-        window.location.reload(); 
-      } else {
-        const data = await response.json();
-        alert(`Error: ${data.error}`);
-      }
-    } catch (e) { alert("Error de conexión"); } 
-    finally { setIsSubmitting(false); }
+    const exito = await asignarPedido(
+      trabajador.id, 
+      diaManualActivo, 
+      tipo, 
+      modoComida === 'CENA'
+    );
+    
+    if (exito) {
+      window.location.reload(); // Recarga para ver los cambios
+    }
   };
 
-  // 🔥 LÓGICA DE COLORES DINÁMICOS SEGÚN EL TURNO 🔥
+  // 🔥 COLORES DINÁMICOS Y EL RESTO DEL COMPONENTE QUEDAN INTACTOS
   const isAlmuerzo = modoComida === 'ALMUERZO';
   const themeActiveBg = isAlmuerzo ? 'bg-[#70a344] border-[#70a344]' : 'bg-[#1d2d50] border-[#1d2d50]';
   const themeHoverBorder = isAlmuerzo ? 'hover:border-[#70a344]/50' : 'hover:border-[#1d2d50]/50';
@@ -272,7 +268,7 @@ export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({ trabajador
                   <button 
                     key={tipo}
                     disabled={isSubmitting}
-                    onClick={() => asignarPedidoManual(tipo)}
+                    onClick={() => manejarAsignacionManual(tipo)} // 🔥 Llamamos a la nueva función
                     className="text-[10px] font-bold text-[#1d2d50] bg-white border border-slate-200 py-3 rounded-xl hover:border-slate-300 hover:bg-slate-100 transition-all disabled:opacity-50"
                   >
                     {tipo.replace('_', ' ')}
