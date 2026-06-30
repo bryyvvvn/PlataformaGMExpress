@@ -163,13 +163,9 @@ const HomePageTrabajador: React.FC = () => {
 
   const fechasBloqueadas = useMemo(() => new Set((Array.isArray(historial) ? historial : []).map((p: any) => String(p?.fecha || '').split('T')[0])), [historial]);
 
-  const fechaBloqueadaPorHorario: string | null = estadoHorario && !estadoHorario.permitido ? estadoHorario.fechaBloqueada ?? null : null;
-
-  const fechasVisualmenteBloqueadas = useMemo(() => {
-    const set = new Set<string>();
-    if (fechaBloqueadaPorHorario) set.add(fechaBloqueadaPorHorario);
-    return set;
-  }, [fechaBloqueadaPorHorario]);
+// ELIMINA líneas 166-176 completas y reemplaza por esto:
+  const fechaBloqueadaPorHorario = null;
+  const fechasVisualmenteBloqueadas = useMemo(() => new Set<string>(), []);
 
   const isSelectedDateToday = diasSemanaArray?.[diaSeleccionadoIdx]?.esHoy ?? false;
   const isDeadlinePassed = false;

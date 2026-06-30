@@ -13,7 +13,7 @@ export default defineConfig({
     allowedHosts: [
       "collide-imaginary-thermos.ngrok-free.dev",
       "exciting-ward-fans-theorem.trycloudflare.com",
-      "tea-gel-another-she.trycloudflare.com"
+      "industry-terrorists-achieve-probability.trycloudflare.com"
     ],
     proxy: {
       "/api": {

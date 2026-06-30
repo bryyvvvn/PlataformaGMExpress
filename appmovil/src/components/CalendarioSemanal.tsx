@@ -13,6 +13,7 @@ interface CalendarioSemanalProps {
   setDiaSeleccionadoIdx: (idx: number) => void;
   fechasHorarioBloqueado?: Set<string>;
   estadoFechas?: Record<string, { almuerzo: boolean; cena: boolean }>;
+  cargandoHistorial?: boolean;
 }
 
 export const CalendarioSemanal: React.FC<CalendarioSemanalProps> = ({
@@ -25,6 +26,7 @@ export const CalendarioSemanal: React.FC<CalendarioSemanalProps> = ({
   setDiaSeleccionadoIdx,
   fechasHorarioBloqueado,
   estadoFechas = {},
+  cargandoHistorial = false,
 }) => {
   return (
     <div className="mt-10 px-6 shrink-0">
@@ -55,7 +57,7 @@ export const CalendarioSemanal: React.FC<CalendarioSemanalProps> = ({
           const numDiaMenu = new Date(dia.iso + 'T12:00:00').getDay();
           const esBloqueadoPerm = diasBloqueadosAdmin.includes(numDiaMenu);
           const visualmenteBloqueado = dia.bloqueado || esBloqueadoPerm;
-          const esBloqueadoPorHorario = !tienePedido && (fechasHorarioBloqueado?.has(dia.iso) ?? false);
+          const esBloqueadoPorHorario = !tienePedido && !cargandoHistorial && (fechasHorarioBloqueado?.has(dia.iso) ?? false);
           const isSelectedAndValid = dia.esSeleccionado && !todosBloqueados;
           const noSeleccionable = (visualmenteBloqueado && !tienePedido) || esBloqueadoPorHorario;
 

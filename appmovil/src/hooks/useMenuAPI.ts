@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { API_BASE_URL } from "../constants/api";
 
 // ─── TIPOS ────────────────────────────────────────────────────────────────────
@@ -54,18 +54,19 @@ const MENU_VACIO: MenuDia = { entradas: [], fondos: [], postres: [], menuDia: nu
 export const useMenuAPI = (fecha?: string, usuarioId?: string, token?: string | null) => {
   const [menuHoy, setMenuHoy] = useState<MenuDia>(MENU_VACIO);
   const [cargando, setCargando] = useState(true);
+  const [tokenListo, setTokenListo] = useState(false);
+  const tokenRef = useRef(token);
+  tokenRef.current = token;
+
+  // Marca tokenListo la primera vez que llega un token válido — nunca vuelve a false
+  useEffect(() => {
+    if (token && !tokenListo) setTokenListo(true);
+  }, [token]);
 
   useEffect(() => {
-    let cancelado = false; // evita set de estado si el componente se desmontó
+    let cancelado = false;
 
-    // Token aún resolviendo → esperamos sin tocar el estado de carga
-    if (!usuarioId || token === undefined) return;
-
-    // Sin sesión → salimos limpiamente
-    if (!token) {
-      setCargando(false);
-      return;
-    }
+    if (!usuarioId || !tokenListo) return;
 
     const cargarMenu = async () => {
       setCargando(true);
@@ -77,8 +78,8 @@ export const useMenuAPI = (fecha?: string, usuarioId?: string, token?: string | 
         const url = `${API_BASE_URL}/api/trabajador/menu-semanal${query ? `?${query}` : ""}`;
 
         const headers: HeadersInit = {};
-        if (token && usuarioId) {
-          headers['Authorization'] = `Bearer ${token}`;
+        if (tokenRef.current) {
+          headers['Authorization'] = `Bearer ${tokenRef.current}`;
         }
         const respuesta = await fetch(url, { headers });
 
@@ -99,11 +100,8 @@ export const useMenuAPI = (fecha?: string, usuarioId?: string, token?: string | 
     };
 
     cargarMenu();
-
-    return () => {
-      cancelado = true; // cleanup al desmontar o cuando cambia fecha
-    };
-  }, [fecha, usuarioId, token]); // se re-ejecuta cuando cambia fecha, usuario o token
+    return () => { cancelado = true; };
+  }, [fecha, usuarioId, tokenListo]); // token fuera, solo re-fetch por fecha/usuario/tokenListo
 
   return { menuHoy, cargando };
 };

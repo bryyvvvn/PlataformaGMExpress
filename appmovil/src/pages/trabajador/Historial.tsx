@@ -1,14 +1,17 @@
 import React, { useEffect } from 'react';
-import { Utensils, ArrowLeft, Clock, Info } from 'lucide-react'; // Añadido Info icon
+import { Utensils, ArrowLeft, Clock, Info } from 'lucide-react';
 import { useUser } from '@clerk/clerk-react';
 import { useHistorial } from '../../hooks/useHistorial';
+import { useClerkToken } from '../../hooks/useClerkToken';
 import { useNavigate } from 'react-router-dom';
 import LoadingView from '../../components/LoadingView';
 
 export const Historial: React.FC = () => {
   const { user } = useUser();
+  const { token: clerkToken } = useClerkToken();
   const navigate = useNavigate();
-  const { historial, cargando, cargarHistorial } = useHistorial(user?.id);
+  
+  const { historial, cargando, cargarHistorial } = useHistorial(user?.id, clerkToken);
 
   useEffect(() => {
     if (user?.id) cargarHistorial();
@@ -27,7 +30,8 @@ export const Historial: React.FC = () => {
       </header>
 
       <main className="flex-1 p-6 pb-20">
-        {cargando ? (
+        {/* 🔥 AQUÍ ESTÁ LA MAGIA: Si no hay token aún, forzamos la vista de carga */}
+        {(cargando || clerkToken === undefined) ? (
           <LoadingView message="Cargando historial..." />
         ) : historial.length === 0 ? (
           <div className="text-center py-20 flex flex-col items-center justify-center gap-3 bg-white rounded-3xl border border-gray-100 p-10">
@@ -37,7 +41,6 @@ export const Historial: React.FC = () => {
         ) : (
           <div className="space-y-4 max-w-md mx-auto">
             {historial.map((ped: any) => {
-              // VALIDACIÓN: Si el pedido no tiene detalles, no mostramos la tarjeta
               if (!ped.detalles || ped.detalles.length === 0) {
                 return (
                   <div key={ped.id} className="flex items-center gap-2 text-xs text-gray-400 p-3 bg-gray-100/50 rounded-xl border border-gray-100">
@@ -47,7 +50,6 @@ export const Historial: React.FC = () => {
                 );
               }
 
-              // Renderizado normal de la tarjeta si hay detalles
               return (
                 <div key={ped.id} className="bg-white p-5 rounded-[2.5rem] border border-gray-100 shadow-sm">
                   <div className="flex justify-between items-center mb-4 pb-3 border-b border-gray-50">
