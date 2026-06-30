@@ -19,7 +19,7 @@ async function obtenerConvenioEmpresa(empresaId: number) {
 }
 
 export async function GET(request: Request) {
-  const rep = await verificarRepresentante();
+  const rep = await verificarRepresentante(request);
   if ('error' in rep) {
     return NextResponse.json({ error: rep.error }, { status: rep.status });
   }

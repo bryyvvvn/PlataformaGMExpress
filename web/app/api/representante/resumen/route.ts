@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server';
 import db from '../../../../lib/db';
 import { verificarRepresentante } from '@/lib/representante/verificar-representante';
 
-export async function GET() {
-  const rep = await verificarRepresentante();
+export async function GET(request: Request) {
+  const rep = await verificarRepresentante(request);
   if ('error' in rep) {
     return NextResponse.json({ error: rep.error }, { status: rep.status });
   }

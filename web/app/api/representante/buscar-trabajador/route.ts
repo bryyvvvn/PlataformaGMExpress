@@ -3,7 +3,7 @@ import db from '../../../../lib/db'; // Ajusta la ruta a tu lib/db según corres
 import { verificarRepresentante } from '@/lib/representante/verificar-representante';
 
 export async function GET(req: Request) {
-  const rep = await verificarRepresentante();
+  const rep = await verificarRepresentante(req);
   if ('error' in rep) {
     return NextResponse.json({ error: rep.error }, { status: rep.status });
   }

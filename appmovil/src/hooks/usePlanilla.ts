@@ -1,8 +1,11 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { API_BASE_URL } from '../constants/api';
 
-export const usePlanilla = () => {
+export const usePlanilla = (token?: string | null) => {
   const [loading, setLoading] = useState(false);
+
+  const tokenRef = useRef(token);
+  tokenRef.current = token;
 
   const enviarPlanilla = async (empresaId: number | null, fecha?: string) => {
     if (!empresaId) return { ok: false, data: null };
@@ -10,7 +13,10 @@ export const usePlanilla = () => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/representante/enviar-planilla`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${tokenRef.current}`
+        },
         body: JSON.stringify({ empresaId, fecha })
       });
       const data = res.ok ? await res.json() : null;

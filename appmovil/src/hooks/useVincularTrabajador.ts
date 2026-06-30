@@ -1,12 +1,15 @@
 // src/hooks/useVincularTrabajador.ts
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { API_BASE_URL } from '../constants/api';
 
-export const useVincularTrabajador = () => {
+export const useVincularTrabajador = (token?: string | null) => {
   const [buscando, setBuscando] = useState(false);
   const [vinculando, setVinculando] = useState(false);
   const [trabajadorEncontrado, setTrabajadorEncontrado] = useState<any | null>(null);
   const [errorBusqueda, setErrorBusqueda] = useState<string | null>(null);
+
+  const tokenRef = useRef(token);
+  tokenRef.current = token;
 
   const buscarTrabajador = async (rut: string) => {
     if (!rut.trim()) return;
@@ -15,7 +18,9 @@ export const useVincularTrabajador = () => {
     setTrabajadorEncontrado(null);
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/representante/buscar-trabajador?rut=${rut}`);
+      const res = await fetch(`${API_BASE_URL}/api/representante/buscar-trabajador?rut=${rut}`, {
+        headers: { 'Authorization': `Bearer ${tokenRef.current}` },
+      });
       const data = await res.json();
       if (res.ok) {
         setTrabajadorEncontrado(data);
@@ -34,7 +39,10 @@ export const useVincularTrabajador = () => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/representante/vincular-trabajador`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${tokenRef.current}`
+        },
         body: JSON.stringify({ usuarioId, empresaId })
       });
 
