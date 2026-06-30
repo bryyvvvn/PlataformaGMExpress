@@ -11,6 +11,7 @@ const isPublicRoute = createRouteMatcher([
   '/api/representante(.*)',
   '/api/cron/recordatorio', 
   '/api/cron/auto-asignar',
+  '/api/cron/auto-confirmar',
 ])
 
 export default clerkMiddleware(async (auth, request) => {
