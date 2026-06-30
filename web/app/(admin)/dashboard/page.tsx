@@ -11,7 +11,7 @@ const ExportarConsolidados = dynamic(
     loading: () => (
       <div className="rounded-xl border border-border bg-card p-5">
         <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-          ExportaciÃ³n Operativa
+          Exportación Operativa
         </h3>
       </div>
     ),

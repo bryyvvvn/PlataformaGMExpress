@@ -15,6 +15,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { etiquetaEstado, etiquetaPerfil } from "@/lib/usuarios/formatos"
+import { formatearTelefonoChileno } from "@/lib/usuarios/telefono"
 import type {
   PerfilUsuarioApp,
   ResumenUsuariosApp,
@@ -63,7 +64,7 @@ export function UsuariosListado({
                 Filtro de Directorio
               </h2>
               <p className="mt-0.5 text-[11px] uppercase tracking-wide text-slate-500">
-                Búsqueda por nombre, RUT o empresa
+                Búsqueda por nombre, RUT, correo, teléfono o empresa
               </p>
             </div>
           </div>
@@ -212,11 +213,12 @@ function EstadoVacio({ children }: { children: React.ReactNode }) {
 function UsuariosTable({ usuarios }: { usuarios: UsuarioApp[] }) {
   return (
     <div className="w-full overflow-x-auto">
-      <Table className="min-w-[900px]">
+      <Table className="min-w-[1000px]">
         <TableHeader>
           <TableRow className="border-b border-slate-200 bg-slate-50/80 hover:bg-slate-50/80">
             <TableHead className="h-10 text-[10px] font-bold uppercase tracking-widest text-[#1B2C56]">Identidad</TableHead>
             <TableHead className="h-10 text-[10px] font-bold uppercase tracking-widest text-[#1B2C56]">Documento</TableHead>
+            <TableHead className="h-10 text-[10px] font-bold uppercase tracking-widest text-[#1B2C56]">Teléfono</TableHead>
             <TableHead className="h-10 text-[10px] font-bold uppercase tracking-widest text-[#1B2C56]">Vinculación</TableHead>
             <TableHead className="h-10 text-[10px] font-bold uppercase tracking-widest text-[#1B2C56]">Rol de Sistema</TableHead>
             <TableHead className="h-10 text-[10px] font-bold uppercase tracking-widest text-[#1B2C56]">Estado</TableHead>
@@ -241,6 +243,11 @@ function UsuariosTable({ usuarios }: { usuarios: UsuarioApp[] }) {
               <TableCell className="py-3">
                 <span className="rounded bg-slate-100 px-2 py-1 font-mono text-xs font-semibold text-slate-600">
                   {usuario.rut ?? "S/RUT"}
+                </span>
+              </TableCell>
+              <TableCell className="py-3">
+                <span className="font-mono text-xs font-semibold text-slate-600">
+                  {formatearTelefonoChileno(usuario.telefono)}
                 </span>
               </TableCell>
               <TableCell className="py-3">

@@ -1,7 +1,9 @@
-import { NextResponse } from 'next/server';
 import { verifyToken } from '@clerk/nextjs/server';
+import { NextResponse } from 'next/server';
+
 import db from '../../../../lib/db';
 import { guardarRutSchema } from '@/lib/schemas/usuarios';
+import { normalizarTelefonoChileno } from '@/lib/usuarios/telefono';
 
 export async function PATCH(request: Request) {
   const authHeader = request.headers.get('Authorization');
@@ -41,7 +43,6 @@ export async function PATCH(request: Request) {
     );
   }
 
-  // Verificar que el clerkId del body coincide con el token
   if (result.data.clerkId !== tokenUserId) {
     return NextResponse.json(
       { error: 'No autorizado para modificar este usuario' },
@@ -50,20 +51,37 @@ export async function PATCH(request: Request) {
   }
 
   try {
+    const datosActualizados: { rut: string; telefono?: string | null } = {
+      rut: result.data.rut,
+    };
+
+    if (Object.prototype.hasOwnProperty.call(result.data, 'telefono')) {
+      try {
+        datosActualizados.telefono = normalizarTelefonoChileno(
+          result.data.telefono
+        );
+      } catch (error) {
+        return NextResponse.json(
+          {
+            error:
+              error instanceof Error
+                ? error.message
+                : 'El teléfono debe tener un formato válido.',
+          },
+          { status: 400 }
+        );
+      }
+    }
+
     const usuarioActualizado = await db.usuario.update({
       where: { id: result.data.clerkId },
-      // 🔥 AQUÍ LE DECIMOS A PRISMA QUE TAMBIÉN GUARDE EL TELÉFONO
-      data: { 
-        rut: result.data.rut,
-        telefono: result.data.telefono 
-      },
+      data: datosActualizados,
     });
 
     return NextResponse.json({ success: true, usuario: usuarioActualizado });
   } catch (error) {
     console.error('[API GUARDAR DATOS] Error:', error);
 
-    // Si el error es por RUT duplicado, avisamos al frontend
     if (
       error &&
       typeof error === 'object' &&
@@ -76,6 +94,9 @@ export async function PATCH(request: Request) {
       );
     }
 
-    return NextResponse.json({ error: 'Error interno guardando los datos' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Error interno guardando los datos' },
+      { status: 500 }
+    );
   }
 }

@@ -5,15 +5,6 @@ import { useClerk } from "@clerk/nextjs"
 import { useRouter } from "next/navigation"
 import { Search, LogOut, User as UserIcon } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 
 interface HeaderProps {
@@ -48,19 +39,6 @@ export function Header({ title, subtitle }: HeaderProps) {
 
   const queryNormalizada = query.trim()
   const mostrarDropdown = busquedaActiva && queryNormalizada.length >= 2
-
-  const cerrarSesion = async () => {
-    if (cerrandoSesion) return
-
-    setCerrandoSesion(true)
-
-    try {
-      await signOut({ redirectUrl: "/auth/login" })
-    } catch (error) {
-      console.error("[Header] Error cerrando sesion:", error)
-      setCerrandoSesion(false)
-    }
-  }
 
   useEffect(() => {
     if (queryNormalizada.length < 2) {
@@ -188,32 +166,6 @@ export function Header({ title, subtitle }: HeaderProps) {
             </div>
           )}
         </div>
-
-        <DropdownMenu>
-          <DropdownMenuTrigger className="flex items-center gap-2 rounded-xl px-2 py-1.5 hover:bg-muted cursor-pointer transition-colors outline-none border-none">
-            <Avatar className="h-9 w-9 border-2 border-primary/20">
-              <AvatarFallback className="bg-primary/10 text-primary font-bold">
-                AD
-              </AvatarFallback>
-            </Avatar>
-            <div className="hidden flex-col items-start md:flex text-left">
-              <span className="text-sm font-semibold text-foreground leading-none">
-                Administración
-              </span>
-            </div>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56 rounded-xl">
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="cursor-pointer text-destructive focus:text-destructive"
-              disabled={cerrandoSesion}
-              onClick={cerrarSesion}
-            >
-              <LogOut className="mr-2 h-4 w-4" />
-              {cerrandoSesion ? "Cerrando..." : "Cerrar Sesión"}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
       </div>
     </header>
   )

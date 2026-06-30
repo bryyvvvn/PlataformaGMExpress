@@ -12,6 +12,7 @@ export type UsuarioApp = {
   nombreUsuario: string | null
   rut: string | null
   correo: string | null
+  telefono?: string | null
   empresa: UsuarioEmpresaResumen | null
   perfil: PerfilUsuarioApp
   estado: EstadoVinculacionUsuario
@@ -32,6 +33,7 @@ export type UsuarioAsignable = {
   nombreCompleto: string
   rut: string | null
   correo: string | null
+  telefono?: string | null
   rol: PerfilUsuarioApp
   empresaId: number | null
   empresa: UsuarioEmpresaResumen | null

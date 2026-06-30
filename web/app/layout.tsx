@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "GM Express",
+  title: "GM Express | Panel administrativo",
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "any" },
@@ -33,12 +33,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    // Forzamos las rutas directamente en el componente
     <ClerkProvider
       localization={esES}
       signInUrl="/auth/login"
       signUpUrl="/auth/login"
-      signInFallbackRedirectUrl="/dashboard" // O a donde quieras que vaya al entrar
+      signInFallbackRedirectUrl="/dashboard" 
     >
       <html lang="es">
         <body className={`${geistSans.variable} ${geistMono.variable}`}>{children}</body>

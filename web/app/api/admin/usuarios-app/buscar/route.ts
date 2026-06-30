@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server"
 import db from "@/lib/db"
 import { validarAdministrador } from "@/lib/usuarios/admin"
 import { obtenerNombreVisible } from "@/lib/usuarios/formatos"
+import { obtenerTerminosTelefonoBusqueda } from "@/lib/usuarios/telefono"
 import { obtenerTerminosRut } from "@/lib/usuarios/validaciones"
 
 export const dynamic = "force-dynamic"
@@ -27,6 +28,7 @@ export async function GET(req: NextRequest) {
     }
 
     const terminosRut = obtenerTerminosRut(query)
+    const terminosTelefono = obtenerTerminosTelefonoBusqueda(query)
 
     const usuarios = await db.usuario.findMany({
       where: {
@@ -40,6 +42,9 @@ export async function GET(req: NextRequest) {
           { correo: { contains: query, mode: "insensitive" } },
           ...terminosRut.map((termino) => ({
             rut: { contains: termino, mode: "insensitive" as const },
+          })),
+          ...terminosTelefono.map((termino) => ({
+            telefono: { contains: termino, mode: "insensitive" as const },
           })),
         ],
       },
@@ -56,6 +61,7 @@ export async function GET(req: NextRequest) {
         nombreUsuario: true,
         rut: true,
         correo: true,
+        telefono: true,
         rol: true,
         empresaId: true,
         empresa: {
@@ -76,6 +82,7 @@ export async function GET(req: NextRequest) {
         nombreCompleto: obtenerNombreVisible(usuario),
         rut: usuario.rut,
         correo: usuario.correo,
+        telefono: usuario.telefono,
         rol: usuario.rol,
         empresaId: usuario.empresaId,
         empresa: usuario.empresa,

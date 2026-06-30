@@ -18,6 +18,7 @@ export async function GET(request: Request) {
         rol: true, 
         diasBloqueados: true,
         rut: true,
+        telefono: true,
         empresaId: true,
         empresa: {
           select: { 

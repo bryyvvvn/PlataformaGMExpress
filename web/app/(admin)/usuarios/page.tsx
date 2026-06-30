@@ -10,6 +10,7 @@ import {
   type PerfilUsuarioApp,
   useUsuariosApp,
 } from "@/hooks/useUsuariosApp"
+import { obtenerTerminosTelefonoBusqueda } from "@/lib/usuarios/telefono"
 
 const AsignarRepresentanteModal = dynamic(
   () =>
@@ -33,18 +34,28 @@ export default function UsuariosAppPage() {
 
   const usuariosFiltrados = useMemo(() => {
     const criterio = searchTerm.trim().toLocaleLowerCase("es")
+    const terminosTelefono = obtenerTerminosTelefonoBusqueda(searchTerm).map(
+      (termino) => termino.toLocaleLowerCase("es")
+    )
 
     if (!criterio) return usuariosPorVista
 
-    return usuariosPorVista.filter((usuario) =>
-      [
+    return usuariosPorVista.filter((usuario) => {
+      const coincideTexto = [
         usuario.nombre,
         usuario.nombreUsuario,
         usuario.rut,
         usuario.correo,
+        usuario.telefono,
         usuario.empresa?.nombre,
       ].some((valor) => valor?.toLocaleLowerCase("es").includes(criterio))
-    )
+
+      const coincideTelefono = terminosTelefono.some((termino) =>
+        usuario.telefono?.toLocaleLowerCase("es").includes(termino)
+      )
+
+      return coincideTexto || coincideTelefono
+    })
   }, [searchTerm, usuariosPorVista])
 
   const abrirModalAsignacion = () => {

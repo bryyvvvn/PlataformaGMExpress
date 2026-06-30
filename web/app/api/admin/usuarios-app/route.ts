@@ -62,6 +62,7 @@ export async function GET() {
         nombreUsuario: true,
         rut: true,
         correo: true,
+        telefono: true,
         rol: true,
         empresaId: true,
         empresa: {
@@ -79,6 +80,7 @@ export async function GET() {
       nombreUsuario: usuario.nombreUsuario,
       rut: usuario.rut,
       correo: usuario.correo,
+      telefono: usuario.telefono,
       empresa: usuario.empresa,
       perfil: usuario.rol,
       estado: (usuario.empresaId === null ? "SIN_EMPRESA" : "ASOCIADO") satisfies EstadoVinculacion,

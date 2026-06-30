@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { etiquetaEmpresaAsignable, etiquetaPerfil } from "@/lib/usuarios/formatos"
+import { formatearTelefonoChileno } from "@/lib/usuarios/telefono"
 import type { EmpresaAsignable, UsuarioAsignable } from "@/lib/usuarios/tipos"
 import { useAsignarRepresentante } from "@/hooks/useAsignarRepresentante"
 
@@ -77,7 +78,7 @@ function AsignarRepresentanteBuscador({
           type="search"
           value={busqueda}
           disabled={guardando}
-          placeholder="Buscar por RUT, nombre o correo"
+          placeholder="Buscar por RUT, nombre, correo o teléfono"
           onChange={(event) => onChange(event.target.value)}
           className="h-10 border-slate-200 bg-slate-50 pl-9 text-sm focus:bg-white"
         />
@@ -151,6 +152,9 @@ function AsignarRepresentanteResultados({
                 <p className="text-xs text-slate-500">
                   {usuario.correo ?? "Sin correo registrado"}
                 </p>
+                <p className="font-mono text-xs font-semibold text-slate-500">
+                  {formatearTelefonoChileno(usuario.telefono)}
+                </p>
                 <div className="flex flex-wrap items-center gap-2 pt-1 text-xs text-slate-500">
                   <span className="font-mono font-semibold">
                     {usuario.rut ?? "S/RUT"}
@@ -199,6 +203,9 @@ function SeleccionActual({
           <p className="font-bold text-slate-800">{usuario.nombreCompleto}</p>
           <p className="text-xs text-slate-500">
             {usuario.correo ?? "Sin correo registrado"}
+          </p>
+          <p className="font-mono text-xs font-semibold text-slate-500">
+            {formatearTelefonoChileno(usuario.telefono)}
           </p>
           <div className="flex flex-wrap gap-2">
             <UsuarioBadge usuario={usuario} />
