@@ -1,20 +1,32 @@
-// src/hooks/useOtrosPlatos.ts
 import { useState, useEffect } from 'react';
 import { API_BASE_URL } from '../constants/api';
+// Si quieres, puedes importar la interfaz Plato desde donde la tengas definida
+// import { Plato } from './useMenuAPI'; 
 
-export const useOtrosPlatos = (shouldFetch: boolean) => {
-  const [otrosPlatos, setOtrosPlatos] = useState<any[]>([]);
+export const useOtrosPlatos = (shouldFetch: boolean, token?: string | null) => {
+  const [otrosPlatos, setOtrosPlatos] = useState<any[]>([]); // Cambia any[] por Plato[] si importaste la interfaz
   const [loadingOtros, setLoadingOtros] = useState(false);
 
   useEffect(() => {
     let cancel = false;
     const cargar = async () => {
-      if (!shouldFetch) return; // Solo busca si está en la pestaña OTRO
+      // 🔥 Ahora también esperamos a que el token exista
+      if (!shouldFetch || !token) return; 
       
       setLoadingOtros(true);
       try {
-        const res = await fetch(`${API_BASE_URL}/api/trabajador/otros`);
-        if (!res.ok) return;
+        // 🔥 Agregamos el header con el token de Clerk
+        const headers: HeadersInit = {
+          'Authorization': `Bearer ${token}`
+        };
+
+        const res = await fetch(`${API_BASE_URL}/api/trabajador/otros`, { headers });
+        
+        if (!res.ok) {
+          console.error('Error del servidor:', res.status);
+          return;
+        }
+        
         const data = await res.json();
         if (!cancel) setOtrosPlatos(data.platos || []);
       } catch (e) {
@@ -27,7 +39,7 @@ export const useOtrosPlatos = (shouldFetch: boolean) => {
     cargar();
 
     return () => { cancel = true; };
-  }, [shouldFetch]);
+  }, [shouldFetch, token]); // 🔥 Agregamos el token a las dependencias
 
   return { otrosPlatos, loadingOtros };
 };
