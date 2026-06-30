@@ -1,1 +1,1 @@
-export const API_BASE_URL = '';
+export const API_BASE_URL = 'https://plataformagmexpress-production-50b8.up.railway.app';
