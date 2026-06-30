@@ -11,10 +11,23 @@ const isPublicRoute = createRouteMatcher([
   '/api/representante(.*)',
   '/api/cron/recordatorio', 
   '/api/cron/auto-asignar',
-  '/api/cron/auto-confirmar',
+  '/api/cron/auto-confirmar', // <- Agregado para tu nuevo cron
 ])
 
 export default clerkMiddleware(async (auth, request) => {
+  // 🔥 ESTO ES LO QUE ARREGLA LA APP MÓVIL: Deja pasar el OPTIONS sin chistar
+  if (request.method === 'OPTIONS') {
+    return new NextResponse(null, {
+      status: 200,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Allow-Credentials': 'true',
+      },
+    })
+  }
+
   if (request.nextUrl.pathname.startsWith('/sign-in')) {
     return NextResponse.redirect(new URL('/auth/login', request.url))
   }
@@ -30,8 +43,6 @@ export default clerkMiddleware(async (auth, request) => {
   if (!authObj.userId) {
     return NextResponse.redirect(new URL('/auth/login', request.url))
   }
-
-  // La validacion de rol ADMIN vive en app/(admin)/layout.tsx.
 })
 
 export const config = {
