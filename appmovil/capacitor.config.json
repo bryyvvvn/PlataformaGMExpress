@@ -2,10 +2,6 @@
   "appId": "com.gmexpress.app",
   "appName": "GM Express",
   "webDir": "dist",
-  "server": {
-    "url": "https://industry-terrorists-achieve-probability.trycloudflare.com/",
-    "cleartext": false
-  },
   "plugins": {
     "CapacitorHttp": {
       "enabled": false
