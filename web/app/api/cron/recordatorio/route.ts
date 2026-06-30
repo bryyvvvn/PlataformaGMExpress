@@ -5,14 +5,13 @@ import { getMessaging, Message } from 'firebase-admin/messaging';
 
 export const dynamic = 'force-dynamic';
 
-// CAMBIADO A POST PARA PRODUCCIÓN
-export async function POST(request: NextRequest) {
+// 🔥 CAMBIADO A GET PARA QUE RAILWAY NO LLORE CON LOS COMANDOS
+export async function GET(request: NextRequest) {
   
-  // 1. SEGURIDAD ACTIVADA
-  const authHeader = request.headers.get('authorization');
+  // 1. SEGURIDAD: Solo revisamos el parámetro de la URL
   const querySecret = request.nextUrl.searchParams.get('secret');
 
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}` && querySecret !== process.env.CRON_SECRET) {
+  if (querySecret !== process.env.CRON_SECRET) {
     return new NextResponse('Acceso denegado. Intento no autorizado.', { status: 401 });
   }
 
