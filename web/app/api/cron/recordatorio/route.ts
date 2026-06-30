@@ -10,7 +10,9 @@ export async function POST(request: NextRequest) {
   
   // 1. SEGURIDAD ACTIVADA
   const authHeader = request.headers.get('authorization');
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  const querySecret = request.nextUrl.searchParams.get('secret');
+
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}` && querySecret !== process.env.CRON_SECRET) {
     return new NextResponse('Acceso denegado. Intento no autorizado.', { status: 401 });
   }
 
