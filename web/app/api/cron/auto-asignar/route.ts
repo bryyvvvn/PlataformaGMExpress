@@ -4,12 +4,11 @@ import { chileStartOfDay, chileEndOfDay } from '../../../../lib/chile-time';
 
 export const dynamic = 'force-dynamic';
 
-export async function POST(request: NextRequest) {
-  
-  // 1. SEGURIDAD ACTIVADA: Solo Railway con el CRON_SECRET puede ejecutar esto
-  const authHeader = request.headers.get('authorization');
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return new NextResponse('Acceso denegado. Intento no autorizado.', { status: 401 });
+export async function GET(request: NextRequest) {
+  const querySecret = request.nextUrl.searchParams.get('secret');
+
+  if (querySecret !== process.env.CRON_SECRET) {
+    return new NextResponse('Acceso denegado', { status: 401 });
   }
 
   try {
