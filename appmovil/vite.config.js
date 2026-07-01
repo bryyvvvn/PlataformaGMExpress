@@ -17,7 +17,7 @@ export default defineConfig({
     ],
     proxy: {
       "/api": {
-        target: "https://plataformagmexpress-production-50b8.up.railway.app",
+        target: "admin.gmexpress.cl",
         changeOrigin: true,
         secure: true,
       },
