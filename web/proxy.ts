@@ -12,7 +12,7 @@ const isPublicRoute = createRouteMatcher([
   '/api/cron/recordatorio', 
   '/api/cron/auto-asignar',
   '/api/cron/auto-confirmar', // <- Agregado para tu nuevo cron
-  '/api/representante/bloqueos(.*)'
+  '/api/representante/bloqueos',
 ])
 
 export default clerkMiddleware(async (auth, request) => {
