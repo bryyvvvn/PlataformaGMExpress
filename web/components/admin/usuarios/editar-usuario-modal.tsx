@@ -5,31 +5,70 @@ import {
   Building2,
   CheckCircle2,
   Loader2,
+  UserCog,
   X,
 } from "lucide-react"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import type { EmpresaAsignable, EmpresasAsignablesResponse, UsuarioApp } from "@/lib/usuarios/tipos"
+import { etiquetaPerfil } from "@/lib/usuarios/formatos"
+import type {
+  EmpresaAsignable,
+  EmpresasAsignablesResponse,
+  PerfilUsuarioApp,
+  UsuarioApp,
+} from "@/lib/usuarios/tipos"
 
-type PerfilEditable = "TRABAJADOR" | "REPRESENTANTE"
-
-type UseEditarUsuarioParams = {
-  usuario: UsuarioApp
+type EditarUsuarioModalProps = {
   abierto: boolean
+  usuario: UsuarioApp
   onCerrar: () => void
   onGuardado: () => Promise<void> | void
 }
 
-function useEditarUsuario({
-  usuario,
+type EditarUsuarioRequest = {
+  rol: PerfilUsuarioApp
+  empresaId?: number | null
+  nombre: string
+  rut: string | null
+}
+
+type ErrorResponse = {
+  error?: string
+}
+
+function obtenerMensajeError(data: ErrorResponse | null, fallback: string) {
+  return data?.error ?? fallback
+}
+
+function RolBadge({ rol }: { rol: PerfilUsuarioApp }) {
+  return (
+    <Badge
+      variant="outline"
+      className={
+        rol === "REPRESENTANTE"
+          ? "border-[#1B2C56]/20 bg-[#1B2C56]/10 text-[10px] font-bold uppercase tracking-wide text-[#1B2C56]"
+          : "border-slate-200 bg-slate-100 text-[10px] font-bold uppercase tracking-wide text-slate-600"
+      }
+    >
+      {etiquetaPerfil(rol)}
+    </Badge>
+  )
+}
+
+export function EditarUsuarioModal({
   abierto,
+  usuario,
   onCerrar,
   onGuardado,
-}: UseEditarUsuarioParams) {
-  const [rol, setRol] = useState<PerfilEditable>(usuario.perfil)
-  const [empresaId, setEmpresaId] = useState<string>(
+}: EditarUsuarioModalProps) {
+  const [nombre, setNombre] = useState(usuario.nombre)
+  const [rut, setRut] = useState(usuario.rut ?? "")
+  const [rol, setRol] = useState<PerfilUsuarioApp>(usuario.perfil)
+  const [empresaId, setEmpresaId] = useState(
     usuario.empresa ? String(usuario.empresa.id) : ""
   )
   const [empresas, setEmpresas] = useState<EmpresaAsignable[]>([])
@@ -39,100 +78,139 @@ function useEditarUsuario({
   const [errorFormulario, setErrorFormulario] = useState<string | null>(null)
 
   const empresasActivas = useMemo(
-    () => empresas.filter((e) => e.estado !== "INACTIVA"),
+    () => empresas.filter((empresa) => empresa.estado === "ACTIVA"),
     [empresas]
   )
 
   const empresaSeleccionada = useMemo(
-    () => empresasActivas.find((e) => String(e.id) === empresaId),
+    () => empresasActivas.find((empresa) => String(empresa.id) === empresaId),
     [empresaId, empresasActivas]
   )
 
-  const cargarEmpresas = useCallback(async () => {
-    setCargandoEmpresas(true)
-    setErrorEmpresas(null)
-
-    try {
-      const response = await fetch("/api/admin/empresas", { cache: "no-store" })
-
-      if (!response.ok) {
-        const data = (await response.json().catch(() => null)) as {
-          error?: string
-        } | null
-
-        throw new Error(data?.error ?? "No se pudieron cargar las empresas")
-      }
-
-      const data = (await response.json()) as EmpresasAsignablesResponse
-      setEmpresas(data.empresas)
-    } catch (err) {
-      console.error("[useEditarUsuario] empresas:", err)
-      setErrorEmpresas(
-        err instanceof Error ? err.message : "No se pudieron cargar las empresas"
-      )
-    } finally {
-      setCargandoEmpresas(false)
-    }
-  }, [])
+  const quitandoRepresentante =
+    usuario.perfil === "REPRESENTANTE" && rol === "TRABAJADOR"
 
   useEffect(() => {
     if (!abierto) return
 
+    setNombre(usuario.nombre)
+    setRut(usuario.rut ?? "")
     setRol(usuario.perfil)
     setEmpresaId(usuario.empresa ? String(usuario.empresa.id) : "")
     setErrorFormulario(null)
+  }, [abierto, usuario])
 
-    queueMicrotask(() => {
-      void cargarEmpresas()
-    })
-  }, [abierto, usuario, cargarEmpresas])
+  useEffect(() => {
+    if (!abierto) return
 
-  const cerrar = useCallback(() => {
+    const controller = new AbortController()
+
+    async function cargarEmpresas() {
+      setCargandoEmpresas(true)
+      setErrorEmpresas(null)
+
+      try {
+        const response = await fetch("/api/admin/empresas", {
+          cache: "no-store",
+          signal: controller.signal,
+        })
+
+        if (!response.ok) {
+          const data = (await response.json().catch(() => null)) as
+            | ErrorResponse
+            | null
+
+          throw new Error(
+            obtenerMensajeError(data, "No se pudieron cargar las empresas")
+          )
+        }
+
+        const data = (await response.json()) as EmpresasAsignablesResponse
+        setEmpresas(data.empresas)
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return
+
+        console.error("[EditarUsuarioModal] empresas:", err)
+        setErrorEmpresas(
+          err instanceof Error ? err.message : "No se pudieron cargar las empresas"
+        )
+      } finally {
+        if (!controller.signal.aborted) {
+          setCargandoEmpresas(false)
+        }
+      }
+    }
+
+    void cargarEmpresas()
+
+    return () => {
+      controller.abort()
+    }
+  }, [abierto])
+
+  const cerrar = () => {
     if (guardando) return
     onCerrar()
-  }, [guardando, onCerrar])
+  }
 
-  const confirmarEdicion = async () => {
+  const guardar = async () => {
     setErrorFormulario(null)
 
-    if (rol === "REPRESENTANTE" && !empresaId) {
-      setErrorFormulario("La empresa es obligatoria para un representante.")
+    const nombreNormalizado = nombre.trim()
+    const rutNormalizado = rut.trim()
+
+    if (nombreNormalizado.length === 0) {
+      setErrorFormulario("Ingresa el nombre del usuario.")
       return
+    }
+
+    if (rol === "REPRESENTANTE" && empresaId.length === 0) {
+      setErrorFormulario("Selecciona una empresa para el representante.")
+      return
+    }
+
+    const payload: EditarUsuarioRequest = {
+      rol,
+      nombre: nombreNormalizado,
+      rut: rutNormalizado.length > 0 ? rutNormalizado : null,
+    }
+
+    if (empresaId.length === 0) {
+      payload.empresaId = null
+    } else {
+      const empresaIdNumber = Number(empresaId)
+
+      if (!Number.isInteger(empresaIdNumber) || empresaIdNumber <= 0) {
+        setErrorFormulario("Selecciona una empresa valida.")
+        return
+      }
+
+      payload.empresaId = empresaIdNumber
     }
 
     setGuardando(true)
 
     try {
-      const body: { rol: PerfilEditable; empresaId?: number | null } = { rol }
-
-      if (rol === "REPRESENTANTE") {
-        body.empresaId = Number(empresaId)
-      } else {
-        // TRABAJADOR: send null only if user clears the empresa
-        body.empresaId = empresaId ? Number(empresaId) : null
-      }
-
-      const response = await fetch(
-        `/api/admin/usuarios-app/${usuario.id}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        }
-      )
+      const response = await fetch(`/api/admin/usuarios-app/${usuario.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
 
       if (!response.ok) {
-        const data = (await response.json().catch(() => null)) as {
-          error?: string
-        } | null
+        const data = (await response.json().catch(() => null)) as
+          | ErrorResponse
+          | null
 
-        throw new Error(data?.error ?? "No se pudo actualizar el usuario")
+        throw new Error(
+          obtenerMensajeError(data, "No se pudo actualizar el usuario")
+        )
       }
 
       await onGuardado()
       onCerrar()
     } catch (err) {
-      console.error("[useEditarUsuario] guardar:", err)
+      console.error("[EditarUsuarioModal] guardar:", err)
       setErrorFormulario(
         err instanceof Error ? err.message : "No se pudo actualizar el usuario"
       )
@@ -141,41 +219,7 @@ function useEditarUsuario({
     }
   }
 
-  return {
-    rol,
-    setRol,
-    empresaId,
-    setEmpresaId,
-    empresasActivas,
-    empresaSeleccionada,
-    cargandoEmpresas,
-    guardando,
-    errorEmpresas,
-    errorFormulario,
-    cerrar,
-    confirmarEdicion,
-  }
-}
-
-type EditarUsuarioModalProps = {
-  usuario: UsuarioApp
-  abierto: boolean
-  onCerrar: () => void
-  onGuardado: () => Promise<void> | void
-}
-
-export function EditarUsuarioModal({
-  usuario,
-  abierto,
-  onCerrar,
-  onGuardado,
-}: EditarUsuarioModalProps) {
-  const edicion = useEditarUsuario({ usuario, abierto, onCerrar, onGuardado })
-
   if (!abierto) return null
-
-  const quitandoRolRepresentante =
-    usuario.perfil === "REPRESENTANTE" && edicion.rol === "TRABAJADOR"
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-6">
@@ -183,9 +227,8 @@ export function EditarUsuarioModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="editar-usuario-title"
-        className="flex max-h-[90vh] w-full max-w-md flex-col overflow-hidden rounded-md border border-slate-200 bg-white shadow-xl"
+        className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-md border border-slate-200 bg-white shadow-xl"
       >
-        {/* Header */}
         <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
           <div className="space-y-1">
             <h2
@@ -195,15 +238,15 @@ export function EditarUsuarioModal({
               Editar usuario
             </h2>
             <p className="text-sm text-slate-500">
-              {usuario.nombre.toUpperCase()}
+              Actualiza sus datos, rol y vinculacion empresarial.
             </p>
           </div>
           <Button
             type="button"
             variant="ghost"
             size="icon"
-            disabled={edicion.guardando}
-            onClick={edicion.cerrar}
+            disabled={guardando}
+            onClick={cerrar}
             aria-label="Cerrar modal"
             className="text-slate-500 hover:text-slate-700"
           >
@@ -211,122 +254,187 @@ export function EditarUsuarioModal({
           </Button>
         </div>
 
-        {/* Body */}
-        <div className="overflow-y-auto px-5 py-5 space-y-5">
-          {/* Rol */}
-          <div className="space-y-2">
-            <Label
-              htmlFor="editar-rol"
-              className="text-xs font-bold uppercase tracking-wide text-slate-500"
-            >
-              Rol de sistema
-            </Label>
-            <select
-              id="editar-rol"
-              value={edicion.rol}
-              disabled={edicion.guardando}
-              onChange={(e) =>
-                edicion.setRol(e.target.value as "TRABAJADOR" | "REPRESENTANTE")
-              }
-              className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-[#1B2C56] focus:ring-2 focus:ring-[#1B2C56]/10 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <option value="TRABAJADOR">Trabajador</option>
-              <option value="REPRESENTANTE">Representante</option>
-            </select>
+        <div className="overflow-y-auto px-5 py-4">
+          <div className="grid gap-5 lg:grid-cols-[0.8fr_1.2fr]">
+            <aside className="space-y-4">
+              <div className="rounded-md border border-slate-200 bg-white p-4">
+                <div className="mb-3 flex items-center gap-2">
+                  <UserCog className="size-4 text-[#1B2C56]" />
+                  <h3 className="text-sm font-bold text-[#1B2C56]">
+                    Usuario seleccionado
+                  </h3>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-sm font-bold text-slate-800">
+                    {usuario.nombre}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    {usuario.correo ?? usuario.nombreUsuario ?? "Sin correo"}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <RolBadge rol={usuario.perfil} />
+                  </div>
+                  <p className="flex items-center gap-2 pt-1 text-xs text-slate-500">
+                    <Building2 className="size-3.5" />
+                    {usuario.empresa?.nombre ?? "Sin empresa asignada"}
+                  </p>
+                </div>
+              </div>
+
+              {quitandoRepresentante && (
+                <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+                  Este usuario dejara de ser representante. Puede conservar una
+                  empresa vinculada como trabajador o quedar desvinculado.
+                </div>
+              )}
+            </aside>
+
+            <section className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2 sm:col-span-2">
+                  <Label
+                    htmlFor="editar-usuario-nombre"
+                    className="text-xs font-bold uppercase tracking-wide text-slate-500"
+                  >
+                    Nombre
+                  </Label>
+                  <Input
+                    id="editar-usuario-nombre"
+                    value={nombre}
+                    disabled={guardando}
+                    onChange={(event) => {
+                      setNombre(event.target.value)
+                      setErrorFormulario(null)
+                    }}
+                    className="h-10 border-slate-200 bg-slate-50 text-sm focus:bg-white"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="editar-usuario-rut"
+                    className="text-xs font-bold uppercase tracking-wide text-slate-500"
+                  >
+                    RUT
+                  </Label>
+                  <Input
+                    id="editar-usuario-rut"
+                    value={rut}
+                    disabled={guardando}
+                    placeholder="Sin RUT"
+                    onChange={(event) => {
+                      setRut(event.target.value)
+                      setErrorFormulario(null)
+                    }}
+                    className="h-10 border-slate-200 bg-slate-50 font-mono text-sm focus:bg-white"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="editar-usuario-rol"
+                    className="text-xs font-bold uppercase tracking-wide text-slate-500"
+                  >
+                    Rol
+                  </Label>
+                  <select
+                    id="editar-usuario-rol"
+                    value={rol}
+                    disabled={guardando}
+                    onChange={(event) => {
+                      setRol(event.target.value as PerfilUsuarioApp)
+                      setErrorFormulario(null)
+                    }}
+                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-[#1B2C56] focus:ring-2 focus:ring-[#1B2C56]/10 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <option value="TRABAJADOR">Trabajador</option>
+                    <option value="REPRESENTANTE">Representante</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label
+                  htmlFor="editar-usuario-empresa"
+                  className="text-xs font-bold uppercase tracking-wide text-slate-500"
+                >
+                  Empresa {rol === "TRABAJADOR" ? "(opcional)" : ""}
+                </Label>
+                <select
+                  id="editar-usuario-empresa"
+                  value={empresaId}
+                  disabled={guardando || cargandoEmpresas}
+                  onChange={(event) => {
+                    setEmpresaId(event.target.value)
+                    setErrorFormulario(null)
+                  }}
+                  className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-[#1B2C56] focus:ring-2 focus:ring-[#1B2C56]/10 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <option value="">
+                    {cargandoEmpresas
+                      ? "Cargando empresas..."
+                      : rol === "TRABAJADOR"
+                        ? "Sin empresa vinculada"
+                        : "Seleccionar empresa"}
+                  </option>
+                  {empresasActivas.map((empresa) => (
+                    <option key={empresa.id} value={empresa.id}>
+                      {empresa.nombre}
+                    </option>
+                  ))}
+                </select>
+                {errorEmpresas && (
+                  <p className="text-xs font-medium text-red-600">
+                    {errorEmpresas}
+                  </p>
+                )}
+                {!errorEmpresas &&
+                  !cargandoEmpresas &&
+                  empresasActivas.length === 0 && (
+                    <p className="text-xs font-medium text-amber-700">
+                      No hay empresas activas disponibles.
+                    </p>
+                  )}
+                {empresaSeleccionada && (
+                  <p className="flex items-center gap-1 text-xs font-medium text-[#5d8a38]">
+                    <CheckCircle2 className="size-3.5" />
+                    {empresaSeleccionada.nombre}
+                  </p>
+                )}
+              </div>
+            </section>
           </div>
 
-          {/* Empresa */}
-          <div className="space-y-2">
-            <Label
-              htmlFor="editar-empresa"
-              className="text-xs font-bold uppercase tracking-wide text-slate-500"
-            >
-              Empresa vinculada
-              {edicion.rol === "REPRESENTANTE" && (
-                <span className="ml-1 text-red-500">*</span>
-              )}
-            </Label>
-            <select
-              id="editar-empresa"
-              value={edicion.empresaId}
-              disabled={edicion.guardando || edicion.cargandoEmpresas}
-              onChange={(e) => edicion.setEmpresaId(e.target.value)}
-              className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-[#1B2C56] focus:ring-2 focus:ring-[#1B2C56]/10 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <option value="">
-                {edicion.cargandoEmpresas
-                  ? "Cargando empresas..."
-                  : edicion.rol === "TRABAJADOR"
-                    ? "Sin empresa (opcional)"
-                    : "Seleccionar empresa"}
-              </option>
-              {edicion.empresasActivas.map((empresa) => (
-                <option key={empresa.id} value={empresa.id}>
-                  {empresa.nombre}
-                </option>
-              ))}
-            </select>
-            {edicion.errorEmpresas && (
-              <p className="text-xs font-medium text-red-600">
-                {edicion.errorEmpresas}
-              </p>
-            )}
-            {!edicion.errorEmpresas &&
-              !edicion.cargandoEmpresas &&
-              edicion.empresasActivas.length === 0 && (
-                <p className="text-xs font-medium text-amber-700">
-                  No hay empresas activas disponibles.
-                </p>
-              )}
-            {edicion.empresaSeleccionada && (
-              <p className="flex items-center gap-1 text-xs font-medium text-[#5d8a38]">
-                <Building2 className="size-3.5" />
-                {edicion.empresaSeleccionada.nombre}
-                <CheckCircle2 className="size-3.5 ml-0.5" />
-              </p>
-            )}
-          </div>
-
-          {/* Advertencia quitar rol representante */}
-          {quitandoRolRepresentante && (
-            <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
-              Este usuario es actualmente representante. Al guardar perderá ese
-              rol y su empresa vinculada podrá quedar sin representante.
-            </div>
-          )}
-
-          {/* Error formulario */}
-          {edicion.errorFormulario && (
-            <p className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
-              <AlertCircle className="size-4 shrink-0" />
-              {edicion.errorFormulario}
+          {errorFormulario && (
+            <p className="mt-4 flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+              <AlertCircle className="size-4" />
+              {errorFormulario}
             </p>
           )}
         </div>
 
-        {/* Footer */}
         <div className="flex flex-col-reverse gap-3 border-t border-slate-200 px-5 py-4 sm:flex-row sm:justify-end">
           <Button
             type="button"
             variant="outline"
-            disabled={edicion.guardando}
-            onClick={edicion.cerrar}
+            disabled={guardando}
+            onClick={cerrar}
           >
             Cancelar
           </Button>
           <Button
             type="button"
-            disabled={edicion.guardando || edicion.cargandoEmpresas}
-            onClick={edicion.confirmarEdicion}
-            className="bg-[#1B2C56] text-white hover:bg-[#1B2C56]/90"
+            disabled={guardando || cargandoEmpresas}
+            onClick={guardar}
+            className="bg-[#75aa46] text-white hover:bg-[#5d8a38]"
           >
-            {edicion.guardando ? (
+            {guardando ? (
               <>
                 <Loader2 className="size-4 animate-spin" />
                 Guardando...
               </>
             ) : (
-              "Guardar cambios"
+              "Guardar"
             )}
           </Button>
         </div>

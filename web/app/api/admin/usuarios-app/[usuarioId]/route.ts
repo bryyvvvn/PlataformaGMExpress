@@ -1,4 +1,4 @@
-import { EstadoEmpresa, Rol } from "@prisma/client"
+import { EstadoEmpresa, Prisma, Rol } from "@prisma/client"
 import { NextRequest, NextResponse } from "next/server"
 
 import db from "@/lib/db"
@@ -11,58 +11,113 @@ type RouteContext = {
   params: Promise<{ usuarioId: string }>
 }
 
-type PatchUsuarioPayload = {
+type ValidationResult<T> = { data: T } | { error: string }
+
+type EditarUsuarioPayload = {
   rol?: "TRABAJADOR" | "REPRESENTANTE"
   empresaId?: number | null
+  nombre?: string
+  rut?: string | null
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
-function validarPatchPayload(
-  body: unknown
-): { data: PatchUsuarioPayload; raw: Record<string, unknown> } | { error: string } {
-  if (!isRecord(body)) {
-    return { error: "El body debe ser un objeto JSON" }
+function normalizarStringOpcional(
+  value: unknown,
+  campo: string,
+  maxLength: number
+): ValidationResult<string | null | undefined> {
+  if (value === undefined) {
+    return { data: undefined }
   }
 
-  const camposPermitidos = new Set(["rol", "empresaId"])
+  if (value === null) {
+    return { data: null }
+  }
+
+  if (typeof value !== "string") {
+    return { error: `${campo} debe ser texto` }
+  }
+
+  const normalizado = value.trim()
+
+  if (normalizado.length === 0) {
+    return { data: null }
+  }
+
+  if (normalizado.length > maxLength) {
+    return { error: `${campo} no puede superar ${maxLength} caracteres` }
+  }
+
+  return { data: normalizado }
+}
+
+function validarPayload(body: unknown): ValidationResult<EditarUsuarioPayload> {
+  if (!isRecord(body)) {
+    return { error: "Body JSON invalido" }
+  }
+
+  const camposPermitidos = new Set(["rol", "empresaId", "nombre", "rut"])
   const camposExtra = Object.keys(body).filter((key) => !camposPermitidos.has(key))
 
   if (camposExtra.length > 0) {
     return { error: `Campos no permitidos: ${camposExtra.join(", ")}` }
   }
 
-  const result: PatchUsuarioPayload = {}
+  const payload: EditarUsuarioPayload = {}
 
-  if ("rol" in body) {
-    if (body.rol !== "TRABAJADOR" && body.rol !== "REPRESENTANTE") {
-      return { error: "El rol debe ser TRABAJADOR o REPRESENTANTE" }
+  if (body.rol !== undefined) {
+    if (body.rol !== Rol.TRABAJADOR && body.rol !== Rol.REPRESENTANTE) {
+      return { error: "rol debe ser TRABAJADOR o REPRESENTANTE" }
     }
-    result.rol = body.rol
+
+    payload.rol = body.rol
   }
 
-  if ("empresaId" in body) {
+  if (body.empresaId !== undefined) {
     if (body.empresaId === null) {
-      result.empresaId = null
+      payload.empresaId = null
     } else {
-      const id =
-        typeof body.empresaId === "number" ? body.empresaId : Number(body.empresaId)
+      const empresaId = Number(body.empresaId)
 
-      if (!Number.isInteger(id) || id <= 0) {
-        return { error: "empresaId debe ser un ID válido o null" }
+      if (!Number.isInteger(empresaId) || empresaId <= 0) {
+        return { error: "empresaId debe ser un numero positivo o null" }
       }
 
-      result.empresaId = id
+      payload.empresaId = empresaId
     }
   }
 
-  if (Object.keys(result).length === 0) {
-    return { error: "Se debe especificar al menos un campo a actualizar" }
+  const nombre = normalizarStringOpcional(body.nombre, "nombre", 100)
+  if ("error" in nombre) return nombre
+
+  if (nombre.data === null) {
+    return { error: "nombre no puede estar vacio" }
   }
 
-  return { data: result, raw: body }
+  if (nombre.data !== undefined) {
+    payload.nombre = nombre.data
+  }
+
+  const rut = normalizarStringOpcional(body.rut, "rut", 20)
+  if ("error" in rut) return rut
+
+  if (rut.data !== undefined) {
+    payload.rut = rut.data
+  }
+
+  if (
+    payload.rol === undefined &&
+    payload.empresaId === undefined &&
+    payload.nombre === undefined &&
+    payload.rut === undefined
+  ) {
+    return { error: "No hay cambios para actualizar" }
+  }
+
+  return { data: payload }
 }
 
 export async function PATCH(req: NextRequest, { params }: RouteContext) {
@@ -70,34 +125,46 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
     const admin = await validarAdministrador()
 
     if ("error" in admin) {
-      return NextResponse.json({ error: admin.error }, { status: admin.status })
+      return NextResponse.json(
+        { error: admin.error },
+        { status: admin.status }
+      )
     }
 
     const { usuarioId } = await params
 
-    let rawBody: unknown
+    if (usuarioId.trim().length === 0) {
+      return NextResponse.json({ error: "usuarioId invalido" }, { status: 400 })
+    }
+
+    let body: unknown
 
     try {
-      rawBody = await req.json()
+      body = await req.json()
     } catch {
-      return NextResponse.json({ error: "Body JSON inválido" }, { status: 400 })
+      return NextResponse.json({ error: "Body JSON invalido" }, { status: 400 })
     }
 
-    const validated = validarPatchPayload(rawBody)
+    const payload = validarPayload(body)
 
-    if ("error" in validated) {
-      return NextResponse.json({ error: validated.error }, { status: 400 })
+    if ("error" in payload) {
+      return NextResponse.json({ error: payload.error }, { status: 400 })
     }
-
-    const { data: payload, raw } = validated
 
     const usuario = await db.usuario.findUnique({
       where: { id: usuarioId },
-      select: { id: true, rol: true, empresaId: true },
+      select: {
+        id: true,
+        rol: true,
+        empresaId: true,
+      },
     })
 
     if (!usuario) {
-      return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 })
+      return NextResponse.json(
+        { error: "Usuario no encontrado" },
+        { status: 404 }
+      )
     }
 
     if (usuario.rol === Rol.ADMIN) {
@@ -107,40 +174,38 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
       )
     }
 
-    const rolFinal: Rol = payload.rol ? Rol[payload.rol] : usuario.rol
+    const rolFinal = payload.data.rol ?? usuario.rol
+    const empresaIdFueEspecificado = payload.data.empresaId !== undefined
+    const empresaIdFinal = empresaIdFueEspecificado
+      ? payload.data.empresaId
+      : usuario.empresaId
 
-    let empresaIdFinal: number | null
-
-    if (rolFinal === Rol.REPRESENTANTE) {
-      if (!("empresaId" in raw) || payload.empresaId === null || payload.empresaId === undefined) {
-        return NextResponse.json(
-          { error: "La empresa es obligatoria para un representante" },
-          { status: 400 }
-        )
-      }
-      empresaIdFinal = payload.empresaId
-    } else {
-      // TRABAJADOR: keep current if not provided, desvincular if null explicitly
-      if (!("empresaId" in raw)) {
-        empresaIdFinal = usuario.empresaId
-      } else {
-        empresaIdFinal = payload.empresaId ?? null
-      }
+    if (rolFinal === Rol.REPRESENTANTE && empresaIdFinal === null) {
+      return NextResponse.json(
+        { error: "empresaId es obligatorio para representantes" },
+        { status: 400 }
+      )
     }
 
     if (empresaIdFinal !== null) {
       const empresa = await db.empresa.findUnique({
         where: { id: empresaIdFinal },
-        select: { id: true, estado: true },
+        select: {
+          id: true,
+          estado: true,
+        },
       })
 
       if (!empresa) {
-        return NextResponse.json({ error: "Empresa no encontrada" }, { status: 404 })
+        return NextResponse.json(
+          { error: "Empresa no encontrada" },
+          { status: 404 }
+        )
       }
 
       if (empresa.estado !== EstadoEmpresa.ACTIVA) {
         return NextResponse.json(
-          { error: "La empresa seleccionada no está activa" },
+          { error: "La empresa seleccionada no esta activa" },
           { status: 400 }
         )
       }
@@ -149,8 +214,14 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
     const usuarioActualizado = await db.usuario.update({
       where: { id: usuario.id },
       data: {
-        rol: rolFinal,
-        empresaId: empresaIdFinal,
+        ...(payload.data.rol !== undefined ? { rol: payload.data.rol } : {}),
+        ...(empresaIdFueEspecificado
+          ? { empresaId: payload.data.empresaId }
+          : {}),
+        ...(payload.data.nombre !== undefined
+          ? { nombre: payload.data.nombre, apellido: null }
+          : {}),
+        ...(payload.data.rut !== undefined ? { rut: payload.data.rut } : {}),
       },
       select: {
         id: true,
@@ -163,7 +234,10 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
         rol: true,
         empresaId: true,
         empresa: {
-          select: { id: true, nombre: true },
+          select: {
+            id: true,
+            nombre: true,
+          },
         },
       },
     })
@@ -184,6 +258,17 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
     })
   } catch (error) {
     console.error("[admin/usuarios-app/[usuarioId]] Error:", error)
+
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      return NextResponse.json(
+        { error: "Ya existe un usuario con ese RUT" },
+        { status: 409 }
+      )
+    }
+
     return NextResponse.json(
       { error: "No se pudo actualizar el usuario" },
       { status: 500 }
