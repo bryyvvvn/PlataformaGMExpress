@@ -63,10 +63,8 @@ type ItemConsolidado = {
   cantidad: number
 }
 
-type ObservacionProduccion = {
-  pedidoId: number
-  empresa: string
-  observacion: string
+type ItemConsolidadoEmpaquetado = ItemConsolidado & {
+  tipoEmpaquetado: string | null
 }
 
 const CATEGORIAS_BEBESTIBLE: CategoriaPlato[] = [
@@ -144,6 +142,44 @@ function calcularConsolidado(pedidos: PedidoProduccionExcel[]): ItemConsolidado[
     const ordenB = ORDEN_CATEGORIA[b.categoria] ?? 99
     if (ordenA !== ordenB) return ordenA - ordenB
     return b.cantidad - a.cantidad
+  })
+}
+
+function calcularConsolidadoPorEmpaquetado(
+  pedidos: PedidoProduccionExcel[]
+): ItemConsolidadoEmpaquetado[] {
+  const mapa = new Map<string, ItemConsolidadoEmpaquetado>()
+
+  for (const pedido of pedidos) {
+    const tipoEmpaquetado = pedido.tipoEmpaquetado ?? null
+
+    for (const detalle of pedido.detalles) {
+      const key = `${detalle.plato.categoria}:${detalle.plato.nombre}:${tipoEmpaquetado ?? "SIN_DEFINIR"}`
+      const item = mapa.get(key)
+
+      if (item) {
+        item.cantidad += detalle.cantidad
+      } else {
+        mapa.set(key, {
+          categoria: detalle.plato.categoria,
+          plato: detalle.plato.nombre,
+          tipoEmpaquetado,
+          cantidad: detalle.cantidad,
+        })
+      }
+    }
+  }
+
+  return Array.from(mapa.values()).sort((a, b) => {
+    const ordenA = ORDEN_CATEGORIA[a.categoria] ?? 99
+    const ordenB = ORDEN_CATEGORIA[b.categoria] ?? 99
+    if (ordenA !== ordenB) return ordenA - ordenB
+    if (a.cantidad !== b.cantidad) return b.cantidad - a.cantidad
+    if (a.plato !== b.plato) return a.plato.localeCompare(b.plato, "es")
+    return formatearTipoEmpaquetado(a.tipoEmpaquetado).localeCompare(
+      formatearTipoEmpaquetado(b.tipoEmpaquetado),
+      "es"
+    )
   })
 }
 
@@ -299,7 +335,7 @@ function agregarSeccionConsolidado(
   sheet.addRow([])
 
   const titleRow = sheet.addRow(["Consolidado"])
-  sheet.mergeCells(`A${titleRow.number}:K${titleRow.number}`)
+  sheet.mergeCells(`A${titleRow.number}:C${titleRow.number}`)
   titleRow.getCell(1).fill = {
     type: "pattern",
     pattern: "solid",
@@ -387,43 +423,25 @@ function agregarHojaConsolidado(
   workbook: ExcelJS.Workbook,
   pedidos: PedidoProduccionExcel[]
 ): void {
-  const items = calcularConsolidado(pedidos)
+  const items = calcularConsolidadoPorEmpaquetado(pedidos)
   const sheet = workbook.addWorksheet("Consolidado")
 
   sheet.columns = [
-    { header: "Categoría", key: "categoria", width: 20 },
-    { header: "Plato",     key: "plato",     width: 40 },
-    { header: "Cantidad",  key: "cantidad",  width: 14 },
+    { header: "Categoría",        key: "categoria",   width: 20 },
+    { header: "Plato",            key: "plato",       width: 40 },
+    { header: "Tipo Empaquetado", key: "empaquetado", width: 22 },
+    { header: "Cantidad",         key: "cantidad",    width: 14 },
   ]
 
   aplicarEstiloEncabezado(sheet)
 
   items.forEach((item, index) => {
     const row = sheet.addRow({
-      categoria: item.categoria,
-      plato:     item.plato,
-      cantidad:  item.cantidad,
+      categoria:   item.categoria,
+      plato:       item.plato,
+      empaquetado: formatearTipoEmpaquetado(item.tipoEmpaquetado),
+      cantidad:    item.cantidad,
     })
-    aplicarEstiloFilaProduccion(row, index)
-  })
-}
-
-function agregarHojaObservacionesProduccion(
-  workbook: ExcelJS.Workbook,
-  observaciones: ObservacionProduccion[]
-): void {
-  const sheet = workbook.addWorksheet("Observaciones")
-
-  sheet.columns = [
-    { header: "ID Pedido",   key: "pedidoId",    width: 12 },
-    { header: "Empresa",     key: "empresa",     width: 26 },
-    { header: "Observación", key: "observacion", width: 72 },
-  ]
-
-  aplicarEstiloEncabezado(sheet)
-
-  observaciones.forEach((observacion, index) => {
-    const row = sheet.addRow(observacion)
     aplicarEstiloFilaProduccion(row, index)
   })
 }
@@ -432,7 +450,6 @@ export async function generarExcelProduccion(
   pedidos: PedidoProduccionExcel[]
 ): Promise<ResultadoExcelProduccion> {
   const pedidosValidos: PedidoProduccionExcel[] = []
-  const observaciones: ObservacionProduccion[] = []
   const pedidoIdsIncluidos: number[] = []
 
   for (const pedido of pedidos) {
@@ -441,22 +458,7 @@ export async function generarExcelProduccion(
       .sort((a, b) => a.id - b.id)
 
     if (fondos.length === 0) {
-      observaciones.push({
-        pedidoId: pedido.id,
-        empresa: pedido.empresa.nombre,
-        observacion:
-          "Pedido omitido: no contiene detalle de categoría FONDO.",
-      })
       continue
-    }
-
-    if (fondos.length > 1) {
-      observaciones.push({
-        pedidoId: pedido.id,
-        empresa: pedido.empresa.nombre,
-        observacion:
-          `Contiene múltiples fondos. Se utilizó el detalle ${fondos[0].id}.`,
-      })
     }
 
     pedidosValidos.push(pedido)
@@ -491,10 +493,6 @@ export async function generarExcelProduccion(
   }
 
   agregarHojaConsolidado(workbook, pedidosValidos)
-
-  if (observaciones.length > 0) {
-    agregarHojaObservacionesProduccion(workbook, observaciones)
-  }
 
   const archivo = await workbook.xlsx.writeBuffer()
 
