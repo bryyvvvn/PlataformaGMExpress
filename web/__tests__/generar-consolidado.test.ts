@@ -56,6 +56,7 @@ function crearEmpresaScalars(id: number, nombre: string): EmpresaScalars {
     representanteLegal: null,
     rutRepresentanteLegal: null,
     fechaNacimientoRepresentanteLegal: null,
+    fechaInicioContrato: null,
     estado: 'ACTIVA' as EstadoEmpresa,
     horaDespacho: null,
     esSucursal: false,
@@ -120,6 +121,8 @@ function crearPedido(overrides: {
     empresaId,
     usuarioId: 'usuario-test',
     observacion: null,
+    esCena: false,
+    tipoCena: null,
     detalles: (overrides.detalles ?? []).map((d) => crearDetalle(pedidoId, d)),
     empresa: crearEmpresaConConvenio(empresaId, overrides.empresaNombre ?? 'Empresa Test'),
   }

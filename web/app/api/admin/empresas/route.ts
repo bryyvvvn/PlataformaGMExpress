@@ -60,6 +60,7 @@ type EmpresaCreateData = {
   representanteLegal: string | null
   rutRepresentanteLegal: string | null
   fechaNacimientoRepresentanteLegal: Date | null
+  fechaInicioContrato: Date | null
   estado: EstadoEmpresa
   esSucursal: boolean
   casaMatrizId: number | null
@@ -445,6 +446,7 @@ function validarCrearEmpresaPayload(body: unknown): ValidationResult<CrearEmpres
     "representanteLegal",
     "rutRepresentanteLegal",
     "fechaNacimientoRepresentanteLegal",
+    "fechaInicioContrato",
     "estado",
     "esSucursal",
     "casaMatrizId",
@@ -532,6 +534,14 @@ function validarCrearEmpresaPayload(body: unknown): ValidationResult<CrearEmpres
     return fechaNacimientoRepresentanteLegal
   }
 
+  const fechaInicioContrato = validarFechaOpcional(
+    body.fechaInicioContrato,
+    "fechaInicioContrato"
+  )
+  if ("error" in fechaInicioContrato) {
+    return fechaInicioContrato
+  }
+
   const estado = validarEstadoEmpresa(body.estado)
   if ("error" in estado) return estado
 
@@ -598,6 +608,7 @@ function validarCrearEmpresaPayload(body: unknown): ValidationResult<CrearEmpres
         rutRepresentanteLegal: rutRepresentanteLegal.data,
         fechaNacimientoRepresentanteLegal:
           fechaNacimientoRepresentanteLegal.data,
+        fechaInicioContrato: fechaInicioContrato.data,
         estado: estado.data,
         esSucursal: sucursal.data.esSucursal,
         casaMatrizId: sucursal.data.casaMatrizId,
@@ -809,6 +820,7 @@ export async function POST(req: NextRequest) {
           representanteLegal: true,
           rutRepresentanteLegal: true,
           fechaNacimientoRepresentanteLegal: true,
+          fechaInicioContrato: true,
           estado: true,
           esSucursal: true,
           casaMatrizId: true,

@@ -77,6 +77,7 @@ export function useEditarEmpresa(empresaId: string | undefined) {
       fechaNacimientoRepresentanteLegal: fechaParaInput(
         empresa.fechaNacimientoRepresentanteLegal
       ),
+      fechaInicioContrato: fechaParaInput(empresa.fechaInicioContrato),
       estado: empresa.estado,
       horaDespacho: textoFormulario(empresa.horaDespacho),
       esSucursal: empresa.esSucursal,

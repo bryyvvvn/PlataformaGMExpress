@@ -56,8 +56,6 @@ export function GestionPedidosClient({
     <div className="mx-auto max-w-[1600px] space-y-6 p-6 bg-slate-50 min-h-screen">
       <PedidosHeader semana={semana} onAgregarManual={abrirModalManual} />
 
-      <HoraLimitePedidosCard />
-
       {mensajeManual && !modalManualOpen && (
         <MensajePedidoManualAlert mensaje={mensajeManual} />
       )}
@@ -78,7 +76,10 @@ export function GestionPedidosClient({
         />
       )}
 
-      <PedidosKpis semana={semana} />
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <PedidosKpis semana={semana} />
+        <HoraLimitePedidosCard />
+      </div>
 
       <PedidosEmptySemana semana={semana} />
 

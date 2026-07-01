@@ -1,6 +1,12 @@
 "use client"
 
-import { AlertCircle, Building2, CheckCircle2, Search } from "lucide-react"
+import {
+  AlertCircle,
+  Building2,
+  CheckCircle2,
+  Pencil,
+  Search,
+} from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -34,6 +40,7 @@ type UsuariosListadoProps = {
   mensajeExito: string | null
   onCambiarVista: (vista: PerfilUsuarioApp) => void
   onSearchTermChange: (value: string) => void
+  onEditarUsuario: (usuario: UsuarioApp) => void
   onReintentar: () => void
 }
 
@@ -49,6 +56,7 @@ export function UsuariosListado({
   mensajeExito,
   onCambiarVista,
   onSearchTermChange,
+  onEditarUsuario,
   onReintentar,
 }: UsuariosListadoProps) {
   return (
@@ -64,7 +72,7 @@ export function UsuariosListado({
                 Filtro de Directorio
               </h2>
               <p className="mt-0.5 text-[11px] uppercase tracking-wide text-slate-500">
-                Búsqueda por nombre, RUT, correo, teléfono o empresa
+                Busqueda por nombre, RUT, correo, telefono o empresa
               </p>
             </div>
           </div>
@@ -103,6 +111,7 @@ export function UsuariosListado({
           searchTerm={searchTerm}
           loading={loading}
           error={error}
+          onEditarUsuario={onEditarUsuario}
           onReintentar={onReintentar}
         />
       </CardContent>
@@ -155,8 +164,12 @@ function UsuariosTableState({
   searchTerm,
   loading,
   error,
+  onEditarUsuario,
   onReintentar,
-}: Omit<UsuariosListadoProps, "resumen" | "mensajeExito" | "onCambiarVista" | "onSearchTermChange">) {
+}: Omit<
+  UsuariosListadoProps,
+  "resumen" | "mensajeExito" | "onCambiarVista" | "onSearchTermChange"
+>) {
   if (loading) {
     return (
       <div className="px-5 py-8 text-center text-sm font-medium text-slate-500 animate-pulse">
@@ -177,14 +190,14 @@ function UsuariosTableState({
           onClick={onReintentar}
           className="h-8 text-xs font-semibold"
         >
-          Reintentar conexión
+          Reintentar conexion
         </Button>
       </div>
     )
   }
 
   if (usuarios.length === 0) {
-    return <EstadoVacio>El registro de usuarios está vacío.</EstadoVacio>
+    return <EstadoVacio>El registro de usuarios esta vacio.</EstadoVacio>
   }
 
   if (usuariosPorVista.length === 0) {
@@ -199,7 +212,12 @@ function UsuariosTableState({
     return <EstadoVacio>No se encontraron coincidencias para {searchTerm}.</EstadoVacio>
   }
 
-  return <UsuariosTable usuarios={usuariosFiltrados} />
+  return (
+    <UsuariosTable
+      usuarios={usuariosFiltrados}
+      onEditarUsuario={onEditarUsuario}
+    />
+  )
 }
 
 function EstadoVacio({ children }: { children: React.ReactNode }) {
@@ -210,18 +228,25 @@ function EstadoVacio({ children }: { children: React.ReactNode }) {
   )
 }
 
-function UsuariosTable({ usuarios }: { usuarios: UsuarioApp[] }) {
+function UsuariosTable({
+  usuarios,
+  onEditarUsuario,
+}: {
+  usuarios: UsuarioApp[]
+  onEditarUsuario: (usuario: UsuarioApp) => void
+}) {
   return (
     <div className="w-full overflow-x-auto">
-      <Table className="min-w-[1000px]">
+      <Table className="min-w-[1120px]">
         <TableHeader>
           <TableRow className="border-b border-slate-200 bg-slate-50/80 hover:bg-slate-50/80">
             <TableHead className="h-10 text-[10px] font-bold uppercase tracking-widest text-[#1B2C56]">Identidad</TableHead>
             <TableHead className="h-10 text-[10px] font-bold uppercase tracking-widest text-[#1B2C56]">Documento</TableHead>
-            <TableHead className="h-10 text-[10px] font-bold uppercase tracking-widest text-[#1B2C56]">Teléfono</TableHead>
-            <TableHead className="h-10 text-[10px] font-bold uppercase tracking-widest text-[#1B2C56]">Vinculación</TableHead>
+            <TableHead className="h-10 text-[10px] font-bold uppercase tracking-widest text-[#1B2C56]">Telefono</TableHead>
+            <TableHead className="h-10 text-[10px] font-bold uppercase tracking-widest text-[#1B2C56]">Vinculacion</TableHead>
             <TableHead className="h-10 text-[10px] font-bold uppercase tracking-widest text-[#1B2C56]">Rol de Sistema</TableHead>
             <TableHead className="h-10 text-[10px] font-bold uppercase tracking-widest text-[#1B2C56]">Estado</TableHead>
+            <TableHead className="h-10 text-right text-[10px] font-bold uppercase tracking-widest text-[#1B2C56]">Acciones</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -292,6 +317,18 @@ function UsuariosTable({ usuarios }: { usuarios: UsuarioApp[] }) {
                   )}
                   {etiquetaEstado(usuario.estado)}
                 </Badge>
+              </TableCell>
+              <TableCell className="py-3 text-right">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onEditarUsuario(usuario)}
+                  className="h-7 gap-1.5 border-slate-200 px-2.5 text-xs font-semibold text-slate-600 hover:border-[#1B2C56]/30 hover:text-[#1B2C56]"
+                >
+                  <Pencil className="size-3" />
+                  Editar
+                </Button>
               </TableCell>
             </TableRow>
           ))}

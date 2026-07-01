@@ -8,6 +8,7 @@ import { UsuariosKpiCards } from "@/components/admin/usuarios/usuarios-kpi-cards
 import { UsuariosListado } from "@/components/admin/usuarios/usuarios-listado"
 import {
   type PerfilUsuarioApp,
+  type UsuarioApp,
   useUsuariosApp,
 } from "@/hooks/useUsuariosApp"
 import { obtenerTerminosTelefonoBusqueda } from "@/lib/usuarios/telefono"
@@ -20,11 +21,20 @@ const AsignarRepresentanteModal = dynamic(
   { loading: () => null }
 )
 
+const EditarUsuarioModal = dynamic(
+  () =>
+    import("@/components/admin/usuarios/editar-usuario-modal").then(
+      (mod) => mod.EditarUsuarioModal
+    ),
+  { loading: () => null }
+)
+
 export default function UsuariosAppPage() {
   const { usuarios, resumen, loading, error, cargarUsuarios } = useUsuariosApp()
   const [searchTerm, setSearchTerm] = useState("")
   const [vistaActiva, setVistaActiva] = useState<PerfilUsuarioApp>("TRABAJADOR")
   const [modalAbierto, setModalAbierto] = useState(false)
+  const [usuarioEditando, setUsuarioEditando] = useState<UsuarioApp | null>(null)
   const [mensajeExito, setMensajeExito] = useState<string | null>(null)
 
   const usuariosPorVista = useMemo(
@@ -63,6 +73,15 @@ export default function UsuariosAppPage() {
     setModalAbierto(true)
   }
 
+  const abrirModalEdicion = (usuario: UsuarioApp) => {
+    setMensajeExito(null)
+    setUsuarioEditando(usuario)
+  }
+
+  const cerrarModalEdicion = () => {
+    setUsuarioEditando(null)
+  }
+
   const cambiarVista = (vista: PerfilUsuarioApp) => {
     setVistaActiva(vista)
     setSearchTerm("")
@@ -73,6 +92,11 @@ export default function UsuariosAppPage() {
     setVistaActiva("REPRESENTANTE")
     setSearchTerm("")
     setMensajeExito("Representante asignado correctamente.")
+    await cargarUsuarios()
+  }
+
+  const confirmarEdicion = async () => {
+    setMensajeExito("Usuario actualizado correctamente.")
     await cargarUsuarios()
   }
 
@@ -92,6 +116,7 @@ export default function UsuariosAppPage() {
         mensajeExito={mensajeExito}
         onCambiarVista={cambiarVista}
         onSearchTermChange={setSearchTerm}
+        onEditarUsuario={abrirModalEdicion}
         onReintentar={cargarUsuarios}
       />
 
@@ -100,6 +125,15 @@ export default function UsuariosAppPage() {
           abierto={modalAbierto}
           onCerrar={() => setModalAbierto(false)}
           onAsignado={confirmarAsignacion}
+        />
+      )}
+
+      {usuarioEditando && (
+        <EditarUsuarioModal
+          abierto={true}
+          usuario={usuarioEditando}
+          onCerrar={cerrarModalEdicion}
+          onGuardado={confirmarEdicion}
         />
       )}
     </div>

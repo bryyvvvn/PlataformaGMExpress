@@ -27,6 +27,7 @@ type EmpresaEditData = {
   representanteLegal: string | null
   rutRepresentanteLegal: string | null
   fechaNacimientoRepresentanteLegal: Date | null
+  fechaInicioContrato: Date | null
   estado: EstadoEmpresa
   horaDespacho: string | null
   esSucursal: boolean
@@ -405,6 +406,7 @@ function validarEditarEmpresaPayload(body: unknown): ValidationResult<EditarEmpr
     "representanteLegal",
     "rutRepresentanteLegal",
     "fechaNacimientoRepresentanteLegal",
+    "fechaInicioContrato",
     "estado",
     "horaDespacho",
     "esSucursal",
@@ -491,6 +493,14 @@ function validarEditarEmpresaPayload(body: unknown): ValidationResult<EditarEmpr
     return fechaNacimientoRepresentanteLegal
   }
 
+  const fechaInicioContrato = validarFechaOpcional(
+    body.fechaInicioContrato,
+    "fechaInicioContrato"
+  )
+  if ("error" in fechaInicioContrato) {
+    return fechaInicioContrato
+  }
+
   const estado = validarEstadoEmpresa(body.estado)
   if ("error" in estado) return estado
 
@@ -532,6 +542,7 @@ function validarEditarEmpresaPayload(body: unknown): ValidationResult<EditarEmpr
         rutRepresentanteLegal: rutRepresentanteLegal.data,
         fechaNacimientoRepresentanteLegal:
           fechaNacimientoRepresentanteLegal.data,
+        fechaInicioContrato: fechaInicioContrato.data,
         estado: estado.data,
         horaDespacho: horaDespacho.data,
         esSucursal: sucursal.data.esSucursal,
@@ -636,6 +647,7 @@ export async function GET(_req: Request, { params }: RouteContext) {
         representanteLegal: true,
         rutRepresentanteLegal: true,
         fechaNacimientoRepresentanteLegal: true,
+        fechaInicioContrato: true,
         estado: true,
         horaDespacho: true,
         esSucursal: true,
@@ -877,6 +889,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
           representanteLegal: true,
           rutRepresentanteLegal: true,
           fechaNacimientoRepresentanteLegal: true,
+          fechaInicioContrato: true,
           estado: true,
           horaDespacho: true,
           esSucursal: true,

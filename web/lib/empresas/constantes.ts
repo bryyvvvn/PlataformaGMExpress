@@ -40,6 +40,7 @@ export const CREAR_EMPRESA_DEFAULTS: CrearEmpresaForm = {
   representanteLegal: "",
   rutRepresentanteLegal: "",
   fechaNacimientoRepresentanteLegal: "",
+  fechaInicioContrato: "",
   estado: "ACTIVA",
   esSucursal: false,
   casaMatrizId: "",

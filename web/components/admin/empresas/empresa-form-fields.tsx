@@ -114,6 +114,17 @@ export function EmpresaDatosGeneralesFields({
         </select>
       </div>
 
+      <div className="space-y-2">
+        <Label htmlFor="fechaInicioContrato">Fecha de inicio de contrato</Label>
+        <Input
+          id="fechaInicioContrato"
+          type="date"
+          value={form.fechaInicioContrato}
+          disabled={disabled}
+          onChange={(event) => onChange("fechaInicioContrato", event.target.value)}
+        />
+      </div>
+
       <div className="space-y-3 rounded-md border border-slate-200 p-3 md:col-span-2">
         <label className="flex items-start gap-3 text-sm">
           <input
