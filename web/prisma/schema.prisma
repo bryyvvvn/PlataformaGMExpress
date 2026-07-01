@@ -26,6 +26,7 @@ model Empresa {
   representanteLegal                String?           @db.VarChar(150)
   rutRepresentanteLegal             String?           @db.VarChar(20)
   fechaNacimientoRepresentanteLegal DateTime?
+  fechaInicioContrato               DateTime?
   estado                            EstadoEmpresa     @default(ACTIVA)
   horaDespacho                      String?           @db.VarChar(5)
   esSucursal                        Boolean           @default(false)

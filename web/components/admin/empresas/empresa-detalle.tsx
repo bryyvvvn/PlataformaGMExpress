@@ -208,6 +208,10 @@ export function EmpresaDetalleDatosGenerales({
             value={empresa.sucursales.map((sucursal) => sucursal.nombre).join(", ")}
           />
         )}
+        <Dato
+          label="Inicio de contrato"
+          value={formatearFecha(empresa.fechaInicioContrato)}
+        />
         <Dato label="Creada" value={formatearFecha(empresa.creado_en)} />
         <Dato label="Hora límite de pedidos" value={horaLimiteEfectivaTexto} />
       </CardContent>

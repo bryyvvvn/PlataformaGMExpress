@@ -60,7 +60,18 @@ export async function GET(
       orderBy: { id: "asc" },
       select: {
         id: true,
-        empresa: { select: { id: true, nombre: true } },
+        fecha: true,
+        estado: true,
+        observacion: true,
+        empresa: {
+          select: {
+            id: true,
+            nombre: true,
+            ConvenioEmpresa: {
+              select: { tipoEmpaquetado: true },
+            },
+          },
+        },
         usuario: { select: { id: true, nombre: true } },
         detalles: {
           orderBy: { id: "asc" },
@@ -85,6 +96,8 @@ export async function GET(
 
     const pedidosNormalizados = pedidos.map((pedido) => ({
       ...pedido,
+      observacion: pedido.observacion ?? null,
+      tipoEmpaquetado: pedido.empresa.ConvenioEmpresa?.tipoEmpaquetado ?? null,
       usuario: {
         ...pedido.usuario,
         nombre: pedido.usuario.nombre ?? "Usuario sin nombre",

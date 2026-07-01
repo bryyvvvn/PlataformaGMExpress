@@ -50,6 +50,7 @@ export type EmpresaFormularioBase = {
   representanteLegal: string
   rutRepresentanteLegal: string
   fechaNacimientoRepresentanteLegal: string
+  fechaInicioContrato: string
   estado: EstadoEmpresaCliente
   esSucursal: boolean
   casaMatrizId: string
@@ -101,6 +102,7 @@ export type EmpresaDetalleBase = {
   representanteLegal: string | null
   rutRepresentanteLegal: string | null
   fechaNacimientoRepresentanteLegal: string | null
+  fechaInicioContrato: string | null
   estado: EstadoEmpresaCliente
   horaDespacho: string | null
   esSucursal: boolean

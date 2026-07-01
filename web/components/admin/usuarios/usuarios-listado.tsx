@@ -1,6 +1,6 @@
 "use client"
 
-import { AlertCircle, Building2, CheckCircle2, Search } from "lucide-react"
+import { AlertCircle, Building2, CheckCircle2, Pencil, Search } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -35,6 +35,7 @@ type UsuariosListadoProps = {
   onCambiarVista: (vista: PerfilUsuarioApp) => void
   onSearchTermChange: (value: string) => void
   onReintentar: () => void
+  onEditarUsuario: (usuario: UsuarioApp) => void
 }
 
 export function UsuariosListado({
@@ -50,6 +51,7 @@ export function UsuariosListado({
   onCambiarVista,
   onSearchTermChange,
   onReintentar,
+  onEditarUsuario,
 }: UsuariosListadoProps) {
   return (
     <Card className="overflow-hidden rounded-md border-slate-200 bg-white shadow-sm">
@@ -104,6 +106,7 @@ export function UsuariosListado({
           loading={loading}
           error={error}
           onReintentar={onReintentar}
+          onEditarUsuario={onEditarUsuario}
         />
       </CardContent>
     </Card>
@@ -156,6 +159,7 @@ function UsuariosTableState({
   loading,
   error,
   onReintentar,
+  onEditarUsuario,
 }: Omit<UsuariosListadoProps, "resumen" | "mensajeExito" | "onCambiarVista" | "onSearchTermChange">) {
   if (loading) {
     return (
@@ -199,7 +203,7 @@ function UsuariosTableState({
     return <EstadoVacio>No se encontraron coincidencias para {searchTerm}.</EstadoVacio>
   }
 
-  return <UsuariosTable usuarios={usuariosFiltrados} />
+  return <UsuariosTable usuarios={usuariosFiltrados} onEditarUsuario={onEditarUsuario} />
 }
 
 function EstadoVacio({ children }: { children: React.ReactNode }) {
@@ -210,10 +214,16 @@ function EstadoVacio({ children }: { children: React.ReactNode }) {
   )
 }
 
-function UsuariosTable({ usuarios }: { usuarios: UsuarioApp[] }) {
+function UsuariosTable({
+  usuarios,
+  onEditarUsuario,
+}: {
+  usuarios: UsuarioApp[]
+  onEditarUsuario: (usuario: UsuarioApp) => void
+}) {
   return (
     <div className="w-full overflow-x-auto">
-      <Table className="min-w-[1000px]">
+      <Table className="min-w-275">
         <TableHeader>
           <TableRow className="border-b border-slate-200 bg-slate-50/80 hover:bg-slate-50/80">
             <TableHead className="h-10 text-[10px] font-bold uppercase tracking-widest text-[#1B2C56]">Identidad</TableHead>
@@ -222,6 +232,7 @@ function UsuariosTable({ usuarios }: { usuarios: UsuarioApp[] }) {
             <TableHead className="h-10 text-[10px] font-bold uppercase tracking-widest text-[#1B2C56]">Vinculación</TableHead>
             <TableHead className="h-10 text-[10px] font-bold uppercase tracking-widest text-[#1B2C56]">Rol de Sistema</TableHead>
             <TableHead className="h-10 text-[10px] font-bold uppercase tracking-widest text-[#1B2C56]">Estado</TableHead>
+            <TableHead className="h-10 text-[10px] font-bold uppercase tracking-widest text-[#1B2C56]">Acciones</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -292,6 +303,18 @@ function UsuariosTable({ usuarios }: { usuarios: UsuarioApp[] }) {
                   )}
                   {etiquetaEstado(usuario.estado)}
                 </Badge>
+              </TableCell>
+              <TableCell className="py-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onEditarUsuario(usuario)}
+                  className="h-7 gap-1.5 border-slate-200 px-2.5 text-xs font-semibold text-slate-600 hover:border-[#1B2C56]/30 hover:text-[#1B2C56]"
+                >
+                  <Pencil className="size-3" />
+                  Editar
+                </Button>
               </TableCell>
             </TableRow>
           ))}
