@@ -38,23 +38,26 @@ export async function GET(request: NextRequest) {
       minutoNormalizado = '15';
     }
 
+    // ... (código de redondeo de minutos)
+
+    // Hora actual en Chile
     const horaFinal = hora.toString().padStart(2, '0');
     const horaActualStr = `${horaFinal}:${minutoNormalizado}`; 
 
-    console.log(`[CRON] Revisando cierres para la hora: ${horaActualStr}`);
+    // 🔥 EL ARREGLO: Miramos 3 horas hacia el futuro
+    let horaDespachoObjetivo = hora + 3;
+    if (horaDespachoObjetivo >= 24) {
+      horaDespachoObjetivo -= 24; // Por si pasa de la medianoche
+    }
+    const horaBusquedaStr = `${horaDespachoObjetivo.toString().padStart(2, '0')}:${minutoNormalizado}`;
 
-    // 3. BUSCAR EMPRESAS QUE TIENEN CONFIGURADA ESTA HORA DE DESPACHO
+    console.log(`[CRON] Son las ${horaActualStr}. Buscando empresas que comen a las ${horaBusquedaStr}`);
+
+    // Buscamos a las empresas que coinciden con esa hora futura
     const empresasAlCierre = await db.empresa.findMany({
-      where: { horaDespacho: horaActualStr },
+      where: { horaDespacho: horaBusquedaStr },
       select: { id: true, nombre: true }
     });
-
-    if (empresasAlCierre.length === 0) {
-      return NextResponse.json({ 
-        success: true, 
-        mensaje: `Ninguna empresa tiene configurado el cierre a las ${horaActualStr}.` 
-      });
-    }
 
     const idsEmpresasCierre = empresasAlCierre.map((e) => e.id);
     console.log(`[CRON] Empresas a procesar:`, empresasAlCierre.map(e => e.nombre));
@@ -144,7 +147,7 @@ export async function GET(request: NextRequest) {
           fecha: inicioDia, 
           usuarioId: usuario.id,
           empresaId: usuario.empresaId!, 
-          estado: 'PENDIENTE',
+          estado: 'CONFIRMADO',
           detalles: {
             create: detallesData, 
           },
