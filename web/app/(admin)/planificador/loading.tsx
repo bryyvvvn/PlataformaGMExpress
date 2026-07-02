@@ -21,7 +21,7 @@ export default function PlanificadorLoading() {
       {/* Overlay - logo más pequeño */}
       <div className="absolute inset-0 flex items-center justify-center bg-slate-50/60 backdrop-blur-sm">
         <div className="flex flex-col items-center gap-3">
-          <img src="/logo-blanco.png" alt="GM Express" className="w-24 drop-shadow-lg" />
+          <img src="/logo-gm-verde-azul.png" alt="GM Express" className="w-32 drop-shadow-lg" />
           <div className="h-6 w-6 animate-spin rounded-full border-4 border-[#1B2C56] border-t-transparent" />
         </div>
       </div>
