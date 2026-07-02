@@ -453,7 +453,7 @@ export function AgregarUsuarioModal({
         <div className="flex flex-col-reverse gap-3 border-t border-slate-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="flex items-center gap-1 text-xs font-semibold text-[#5d8a38]">
             <CheckCircle2 className="size-3.5" />
-            Guardado mock, sin persistencia.
+            Creando usuario real en Clerk.
           </p>
           <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             <Button

@@ -14,20 +14,32 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { rut, nombre, apellido, password, empresaId, telefono, correo } = body;
 
-    // 3. Estrategia del "Correo Fantasma" (si el admin no pone correo)
-    // Limpiamos el RUT (ej: 12.345.678-9 -> 123456789) para crear un correo falso si es necesario
-    const rutLimpio = rut.replace(/[^a-zA-Z0-9]/g, '');
-    const emailFinal = (correo && correo.trim() !== "") 
-      ? correo 
-      : `${rutLimpio}@gmexpress.cl`;
+    const rutLimpio = String(rut ?? "").replace(/[^a-zA-Z0-9]/g, "")
+    if (!rutLimpio) {
+      return NextResponse.json({ error: "RUT inválido" }, { status: 400 })
+    }
+
+    const correoLimpio = String(correo ?? "").trim()
+    const emailFinal = correoLimpio !== "" ? correoLimpio : `${rutLimpio}@gmexpress.cl`
+
+    const empresaIdInt = Number.parseInt(String(empresaId), 10)
+    if (Number.isNaN(empresaIdInt)) {
+      return NextResponse.json({ error: "Empresa inválida" }, { status: 400 })
+    }
+
+    const passwordFinal = String(password ?? "")
+    if (passwordFinal.length < 8) {
+      return NextResponse.json({ error: "La contraseña debe tener al menos 8 caracteres" }, { status: 400 })
+    }
 
     // 4. Crear el usuario en Clerk
     const clerk = await clerkClient();
     const nuevoUsuarioClerk = await clerk.users.createUser({
       emailAddress: [emailFinal],
-      password: password,
-      firstName: nombre,
-      lastName: apellido,
+      password: passwordFinal,
+      firstName: String(nombre ?? "").trim(),
+      lastName: String(apellido ?? "").trim(),
+      phoneNumber: telefono ? [String(telefono).trim()] : undefined,
       // username: rutLimpio, // 🔥 Descomenta esto si habilitas el login por Username en Clerk
     });
 
