@@ -55,10 +55,13 @@ export const useMenuAPI = (fecha?: string, usuarioId?: string, token?: string | 
   const [menuHoy, setMenuHoy] = useState<MenuDia>(MENU_VACIO);
   const [cargando, setCargando] = useState(true);
   const [tokenListo, setTokenListo] = useState(false);
+  
   const tokenRef = useRef(token);
   tokenRef.current = token;
 
-  // Marca tokenListo la primera vez que llega un token válido — nunca vuelve a false
+  // 🔥 NUEVO: Diccionario para guardar en memoria los menús ya descargados
+  const cacheRef = useRef<Record<string, MenuDia>>({});
+
   useEffect(() => {
     if (token && !tokenListo) setTokenListo(true);
   }, [token]);
@@ -69,6 +72,17 @@ export const useMenuAPI = (fecha?: string, usuarioId?: string, token?: string | 
     if (!usuarioId || !tokenListo) return;
 
     const cargarMenu = async () => {
+      // Creamos un identificador único para esta búsqueda (ej: "2026-07-01-user123")
+      const cacheKey = `${fecha || "hoy"}-${usuarioId}`;
+
+      // 1. EL TRUCO DE MAGIA: Si ya lo descargamos antes, lo mostramos al instante
+      if (cacheRef.current[cacheKey]) {
+        setMenuHoy(cacheRef.current[cacheKey]);
+        setCargando(false);
+        return; // Detenemos la ejecución aquí, no hay fetch a Railway 🚀
+      }
+
+      // 2. Si es la primera vez que vemos este día, mostramos el loading y buscamos
       setCargando(true);
       try {
         const params = new URLSearchParams();
@@ -90,7 +104,12 @@ export const useMenuAPI = (fecha?: string, usuarioId?: string, token?: string | 
         }
 
         const datos: MenuDia = await respuesta.json();
-        if (!cancelado) setMenuHoy(datos);
+        
+        if (!cancelado) {
+          setMenuHoy(datos);
+          // 3. Guardamos el resultado en la caché para la próxima vez que toque este día
+          cacheRef.current[cacheKey] = datos; 
+        }
       } catch (error) {
         console.error("[useMenuAPI] Error de red:", error);
         if (!cancelado) setMenuHoy(MENU_VACIO);
@@ -101,7 +120,7 @@ export const useMenuAPI = (fecha?: string, usuarioId?: string, token?: string | 
 
     cargarMenu();
     return () => { cancelado = true; };
-  }, [fecha, usuarioId, tokenListo]); // token fuera, solo re-fetch por fecha/usuario/tokenListo
+  }, [fecha, usuarioId, tokenListo]); 
 
   return { menuHoy, cargando };
 };

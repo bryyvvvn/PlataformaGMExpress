@@ -11,7 +11,7 @@ const isPublicRoute = createRouteMatcher([
   '/api/representante(.*)',
   '/api/cron/recordatorio', 
   '/api/cron/auto-asignar',
-  '/api/cron/auto-confirmar', // <- Agregado para tu nuevo cron
+  '/api/cron/auto-confirmar', 
   '/api/representante/bloqueos',
 ])
 
