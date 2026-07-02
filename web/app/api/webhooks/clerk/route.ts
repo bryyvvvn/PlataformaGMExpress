@@ -60,7 +60,7 @@ export async function POST(req: Request) {
           nombre: first_name || null,
           apellido: last_name || null,
           rol: Rol.TRABAJADOR, 
-          empresaId: 1, 
+          empresaId: null,
         }
       });
       console.log(`✅ Usuario ${id} sincronizado exitosamente.`);
@@ -77,7 +77,7 @@ export async function POST(req: Request) {
         await db.usuario.delete({ where: { id: id } });
         console.log(`🗑️ Usuario ${id} eliminado.`);
       }
-    } catch (error) {
+    } catch {
       console.log('El usuario no existía o ya fue eliminado.');
     }
   }

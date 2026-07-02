@@ -30,7 +30,11 @@ const validarRutChileno = (rutCompleto: string) => {
   return dvCalculado === dv;
 };
 
-export const VerificadorRut: React.FC = () => {
+interface VerificadorRutProps {
+  onGuardado?: () => void | Promise<void>;
+}
+
+export const VerificadorRut: React.FC<VerificadorRutProps> = ({ onGuardado }) => {
   const [inputRut, setInputRut] = useState('');
   const [inputTelefono, setInputTelefono] = useState('');
   const { requiereRut, guardandoRut, guardarRutAPI } = useVerificadorRut();
@@ -67,7 +71,10 @@ export const VerificadorRut: React.FC = () => {
 
     if (!resultado.success) {
       alert(resultado.error);
+      return;
     }
+
+    await onGuardado?.();
   };
 
   if (!requiereRut) return null;
