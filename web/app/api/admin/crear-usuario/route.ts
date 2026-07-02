@@ -39,8 +39,8 @@ export async function POST(req: Request) {
       password: passwordFinal,
       firstName: String(nombre ?? "").trim(),
       lastName: String(apellido ?? "").trim(),
+      username: rutLimpio,
       phoneNumber: telefono ? [String(telefono).trim()] : undefined,
-      // username: rutLimpio, // 🔥 Descomenta esto si habilitas el login por Username en Clerk
     });
 
     // 5. Guardar el usuario en tu base de datos (PostgreSQL) usando el ID de Clerk
@@ -61,12 +61,40 @@ export async function POST(req: Request) {
 
   } catch (error: any) {
     console.error("[CREAR_USUARIO_API]", error);
-    
-    // Si Clerk rechaza la contraseña por ser muy débil o el correo ya existe
-    if (error.errors && error.errors.length > 0) {
-      return NextResponse.json({ error: error.errors[0].message }, { status: 400 });
-    }
 
-    return NextResponse.json({ error: "Error interno al crear el usuario" }, { status: 500 });
+    const clerkErrorMessage = (() => {
+      if (error?.errors && Array.isArray(error.errors) && error.errors.length > 0) {
+        const firstError = error.errors[0]
+        return (
+          firstError?.message ||
+          firstError?.longMessage ||
+          firstError?.code ||
+          JSON.stringify(firstError)
+        )
+      }
+
+      if (error?.data?.errors && Array.isArray(error.data.errors) && error.data.errors.length > 0) {
+        const firstError = error.data.errors[0]
+        return (
+          firstError?.message ||
+          firstError?.longMessage ||
+          firstError?.code ||
+          JSON.stringify(firstError)
+        )
+      }
+
+      if (typeof error?.message === "string" && error.message.trim().length > 0) {
+        return error.message
+      }
+
+      if (typeof error === "string" && error.trim().length > 0) {
+        return error
+      }
+
+      return "Error interno al crear el usuario"
+    })()
+
+    const status = typeof error?.status === "number" ? error.status : 500
+    return NextResponse.json({ error: clerkErrorMessage }, { status })
   }
 }
