@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { API_BASE_URL } from '../constants/api';
+import { invalidateMenuCache } from './useMenuAPI';
 
 export interface PedidoPayload {
   entradasIds?: number[];
@@ -134,7 +135,8 @@ export const usePedidos = (
 
       if (respuesta.ok) {
         // 🔥 Forzamos la actualización pasándole 'true' a refrescarVerificacion
-        await refrescarVerificacion(true); 
+        invalidateMenuCache(fecha, payload.esCena);
+        await refrescarVerificacion(true);
         return true;
       }
 
@@ -164,6 +166,7 @@ export const usePedidos = (
         headers: { 'Authorization': `Bearer ${tokenRef.current}` },
       });
       if (res.ok) {
+        invalidateMenuCache(fechaParam ?? fecha, esCena);
         // 🔥 Forzamos la actualización para que el caché sepa que ya no hay pedido
         await refrescarVerificacion(true);
         return true;
@@ -199,6 +202,7 @@ export const usePedidos = (
       });
 
       if (respuesta.ok) {
+        invalidateMenuCache(fecha, esCena);
         // 🔥 Forzamos actualización
         await refrescarVerificacion(true);
         return true;
