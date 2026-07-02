@@ -2,27 +2,20 @@ import { useState, useEffect, useRef } from "react";
 import { API_BASE_URL } from "../constants/api";
 
 // ─── TIPOS ────────────────────────────────────────────────────────────────────
-// (Mantén todos tus interfaces Guarnicion, Plato, MenuDia exactamente igual aquí)
 export interface Guarnicion { id: number; nombre: string; }
 export interface Plato { id: number; nombre: string; url_imagen: string | null; categoria: "ENTRADA" | "FONDO" | "POSTRE" | "JUGO" | "BEBIDA" | "AGUA_SABORIZADA" | "CANJE" | "SANDWICH" | "SNACK"; tipo: "NORMAL" | "VEGANO" | "VEGETARIANO" | "HIPOCALORICO" | "PLATO_UNICO"; calorias?: number | null; proteinas?: number | null; carbohidratos?: number | null; grasas?: number | null; guarniciones: Guarnicion[]; menuDetalleId?: number; }
 export interface MenuDia { entradas: Plato[]; fondos: Plato[]; postres: Plato[]; menuDia: { entrada?: Plato | null; fondo?: Plato | null; postre?: Plato | null; guarnicion?: Guarnicion | null; entradasSeleccionadas?: Plato[]; entradaDisplay?: string | null; bebida?: Plato | null; } | null; convenio?: { trabajaFinDeSemana?: boolean | null; permiteCena?: boolean | null; }; }
 
 const MENU_VACIO: MenuDia = { entradas: [], fondos: [], postres: [], menuDia: null };
 
-// 🔥 EL TRUCO REAL: La memoria caché ahora vive AFUERA del hook.
-// Es indestructible aunque cambies de pantalla o el componente se recargue.
+// 🔥 MEMORIA GLOBAL E INDESTRUCTIBLE
 const cacheGlobalMenu: Record<string, MenuDia> = {};
 
-// ─── HOOK ─────────────────────────────────────────────────────────────────────
-
 export const useMenuAPI = (fecha?: string, usuarioId?: string, token?: string | null) => {
-  // 1. Revisamos el caché INMEDIATAMENTE antes de dibujar la pantalla
   const cacheKey = `${fecha || "hoy"}-${usuarioId}`;
-  const menuEnCache = cacheGlobalMenu[cacheKey];
-
-  // Si hay caché, iniciamos con esos datos y cargando en FALSE. Cero esperas.
-  const [menuHoy, setMenuHoy] = useState<MenuDia>(menuEnCache || MENU_VACIO);
-  const [cargando, setCargando] = useState<boolean>(!menuEnCache);
+  
+  const [menuFetch, setMenuFetch] = useState<MenuDia>(MENU_VACIO);
+  const [cargando, setCargando] = useState<boolean>(!cacheGlobalMenu[cacheKey]);
   
   const [tokenListo, setTokenListo] = useState(false);
   const tokenRef = useRef(token);
@@ -35,8 +28,13 @@ export const useMenuAPI = (fecha?: string, usuarioId?: string, token?: string | 
   useEffect(() => {
     let cancelado = false;
 
-    // Si no hay usuario o token, o SI YA TENÍAMOS CACHÉ AL INICIO, no hacemos nada más.
-    if (!usuarioId || !tokenListo || menuEnCache) return;
+    if (!usuarioId || !tokenListo) return;
+
+    // Si YA está en caché, apagamos el loading inmediatamente y NO hacemos fetch
+    if (cacheGlobalMenu[cacheKey]) {
+      setCargando(false);
+      return;
+    }
 
     const cargarMenu = async () => {
       setCargando(true);
@@ -55,20 +53,20 @@ export const useMenuAPI = (fecha?: string, usuarioId?: string, token?: string | 
 
         if (!respuesta.ok) {
           console.error("[useMenuAPI] Error HTTP:", respuesta.status);
-          if (!cancelado) setMenuHoy(MENU_VACIO);
+          if (!cancelado) setMenuFetch(MENU_VACIO);
           return;
         }
 
         const datos: MenuDia = await respuesta.json();
         
         if (!cancelado) {
-          setMenuHoy(datos);
-          // 🔥 Guardamos el resultado en la memoria global
+          // 🔥 Guardamos en la memoria RAM del celular
           cacheGlobalMenu[cacheKey] = datos; 
+          setMenuFetch(datos);
         }
       } catch (error) {
         console.error("[useMenuAPI] Error de red:", error);
-        if (!cancelado) setMenuHoy(MENU_VACIO);
+        if (!cancelado) setMenuFetch(MENU_VACIO);
       } finally {
         if (!cancelado) setCargando(false);
       }
@@ -76,7 +74,11 @@ export const useMenuAPI = (fecha?: string, usuarioId?: string, token?: string | 
 
     cargarMenu();
     return () => { cancelado = true; };
-  }, [fecha, usuarioId, tokenListo, menuEnCache]); 
+  }, [fecha, usuarioId, tokenListo, cacheKey]); 
 
-  return { menuHoy, cargando };
+  // 🔥 EL TRUCO: Siempre devolvemos el caché si existe, ignorando el estado lento de React
+  return { 
+    menuHoy: cacheGlobalMenu[cacheKey] || menuFetch, 
+    cargando: cacheGlobalMenu[cacheKey] ? false : cargando 
+  };
 };
