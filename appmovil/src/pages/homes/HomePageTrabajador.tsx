@@ -135,8 +135,10 @@ const HomePageTrabajador: React.FC = () => {
 
   const { otrosPlatos, loadingOtros } = useOtrosPlatos(activeTab === 'OTRO' || activeTab === 'PERSONALIZADO', clerkToken);
   const { timeRemaining } = useCountdown(DEADLINE_HOUR);
-  const { menuHoy, cargando: cargandoMenu } = useMenuAPI(fechaSeleccionadaISO, user?.id, clerkToken, modoComida === 'CENA');
-  const { pedidoExistente, cargandoVerificacion, enviarPedido, enviarItems, enviando, refrescarVerificacion, eliminarPedido, eliminando } = usePedidos(user?.id, fechaSeleccionadaISO, clerkToken, modoComida === 'CENA');
+  const fechaSeleccionadaNormalizada = useMemo(() => String(fechaSeleccionadaISO || '').slice(0, 10), [fechaSeleccionadaISO]);
+  const esCenaSeleccionada = modoComida === 'CENA';
+  const { menuHoy, cargando: cargandoMenu } = useMenuAPI(fechaSeleccionadaNormalizada, user?.id, clerkToken, esCenaSeleccionada);
+  const { pedidoExistente, cargandoVerificacion, enviarPedido, enviarItems, enviando, refrescarVerificacion, eliminarPedido, eliminando } = usePedidos(user?.id, fechaSeleccionadaNormalizada, clerkToken, esCenaSeleccionada);
 
   // 🔥 EXTRAEMOS estadoFechas DEL HISTORIAL
   const { historial, estadoFechas, cargando: cargandoHistorial, cargarHistorial } = useHistorial(user?.id, clerkToken);
