@@ -13,10 +13,10 @@ import {
 } from "@/hooks/useUsuariosApp"
 import { obtenerTerminosTelefonoBusqueda } from "@/lib/usuarios/telefono"
 
-const AsignarRepresentanteModal = dynamic(
+const AgregarUsuarioModal = dynamic(
   () =>
-    import("@/components/admin/usuarios/asignar-representante-modal").then(
-      (mod) => mod.AsignarRepresentanteModal
+    import("@/components/admin/usuarios/agregar-usuario-modal").then(
+      (mod) => mod.AgregarUsuarioModal
     ),
   { loading: () => null }
 )
@@ -33,7 +33,7 @@ export default function UsuariosAppPage() {
   const { usuarios, resumen, loading, error, cargarUsuarios } = useUsuariosApp()
   const [searchTerm, setSearchTerm] = useState("")
   const [vistaActiva, setVistaActiva] = useState<PerfilUsuarioApp>("TRABAJADOR")
-  const [modalAbierto, setModalAbierto] = useState(false)
+  const [modalAgregarAbierto, setModalAgregarAbierto] = useState(false)
   const [usuarioEditando, setUsuarioEditando] = useState<UsuarioApp | null>(null)
   const [mensajeExito, setMensajeExito] = useState<string | null>(null)
 
@@ -68,9 +68,9 @@ export default function UsuariosAppPage() {
     })
   }, [searchTerm, usuariosPorVista])
 
-  const abrirModalAsignacion = () => {
+  const abrirModalAgregarUsuario = () => {
     setMensajeExito(null)
-    setModalAbierto(true)
+    setModalAgregarAbierto(true)
   }
 
   const abrirModalEdicion = (usuario: UsuarioApp) => {
@@ -88,11 +88,10 @@ export default function UsuariosAppPage() {
     setMensajeExito(null)
   }
 
-  const confirmarAsignacion = async () => {
-    setVistaActiva("REPRESENTANTE")
-    setSearchTerm("")
-    setMensajeExito("Representante asignado correctamente.")
-    await cargarUsuarios()
+  const confirmarAgregarUsuarioMock = () => {
+    setMensajeExito(
+      "Formulario mock enviado. La creacion con Clerk se conectara en una siguiente etapa."
+    )
   }
 
   const confirmarEdicion = async () => {
@@ -102,7 +101,7 @@ export default function UsuariosAppPage() {
 
   return (
     <div className="mx-auto min-h-screen max-w-[1600px] space-y-6 bg-slate-50 p-6">
-      <UsuariosHeader onAsignarRepresentante={abrirModalAsignacion} />
+      <UsuariosHeader onAgregarUsuario={abrirModalAgregarUsuario} />
       <UsuariosKpiCards resumen={resumen} />
       <UsuariosListado
         usuarios={usuarios}
@@ -120,11 +119,11 @@ export default function UsuariosAppPage() {
         onReintentar={cargarUsuarios}
       />
 
-      {modalAbierto && (
-        <AsignarRepresentanteModal
-          abierto={modalAbierto}
-          onCerrar={() => setModalAbierto(false)}
-          onAsignado={confirmarAsignacion}
+      {modalAgregarAbierto && (
+        <AgregarUsuarioModal
+          abierto={modalAgregarAbierto}
+          onCerrar={() => setModalAgregarAbierto(false)}
+          onMockGuardado={confirmarAgregarUsuarioMock}
         />
       )}
 

@@ -25,28 +25,10 @@ export type ResumenUsuariosApp = {
   sinEmpresa: number
 }
 
-export type UsuarioAsignable = {
-  id: string
-  nombre: string | null
-  apellido: string | null
-  nombreUsuario: string | null
-  nombreCompleto: string
-  rut: string | null
-  correo: string | null
-  telefono?: string | null
-  rol: PerfilUsuarioApp
-  empresaId: number | null
-  empresa: UsuarioEmpresaResumen | null
-}
-
 export type EmpresaAsignable = {
   id: number
   nombre: string
   estado?: "ACTIVA" | "INACTIVA"
-}
-
-export type BuscarUsuariosAsignablesResponse = {
-  usuarios: UsuarioAsignable[]
 }
 
 export type EmpresasAsignablesResponse = {
