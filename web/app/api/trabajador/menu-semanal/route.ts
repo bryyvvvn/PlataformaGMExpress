@@ -142,13 +142,7 @@ function formatearSeleccion(seleccion: {
   };
 }
 
-/**
- * GET /api/trabajador/menu-semanal?fecha=YYYY-MM-DD
- *
- * Devuelve { entradas, fondos, postres, menuDia } del día solicitado.
- * Las listas se mantienen para compatibilidad con el flujo personalizado.
- * Sin parámetro → día actual en zona horaria Chile (no en UTC del servidor).
- */
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -170,43 +164,54 @@ export async function GET(req: NextRequest) {
     const diaNombre = getChileDayName(isoFecha);
     const inicioDia = chileStartOfDay(isoFecha);
     const finDia = chileEndOfDay(isoFecha);
-    const convenio = await obtenerConvenioUsuario(usuarioId);
 
-    const menuActivo = await db.menuSemanal.findFirst({
-      where: {
-        fecha_inicio: { lte: finDia },
-        fecha_fin: { gte: inicioDia },
-      },
-      orderBy: { creado_en: "desc" },
-      include: {
-        detalles: {
-          where: {
-            OR: [
-              { fecha_dia: { gte: inicioDia, lte: finDia } },
-              { fecha_dia: null, dia_semana: diaNombre },
-            ],
-          },
-          orderBy: [{ fecha_dia: "asc" }, { id: "asc" }],
-          include: { plato: true, guarniciones: true },
+    // 🔥 LA MAGIA DE LA CONCURRENCIA: Disparamos los 3 queries pesados al MISMO TIEMPO
+    const [convenio, menuActivo, ensaladaSurtida] = await Promise.all([
+      obtenerConvenioUsuario(usuarioId),
+      
+      db.menuSemanal.findFirst({
+        where: {
+          fecha_inicio: { lte: finDia },
+          fecha_fin: { gte: inicioDia },
         },
-        menuDiaSelecciones: {
-          where: { fecha_dia: { gte: inicioDia, lte: finDia } },
-          include: {
-            entradaDetalle: { include: { plato: true, guarniciones: true } },
-            fondoDetalle: { include: { plato: true, guarniciones: true } },
-            postreDetalle: { include: { plato: true, guarniciones: true } },
-            guarnicion: true,
-            bebidaPlato: true,
-            entradasSeleccionadas: {
-              orderBy: [{ orden: "asc" }, { id: "asc" }],
-              include: {
-                menuDetalle: { include: { plato: true, guarniciones: true } },
+        orderBy: { creado_en: "desc" },
+        include: {
+          detalles: {
+            where: {
+              OR: [
+                { fecha_dia: { gte: inicioDia, lte: finDia } },
+                { fecha_dia: null, dia_semana: diaNombre },
+              ],
+            },
+            orderBy: [{ fecha_dia: "asc" }, { id: "asc" }],
+            include: { plato: true, guarniciones: true },
+          },
+          menuDiaSelecciones: {
+            where: { fecha_dia: { gte: inicioDia, lte: finDia } },
+            include: {
+              entradaDetalle: { include: { plato: true, guarniciones: true } },
+              fondoDetalle: { include: { plato: true, guarniciones: true } },
+              postreDetalle: { include: { plato: true, guarniciones: true } },
+              guarnicion: true,
+              bebidaPlato: true,
+              entradasSeleccionadas: {
+                orderBy: [{ orden: "asc" }, { id: "asc" }],
+                include: {
+                  menuDetalle: { include: { plato: true, guarniciones: true } },
+                },
               },
             },
           },
         },
-      },
-    });
+      }),
+
+      db.plato.findFirst({
+        where: {
+          nombre: { equals: "Ensalada surtida", mode: "insensitive" },
+          categoria: "ENTRADA",
+        },
+      })
+    ]); // Fin del Promise.all
 
     if (!menuActivo || menuActivo.detalles.length === 0) {
       return NextResponse.json({
@@ -226,13 +231,6 @@ export async function GET(req: NextRequest) {
       .filter((d) => d.plato.categoria === "ENTRADA")
       .map(formatearDetalle);
 
-    const ensaladaSurtida = await db.plato.findFirst({
-      where: {
-        nombre: { equals: "Ensalada surtida", mode: "insensitive" },
-        categoria: "ENTRADA",
-      },
-    });
-
     const entradasConSurtida = ensaladaSurtida
       ? entradas.some((p) => p.nombre.toLowerCase().trim() === "ensalada surtida")
         ? entradas
@@ -248,15 +246,12 @@ export async function GET(req: NextRequest) {
 
     const menuFormateado = {
       entradas: entradasConSurtida,
-
       fondos: menuActivo.detalles
         .filter((d) => d.plato.categoria === "FONDO")
         .map(formatearDetalle),
-
       postres: menuActivo.detalles
         .filter((d) => d.plato.categoria === "POSTRE")
         .map(formatearDetalle),
-
       menuDia: seleccion ? formatearSeleccion(seleccion, convenio) : null,
       convenio: {
         trabajaFinDeSemana: Boolean(convenio?.trabajaFinDeSemana),
