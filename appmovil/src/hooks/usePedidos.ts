@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { API_BASE_URL } from '../constants/api';
 
 export interface PedidoPayload {
@@ -24,7 +24,10 @@ export const usePedidos = (
   token?: string | null,
   esCena: boolean = false
 ) => {
-  const cacheKey = `${fecha || 'hoy'}-${usuarioId}-${esCena ? 'cena' : 'almuerzo'}`;
+  const cacheKey = useMemo(
+    () => `${fecha || 'hoy'}-${usuarioId}-${esCena ? 'cena' : 'almuerzo'}`,
+    [fecha, usuarioId, esCena]
+  );
   const dataEnCache = cacheGlobalPedidos[cacheKey];
 
   const [yaPedioHoy, setYaPedioHoy] = useState(dataEnCache ? dataEnCache.existe : false);
@@ -44,10 +47,12 @@ export const usePedidos = (
     
     const cacheNuevo = cacheGlobalPedidos[cacheKey];
     if (cacheNuevo) {
+      // Tenemos cache → cargamos instantáneo sin parpadeo
       setYaPedioHoy(cacheNuevo.existe);
       setPedidoExistente(cacheNuevo.pedido);
-      setCargandoVerificacion(false); // Apagado instantáneo 🚀
+      setCargandoVerificacion(false);
     } else {
+      // No hay cache → mostramos loading y dejamos que el useEffect haga el fetch
       setYaPedioHoy(false);
       setPedidoExistente(null);
       setCargandoVerificacion(true);
