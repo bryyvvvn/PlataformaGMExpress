@@ -15,9 +15,26 @@ export interface PedidoPayload {
   observacion?: string | null;
 }
 
-// 🔥 MEMORIA GLOBAL PARA LOS PEDIDOS
-// Estructura: { "2026-07-01-user123-almuerzo": { existe: true, pedido: {...} } }
-const cacheGlobalPedidos: Record<string, { existe: boolean; pedido: any | null }> = {};
+type PedidoCache = { existe: boolean; pedido: any | null };
+
+const cacheGlobalPedidos: Record<string, PedidoCache> = {};
+const pedidosRequestsInFlight = new Map<string, Promise<PedidoCache>>();
+const pedidosCacheVersions = new Map<string, number>();
+
+const normalizePedidoDate = (fecha?: string) => String(fecha || '').slice(0, 10);
+
+const getPedidosCacheVersion = (cacheKey: string) => pedidosCacheVersions.get(cacheKey) ?? 0;
+
+const bumpPedidosCacheVersion = (cacheKey: string) => {
+  pedidosCacheVersions.set(cacheKey, getPedidosCacheVersion(cacheKey) + 1);
+};
+
+const invalidateMenuCacheForPedido = (fechaPedido: string | undefined, esCenaPedido: boolean) => {
+  const fechaNormalizada = normalizePedidoDate(fechaPedido);
+  if (fechaNormalizada) {
+    invalidateMenuCache(fechaNormalizada, esCenaPedido);
+  }
+};
 
 export const usePedidos = (
   usuarioId: string | undefined,
@@ -25,9 +42,10 @@ export const usePedidos = (
   token?: string | null,
   esCena: boolean = false
 ) => {
+  const fechaNormalizada = useMemo(() => normalizePedidoDate(fecha), [fecha]);
   const cacheKey = useMemo(
-    () => `${fecha || 'hoy'}-${usuarioId}-${esCena ? 'cena' : 'almuerzo'}`,
-    [fecha, usuarioId, esCena]
+    () => `${fechaNormalizada || 'hoy'}-${usuarioId}-${esCena ? 'cena' : 'almuerzo'}`,
+    [fechaNormalizada, usuarioId, esCena]
   );
   const dataEnCache = cacheGlobalPedidos[cacheKey];
 
@@ -38,22 +56,19 @@ export const usePedidos = (
   const [eliminando, setEliminando] = useState(false);
   const [tokenListo, setTokenListo] = useState(false);
 
-  // 🔥 EL ARREGLO DEL PARPADEO
-  const [fechaActual, setFechaActual] = useState(fecha);
+  const [fechaActual, setFechaActual] = useState(fechaNormalizada);
   const [esCenaActual, setEsCenaActual] = useState(esCena);
-  
-  if (fecha !== fechaActual || esCena !== esCenaActual) {
-    setFechaActual(fecha);
+
+  if (fechaNormalizada !== fechaActual || esCena !== esCenaActual) {
+    setFechaActual(fechaNormalizada);
     setEsCenaActual(esCena);
-    
+
     const cacheNuevo = cacheGlobalPedidos[cacheKey];
     if (cacheNuevo) {
-      // Tenemos cache → cargamos instantáneo sin parpadeo
       setYaPedioHoy(cacheNuevo.existe);
       setPedidoExistente(cacheNuevo.pedido);
       setCargandoVerificacion(false);
     } else {
-      // No hay cache → mostramos loading y dejamos que el useEffect haga el fetch
       setYaPedioHoy(false);
       setPedidoExistente(null);
       setCargandoVerificacion(true);
@@ -66,39 +81,72 @@ export const usePedidos = (
   useEffect(() => {
     if (token && !tokenListo) setTokenListo(true);
     if (!token && token !== undefined) setCargandoVerificacion(false);
-  }, [token]);
+  }, [token, tokenListo]);
 
-  // Le agregamos ignorarCache por si el usuario acaba de crear/borrar un pedido
   const refrescarVerificacion = useCallback(async (ignorarCache = false) => {
     if (!usuarioId || !tokenListo || !tokenRef.current) return;
 
-    // Si no forzamos la recarga y ya tenemos los datos en RAM, abortamos el viaje a Railway
-    if (!ignorarCache && cacheGlobalPedidos[cacheKey]) return;
+    const pedidoEnCache = cacheGlobalPedidos[cacheKey];
+    if (!ignorarCache && pedidoEnCache) {
+      setYaPedioHoy(pedidoEnCache.existe);
+      setPedidoExistente(pedidoEnCache.pedido);
+      setCargandoVerificacion(false);
+      return;
+    }
 
     setCargandoVerificacion(true);
     if (ignorarCache) {
+      bumpPedidosCacheVersion(cacheKey);
+      delete cacheGlobalPedidos[cacheKey];
+      pedidosRequestsInFlight.delete(cacheKey);
       setPedidoExistente(null);
       setYaPedioHoy(false);
     }
 
     try {
-      const url = `${API_BASE_URL}/api/trabajador/pedidos?usuarioId=${usuarioId}${fecha ? `&fecha=${fecha}` : ''}&esCena=${esCena}`;
-      const res = await fetch(url, {
-        headers: { 'Authorization': `Bearer ${tokenRef.current}` },
-      });
-      const data = await res.json();
-      
-      // 🔥 Guardamos en la memoria RAM
-      cacheGlobalPedidos[cacheKey] = { existe: data.existe, pedido: data.pedido ?? null };
-      
+      let request = !ignorarCache ? pedidosRequestsInFlight.get(cacheKey) : undefined;
+
+      if (!request) {
+        const requestVersion = getPedidosCacheVersion(cacheKey);
+        const requestBase = (async () => {
+          const url = `${API_BASE_URL}/api/trabajador/pedidos?usuarioId=${usuarioId}${fechaNormalizada ? `&fecha=${fechaNormalizada}` : ''}&esCena=${esCena}`;
+          const res = await fetch(url, {
+            headers: { 'Authorization': `Bearer ${tokenRef.current}` },
+          });
+          const data = await res.json();
+          return { existe: Boolean(data.existe), pedido: data.pedido ?? null };
+        })();
+
+        let nuevaRequest: Promise<PedidoCache>;
+        nuevaRequest = requestBase
+          .then((data) => {
+            if (getPedidosCacheVersion(cacheKey) === requestVersion) {
+              cacheGlobalPedidos[cacheKey] = data;
+            }
+            return data;
+          })
+          .finally(() => {
+            if (pedidosRequestsInFlight.get(cacheKey) === nuevaRequest) {
+              pedidosRequestsInFlight.delete(cacheKey);
+            }
+          });
+
+        pedidosRequestsInFlight.set(cacheKey, nuevaRequest);
+        request = nuevaRequest;
+      }
+
+      const waitVersion = getPedidosCacheVersion(cacheKey);
+      const data = await request;
+      if (getPedidosCacheVersion(cacheKey) !== waitVersion) return;
+
       setYaPedioHoy(data.existe);
-      setPedidoExistente(data.pedido ?? null);
+      setPedidoExistente(data.pedido);
     } catch (e) {
       console.error('[usePedidos] Error al verificar pedido:', e);
     } finally {
       setCargandoVerificacion(false);
     }
-  }, [usuarioId, fecha, esCena, tokenListo, cacheKey]);
+  }, [usuarioId, fechaNormalizada, esCena, tokenListo, cacheKey]);
 
   useEffect(() => {
     refrescarVerificacion();
@@ -115,7 +163,7 @@ export const usePedidos = (
         postreId: pedido.postreId ?? null,
         jugoId: pedido.jugoId ?? null,
         guarnicionId: pedido.guarnicionId === -1 ? null : pedido.guarnicionId ?? null,
-        fecha: fecha ?? undefined,
+        fecha: fechaNormalizada || undefined,
         esFinDeSemana: pedido.esFinDeSemana ?? false,
         tipoFinde: pedido.tipoFinde ?? null,
         esCena: pedido.esCena ?? false,
@@ -134,8 +182,7 @@ export const usePedidos = (
       });
 
       if (respuesta.ok) {
-        // 🔥 Forzamos la actualización pasándole 'true' a refrescarVerificacion
-        invalidateMenuCache(fecha, payload.esCena);
+        invalidateMenuCacheForPedido(fechaNormalizada, payload.esCena);
         await refrescarVerificacion(true);
         return true;
       }
@@ -149,7 +196,7 @@ export const usePedidos = (
       alert(`Error: ${errorData?.error || 'No se pudo procesar el pedido'}`);
       return false;
     } catch (error) {
-      alert(`Fallo de conexión con el servidor: ${error instanceof Error ? error.message : String(error)}`);
+      alert(`Fallo de conexion con el servidor: ${error instanceof Error ? error.message : String(error)}`);
       return false;
     } finally {
       setEnviando(false);
@@ -160,14 +207,14 @@ export const usePedidos = (
     if (!usuarioId || !tokenRef.current) return false;
     setEliminando(true);
     try {
-      const url = `${API_BASE_URL}/api/trabajador/pedidos?usuarioId=${usuarioId}${fechaParam ? `&fecha=${fechaParam}` : (fecha ? `&fecha=${fecha}` : '')}&esCena=${esCena}`;
+      const fechaEliminar = normalizePedidoDate(fechaParam) || fechaNormalizada;
+      const url = `${API_BASE_URL}/api/trabajador/pedidos?usuarioId=${usuarioId}${fechaEliminar ? `&fecha=${fechaEliminar}` : ''}&esCena=${esCena}`;
       const res = await fetch(url, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${tokenRef.current}` },
       });
       if (res.ok) {
-        invalidateMenuCache(fechaParam ?? fecha, esCena);
-        // 🔥 Forzamos la actualización para que el caché sepa que ya no hay pedido
+        invalidateMenuCacheForPedido(fechaEliminar, esCena);
         await refrescarVerificacion(true);
         return true;
       }
@@ -186,7 +233,7 @@ export const usePedidos = (
       const payload = {
         usuarioId,
         items,
-        fecha: fecha ?? undefined,
+        fecha: fechaNormalizada || undefined,
         observacion: observacion?.trim() || null,
         esCena,
       };
@@ -202,8 +249,7 @@ export const usePedidos = (
       });
 
       if (respuesta.ok) {
-        invalidateMenuCache(fecha, esCena);
-        // 🔥 Forzamos actualización
+        invalidateMenuCacheForPedido(fechaNormalizada, esCena);
         await refrescarVerificacion(true);
         return true;
       }
@@ -217,7 +263,7 @@ export const usePedidos = (
       alert(`Error: ${errorData?.error || 'No se pudo procesar el pedido'}`);
       return false;
     } catch (error) {
-      alert(`Fallo de conexión con el servidor`);
+      alert('Fallo de conexion con el servidor');
       return false;
     } finally {
       setEnviando(false);
