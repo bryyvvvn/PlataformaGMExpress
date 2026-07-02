@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import { CalendarDays, Loader2, RefreshCw, UtensilsCrossed } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type {
@@ -7,8 +8,11 @@ import type {
   PlatoBebida,
 } from "@/hooks/usePlanificador";
 import { DiaMenuCard, type DiaMenuSelectionHandlers } from "./dia-menu-card";
+import { PlanificadorLoading } from "./planificador-loading";
 
 type ActualizarDraft = (fecha: string, cambios: Partial<DraftMenuDia>) => void;
+const LOADER_MAX_PROGRESS = 92;
+const LOADER_HIDE_DELAY_MS = 300;
 
 export function ProgramacionDiariaSection({
   menuDia,
@@ -37,6 +41,56 @@ export function ProgramacionDiariaSection({
   onGuardarMenuDia: (dia: DiaMenu) => void;
   selectionHandlers: DiaMenuSelectionHandlers;
 }) {
+  const [loaderProgress, setLoaderProgress] = useState(() => (loadingMenuDia ? 0 : 100));
+  const [loaderVisible, setLoaderVisible] = useState(() => loadingMenuDia);
+  const wasLoadingRef = useRef(loadingMenuDia);
+
+  useEffect(() => {
+    const timeouts: number[] = [];
+    let progressInterval: number | undefined;
+
+    if (loadingMenuDia) {
+      timeouts.push(
+        window.setTimeout(() => {
+          setLoaderVisible(true);
+          setLoaderProgress(0);
+        }, 0)
+      );
+
+      progressInterval = window.setInterval(() => {
+        setLoaderProgress((current) => {
+          if (current >= LOADER_MAX_PROGRESS) return LOADER_MAX_PROGRESS;
+
+          const increment = current < 35 ? 7 : current < 70 ? 4 : 2;
+          return Math.min(LOADER_MAX_PROGRESS, current + increment);
+        });
+      }, 220);
+    } else if (wasLoadingRef.current) {
+      timeouts.push(
+        window.setTimeout(() => {
+          setLoaderVisible(true);
+          setLoaderProgress(100);
+
+          timeouts.push(
+            window.setTimeout(() => {
+              setLoaderVisible(false);
+            }, LOADER_HIDE_DELAY_MS)
+          );
+        }, 0)
+      );
+    }
+
+    wasLoadingRef.current = loadingMenuDia;
+
+    return () => {
+      if (progressInterval) window.clearInterval(progressInterval);
+      timeouts.forEach((timeout) => window.clearTimeout(timeout));
+    };
+  }, [loadingMenuDia]);
+
+  const showLoader = loadingMenuDia || loaderVisible;
+  const displayedLoaderProgress = loadingMenuDia && loaderProgress > LOADER_MAX_PROGRESS ? 0 : loaderProgress;
+
   return (
     <section className="space-y-4 rounded-md border border-slate-200 bg-white p-6 shadow-sm">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between border-b border-slate-100 pb-4">
@@ -69,10 +123,8 @@ export function ProgramacionDiariaSection({
       )}
 
       <div className="space-y-4 pt-2">
-        {loadingMenuDia ? (
-          Array.from({ length: 5 }).map((_, index) => (
-            <div key={index} className="h-16 animate-pulse rounded-md border border-slate-100 bg-slate-50" />
-          ))
+        {showLoader ? (
+          <PlanificadorLoading progress={displayedLoaderProgress} />
         ) : menuDia?.dias.length ? (
           menuDia.dias.map((dia) => {
             const draft = dia.fecha ? drafts[dia.fecha] : undefined;

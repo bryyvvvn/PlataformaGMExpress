@@ -16,7 +16,7 @@ function StatSkeleton() {
 
 export default function DashboardLoading() {
   return (
-    <div className="flex min-h-full flex-col bg-slate-50">
+    <div className="relative flex min-h-full flex-col bg-slate-50">
       <Header title="Inicio" subtitle="Cargando resumen…" />
       <div className="grid gap-4 p-4">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
@@ -43,6 +43,14 @@ export default function DashboardLoading() {
               ))}
             </CardContent>
           </Card>
+        </div>
+      </div>
+
+      {/* Overlay */}
+      <div className="absolute inset-0 flex items-center justify-center bg-slate-50/60 backdrop-blur-sm">
+        <div className="flex flex-col items-center gap-4">
+          <img src="/logo-gm-verde-azul.png" alt="GM Express" className="w-48 drop-shadow-lg" />
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#1B2C56] border-t-transparent" />
         </div>
       </div>
     </div>

@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic"
 import type { SemanaConsolidada } from "@/lib/pedidos/consolidado"
+import type { EmpresaOption } from "@/lib/pedidos/tipos"
 import { useGestionPedidos } from "@/hooks/useGestionPedidos"
 import { PedidosHeader } from "@/components/admin/pedidos/pedidos-header"
 import { MensajePedidoManualAlert } from "@/components/admin/pedidos/mensaje-pedido-manual-alert"
@@ -23,11 +24,13 @@ const PedidoManualModal = dynamic(
 type GestionPedidosClientProps = {
   semana: SemanaConsolidada
   horaLimitePedidos: string
+  empresas: EmpresaOption[]
 }
 
 export function GestionPedidosClient({
   semana,
   horaLimitePedidos,
+  empresas,
 }: GestionPedidosClientProps) {
   const {
     activeTab,
@@ -35,7 +38,6 @@ export function GestionPedidosClient({
     descargandoHistorico,
     descargandoProduccion,
     errorExportacion,
-    empresas,
     pedidosManuales,
     loadingManuales,
     modalManualOpen,
@@ -50,7 +52,7 @@ export function GestionPedidosClient({
     guardarPedidoManual,
     handleExportarHistorico,
     handleExportarProduccion,
-  } = useGestionPedidos(semana)
+  } = useGestionPedidos(semana, empresas)
 
   return (
     <div className="mx-auto max-w-[1600px] space-y-6 p-6 bg-slate-50 min-h-screen">
