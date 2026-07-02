@@ -524,6 +524,7 @@ async function crearUsuario(req: NextRequest) {
           id: usuario.id,
           nombre: [usuario.nombre, usuario.apellido].filter(Boolean).join(" "),
           nombreUsuario: usuario.nombreUsuario,
+          usernameClerk: usuario.nombreUsuario,
           rut: usuario.rut,
           correo: usuario.correo,
           telefono: usuario.telefono,

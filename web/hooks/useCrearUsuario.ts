@@ -20,6 +20,7 @@ type CrearUsuarioResponse = {
     id: string
     nombre: string
     nombreUsuario: string | null
+    usernameClerk: string | null
     rut: string | null
     correo: string | null
     telefono: string | null

@@ -44,6 +44,11 @@ type FormState = {
 
 type FormErrors = Partial<Record<keyof FormState, string>>
 
+type UsuarioCreadoInfo = {
+  usernameClerk: string
+  correo: string
+}
+
 const FORM_INICIAL: FormState = {
   rut: "",
   nombre: "",
@@ -117,6 +122,9 @@ export function AgregarUsuarioModal({
   const [empresas, setEmpresas] = useState<EmpresaAsignable[]>([])
   const [cargandoEmpresas, setCargandoEmpresas] = useState(false)
   const [errorEmpresas, setErrorEmpresas] = useState<string | null>(null)
+  const [usuarioCreado, setUsuarioCreado] = useState<UsuarioCreadoInfo | null>(
+    null
+  )
 
   const empresasActivas = useMemo(
     () => empresas.filter((empresa) => empresa.estado !== "INACTIVA"),
@@ -173,6 +181,7 @@ export function AgregarUsuarioModal({
 
   const actualizarCampo = (campo: keyof FormState, value: string) => {
     limpiarEstado()
+    setUsuarioCreado(null)
     setForm((current) => ({ ...current, [campo]: value }))
     setErrores((current) => {
       if (!current[campo]) return current
@@ -198,9 +207,16 @@ export function AgregarUsuarioModal({
     if (Object.keys(erroresFormulario).length > 0) return
 
     try {
-      await crearUsuario(form)
+      const resultado = await crearUsuario(form)
+      const usernameClerk =
+        resultado.usuario.usernameClerk ?? resultado.usuario.nombreUsuario
+
+      setUsuarioCreado({
+        usernameClerk: usernameClerk ?? "No disponible",
+        correo: resultado.usuario.correo ?? form.correo.trim().toLowerCase(),
+      })
+      setForm(FORM_INICIAL)
       await onUsuarioCreado()
-      onCerrar()
     } catch {
       return
     }
@@ -248,7 +264,8 @@ export function AgregarUsuarioModal({
         <div className="overflow-y-auto px-5 py-4">
           <div className="mb-4 rounded-md border border-[#75aa46]/20 bg-[#75aa46]/10 px-3 py-2 text-xs font-semibold text-[#5d8a38]">
             El usuario se creara como trabajador y quedara disponible en Clerk y
-            en el directorio de usuarios de app.
+            en el directorio de usuarios de app. El usuario de acceso se genera
+            desde el RUT con prefijo rut.
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -455,10 +472,33 @@ export function AgregarUsuarioModal({
             </p>
           )}
           {success && (
-            <p className="mt-4 flex items-center gap-2 rounded-md border border-[#75aa46]/20 bg-[#75aa46]/10 px-3 py-2 text-sm font-semibold text-[#5d8a38]">
-              <CheckCircle2 className="size-4" />
-              {success}
-            </p>
+            <div className="mt-4 rounded-md border border-[#75aa46]/20 bg-[#75aa46]/10 px-3 py-3 text-sm text-[#5d8a38]">
+              <p className="flex items-center gap-2 font-semibold">
+                <CheckCircle2 className="size-4" />
+                {success}
+              </p>
+              {usuarioCreado && (
+                <div className="mt-3 space-y-1 rounded border border-[#75aa46]/20 bg-white/70 px-3 py-2 text-xs font-semibold text-slate-700">
+                  <p>El trabajador puede iniciar sesion con:</p>
+                  <p>
+                    Usuario:{" "}
+                    <span className="font-mono text-[#1B2C56]">
+                      {usuarioCreado.usernameClerk}
+                    </span>
+                  </p>
+                  <p>
+                    Correo:{" "}
+                    <span className="font-mono text-[#1B2C56]">
+                      {usuarioCreado.correo}
+                    </span>
+                  </p>
+                  <p className="text-slate-500">
+                    La contrasena es la definida en el formulario y no se
+                    muestra ni se guarda localmente.
+                  </p>
+                </div>
+              )}
+            </div>
           )}
           {Object.keys(errores).length > 0 && (
             <p className="mt-4 flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
