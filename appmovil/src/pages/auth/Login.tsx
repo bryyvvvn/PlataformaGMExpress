@@ -1,8 +1,147 @@
 import React, { useState } from 'react';
-import { SignIn, SignUp } from '@clerk/clerk-react';
+import { SignUp, useSignIn } from '@clerk/clerk-react';
 import { APP_NAME } from '../../constants/theme';
 
 const LOGO_SRC = '/GM Express Logo.png';
+
+function prepararIdentificadorLogin(valor: string) {
+  const limpio = valor.trim();
+
+  if (limpio.includes('@')) {
+    return limpio.toLowerCase();
+  }
+
+  const rutLimpio = limpio.replace(/[.\-\s]/g, '').toLowerCase();
+
+  if (/^\d{7,8}[0-9k]$/.test(rutLimpio)) {
+    return `rut${rutLimpio}`;
+  }
+
+  return limpio;
+}
+
+function obtenerMensajeErrorClerk(error: unknown) {
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'errors' in error &&
+    Array.isArray(error.errors) &&
+    error.errors.length > 0
+  ) {
+    const primerError = error.errors[0];
+
+    if (
+      typeof primerError === 'object' &&
+      primerError !== null &&
+      'message' in primerError &&
+      typeof primerError.message === 'string'
+    ) {
+      return primerError.message;
+    }
+  }
+
+  if (error instanceof Error && error.message.trim().length > 0) {
+    return error.message;
+  }
+
+  return 'No se pudo iniciar sesion. Revisa tus datos e intenta nuevamente.';
+}
+
+function LoginConRut() {
+  const { isLoaded, signIn, setActive } = useSignIn();
+  const [identificador, setIdentificador] = useState('');
+  const [password, setPassword] = useState('');
+  const [enviando, setEnviando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const iniciarSesion = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!isLoaded || enviando) return;
+
+    const identificadorPreparado = prepararIdentificadorLogin(identificador);
+
+    if (!identificadorPreparado || password.length === 0) {
+      setError('Ingresa tu RUT o correo y contrasena.');
+      return;
+    }
+
+    setEnviando(true);
+    setError(null);
+
+    try {
+      const resultado = await signIn.create({
+        identifier: identificadorPreparado,
+        password,
+      });
+
+      if (resultado.status === 'complete') {
+        await setActive({ session: resultado.createdSessionId });
+        return;
+      }
+
+      setError('No se pudo completar el inicio de sesion.');
+    } catch (err) {
+      setError(obtenerMensajeErrorClerk(err));
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  return (
+    <form className="space-y-4" onSubmit={iniciarSesion}>
+      <div className="space-y-2">
+        <label className="block text-sm font-bold text-[#0F172A]" htmlFor="login-identificador">
+          RUT o correo
+        </label>
+        <input
+          id="login-identificador"
+          value={identificador}
+          disabled={!isLoaded || enviando}
+          onChange={(event) => {
+            setIdentificador(event.target.value);
+            setError(null);
+          }}
+          placeholder="21.177.361-8"
+          autoComplete="username"
+          className="min-h-[3.15rem] w-full rounded-[0.9rem] border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-3 text-base font-semibold text-[#0F172A] outline-none transition focus:border-[#75AA46] focus:ring-4 focus:ring-[#75AA46]/15 disabled:opacity-60"
+        />
+      </div>
+
+      <div className="space-y-2">
+        <label className="block text-sm font-bold text-[#0F172A]" htmlFor="login-password">
+          Contrasena
+        </label>
+        <input
+          id="login-password"
+          type="password"
+          value={password}
+          disabled={!isLoaded || enviando}
+          onChange={(event) => {
+            setPassword(event.target.value);
+            setError(null);
+          }}
+          autoComplete="current-password"
+          className="min-h-[3.15rem] w-full rounded-[0.9rem] border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-3 text-base font-semibold text-[#0F172A] outline-none transition focus:border-[#75AA46] focus:ring-4 focus:ring-[#75AA46]/15 disabled:opacity-60"
+        />
+      </div>
+
+      {error && (
+        <p className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">
+          {error}
+        </p>
+      )}
+
+      <button
+        type="submit"
+        disabled={!isLoaded || enviando}
+        className="min-h-[3.2rem] w-full rounded-[0.95rem] bg-[#75AA46] px-4 py-3 text-base font-extrabold text-white shadow-[0_16px_30px_-18px_rgba(117,170,70,0.9)] transition hover:bg-[#66983D] active:translate-y-px disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {enviando ? 'Ingresando...' : 'Continuar'}
+      </button>
+    </form>
+  );
+}
 
 const Login: React.FC = () => {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -64,7 +203,27 @@ const Login: React.FC = () => {
               {isSignUp ? (
                 <SignUp routing="hash" signInUrl="#/sign-in" />
               ) : (
-                <SignIn routing="hash" signUpUrl="#/sign-up" />
+                <LoginConRut />
+              )}
+            </div>
+
+            <div className="mt-4 text-center text-sm font-semibold text-[#64748B]">
+              {isSignUp ? (
+                <button
+                  type="button"
+                  onClick={() => setIsSignUp(false)}
+                  className="font-extrabold text-[#75AA46] hover:text-[#5F8E38] hover:underline"
+                >
+                  Ya tengo cuenta
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setIsSignUp(true)}
+                  className="font-extrabold text-[#75AA46] hover:text-[#5F8E38] hover:underline"
+                >
+                  Crear cuenta
+                </button>
               )}
             </div>
 

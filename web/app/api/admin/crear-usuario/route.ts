@@ -63,6 +63,10 @@ function obtenerRutComparable(value: string) {
   return value.replace(/[.\-\s]/g, "").toUpperCase()
 }
 
+function generarUsernameClerkDesdeRut(rut: string) {
+  return `rut${rut.replace(/[.\-\s]/g, "").toLowerCase()}`
+}
+
 function normalizarRut(value: unknown): ValidationResult<{
   rut: string
   rutUsername: string
@@ -84,11 +88,20 @@ function normalizarRut(value: unknown): ValidationResult<{
   }
 
   const cuerpoConPuntos = cuerpo.replace(/\B(?=(\d{3})+(?!\d))/g, ".")
+  const rutNormalizado = `${cuerpoConPuntos}-${digito}`
+  const rutUsername = generarUsernameClerkDesdeRut(rutNormalizado)
+
+  if (!/^rut\d{7,8}[0-9k]$/.test(rutUsername)) {
+    return {
+      error:
+        "No se pudo generar un nombre de usuario valido para Clerk a partir del RUT.",
+    }
+  }
 
   return {
     data: {
-      rut: `${cuerpoConPuntos}-${digito}`,
-      rutUsername: limpio.toLowerCase(),
+      rut: rutNormalizado,
+      rutUsername,
     },
   }
 }
@@ -272,8 +285,16 @@ function obtenerRespuestaErrorClerk(error: unknown) {
 
   if (mensaje.includes("username") && mensaje.includes("exist")) {
     return {
-      error: "Ya existe un usuario en Clerk con ese RUT o correo.",
+      error: "Ya existe un usuario en Clerk con ese RUT.",
       status: 409,
+    }
+  }
+
+  if (mensaje.includes("username") && mensaje.includes("invalid")) {
+    return {
+      error:
+        "No se pudo generar un nombre de usuario valido para Clerk a partir del RUT.",
+      status: 400,
     }
   }
 
