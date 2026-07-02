@@ -29,16 +29,7 @@ const RutaVinculada: React.FC<RutaVinculadaProps> = ({ rolPermitido, children })
   }
 
   if (!usuario?.rut || !usuario?.telefono) {
-    return (
-      <>
-        <UsuarioPendienteVinculacion
-          usuario={usuario}
-          cargando={cargandoRol}
-          onRefresh={refrescarPerfil}
-        />
-        <VerificadorRut onGuardado={refrescarPerfil} />
-      </>
-    );
+    return <VerificadorRut onPerfilCompletado={refrescarPerfil} />;
   }
 
   if (!tieneEmpresa) {

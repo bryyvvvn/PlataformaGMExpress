@@ -31,13 +31,17 @@ const validarRutChileno = (rutCompleto: string) => {
 };
 
 interface VerificadorRutProps {
+  onPerfilCompletado?: () => void | Promise<void>;
   onGuardado?: () => void | Promise<void>;
 }
 
-export const VerificadorRut: React.FC<VerificadorRutProps> = ({ onGuardado }) => {
+export const VerificadorRut: React.FC<VerificadorRutProps> = ({
+  onPerfilCompletado,
+  onGuardado,
+}) => {
   const [inputRut, setInputRut] = useState('');
   const [inputTelefono, setInputTelefono] = useState('');
-  const { requiereRut, guardandoRut, guardarRutAPI } = useVerificadorRut();
+  const { guardandoRut, guardarRutAPI } = useVerificadorRut();
 
   const manejarCambioRut = (e: React.ChangeEvent<HTMLInputElement>) => {
     let valor = e.target.value.replace(/[^0-9kK]/g, '').toUpperCase();
@@ -58,12 +62,12 @@ export const VerificadorRut: React.FC<VerificadorRutProps> = ({ onGuardado }) =>
 
   const manejarGuardado = async () => {
     if (!validarRutChileno(inputRut)) {
-      alert('Ingresa un RUT valido');
+      alert('Ingresa un RUT válido');
       return;
     }
 
     if (!normalizarTelefonoPerfil(inputTelefono)) {
-      alert('Ingresa un telefono valido');
+      alert('Ingresa un teléfono válido');
       return;
     }
 
@@ -74,17 +78,15 @@ export const VerificadorRut: React.FC<VerificadorRutProps> = ({ onGuardado }) =>
       return;
     }
 
-    await onGuardado?.();
+    await (onPerfilCompletado ?? onGuardado)?.();
   };
-
-  if (!requiereRut) return null;
 
   const esRutValido = validarRutChileno(inputRut);
   const esTelefonoValido = Boolean(normalizarTelefonoPerfil(inputTelefono));
   const esTodoValido = esRutValido && esTelefonoValido;
 
   return (
-    <div className="fixed inset-0 z-[999] flex items-center justify-center p-6 bg-[#1d2d50]/80 backdrop-blur-md">
+    <main className="min-h-[100dvh] flex items-center justify-center p-6 bg-[#1d2d50]">
       <div className="bg-white w-full max-w-sm rounded-[2rem] p-8 shadow-2xl flex flex-col items-center text-center animate-in zoom-in-95 duration-300">
         <div className="w-16 h-16 bg-[#70a344]/10 rounded-2xl flex items-center justify-center mb-6 border border-[#70a344]/20">
           <span className="text-2xl font-black text-[#70a344]">ID</span>
@@ -134,6 +136,6 @@ export const VerificadorRut: React.FC<VerificadorRutProps> = ({ onGuardado }) =>
           {guardandoRut ? 'Guardando...' : 'Completar Perfil'}
         </button>
       </div>
-    </div>
+    </main>
   );
 };
