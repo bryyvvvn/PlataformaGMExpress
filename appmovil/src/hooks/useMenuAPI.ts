@@ -135,12 +135,12 @@ export const useMenuAPI = (
       return;
     }
 
-    if (__DEV__) {
-      console.log("[useMenuAPI] FETCH BACKEND", cacheKey);
-    }
-
     const requestVersion = getMenuCacheVersion(cacheKey);
     const requestBase = (async () => {
+      if (__DEV__) {
+        console.trace("[useMenuAPI] FETCH BACKEND", cacheKey);
+      }
+
       const params = new URLSearchParams();
       params.set("fecha", fechaNormalizada);
       params.set("usuarioId", usuarioId);
