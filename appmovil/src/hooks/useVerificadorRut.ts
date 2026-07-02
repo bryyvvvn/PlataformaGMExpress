@@ -1,56 +1,121 @@
 // src/hooks/useVerificadorRut.ts
-import { useState, useEffect } from 'react';
+import { useAuth } from '@clerk/clerk-react';
+import { useEffect, useState } from 'react';
 import { API_BASE_URL } from '../constants/api';
 
-export const useVerificadorRut = (clerkId: string | undefined, token?: string | null) => {
+type ResultadoGuardarRut =
+  | { success: true }
+  | { success: false; error: string };
+
+const MENSAJE_TELEFONO_INVALIDO =
+  'Ingresa un telefono valido, por ejemplo +56 9 27832211 o 927832211.';
+
+export function normalizarTelefonoPerfil(valor: string): string | null {
+  const digitos = valor.replace(/\D/g, '');
+
+  if (/^\d{8}$/.test(digitos)) {
+    return `+569${digitos}`;
+  }
+
+  if (/^9\d{8}$/.test(digitos)) {
+    return `+56${digitos}`;
+  }
+
+  if (/^569\d{8}$/.test(digitos)) {
+    return `+${digitos}`;
+  }
+
+  return null;
+}
+
+export const useVerificadorRut = () => {
+  const { getToken, userId } = useAuth();
   const [requiereRut, setRequiereRut] = useState(false);
   const [guardandoRut, setGuardandoRut] = useState(false);
 
   useEffect(() => {
     const fetchPerfil = async () => {
-      if (!clerkId) return;
+      if (!userId) {
+        setRequiereRut(false);
+        return;
+      }
+
       try {
-        const res = await fetch(`${API_BASE_URL}/api/usuarios/perfil?clerkId=${clerkId}`);
+        const res = await fetch(
+          `${API_BASE_URL}/api/usuarios/perfil?clerkId=${encodeURIComponent(userId)}`
+        );
+
         if (res.ok) {
           const data = await res.json();
-          if (data && !data.rut) {
-            setRequiereRut(true);
-          }
+          setRequiereRut(Boolean(data && !data.rut));
         }
       } catch (error) {
-        console.error("Error obteniendo perfil en verificador:", error);
+        console.error('Error obteniendo perfil en verificador:', error);
       }
     };
-    fetchPerfil();
-  }, [clerkId]);
 
-  const guardarRutAPI = async (rut: string, telefono: string) => {
+    fetchPerfil();
+  }, [userId]);
+
+  const guardarRutAPI = async (
+    rut: string,
+    telefono: string
+  ): Promise<ResultadoGuardarRut> => {
     setGuardandoRut(true);
+
     try {
-      // 🔥 ARMAMOS EL NÚMERO COMPLETO AQUÍ
-      const telefonoCompleto = `+569${telefono}`;
+      if (!userId) {
+        return {
+          success: false,
+          error: 'No se encontro una sesion activa de Clerk.',
+        };
+      }
+
+      const telefonoNormalizado = normalizarTelefonoPerfil(telefono);
+
+      if (!telefonoNormalizado) {
+        return { success: false, error: MENSAJE_TELEFONO_INVALIDO };
+      }
+
+      const token = await getToken({ skipCache: true });
+
+      if (!token) {
+        return {
+          success: false,
+          error: 'No se pudo obtener la sesion de Clerk.',
+        };
+      }
 
       const res = await fetch(`${API_BASE_URL}/api/usuarios/rut`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          Authorization: `Bearer ${token}`,
         },
-        // 🔥 ENVIAMOS EL TELÉFONO COMPLETO AL BACKEND
-        body: JSON.stringify({ clerkId, rut, telefono: telefonoCompleto }) 
+        body: JSON.stringify({
+          clerkId: userId,
+          rut,
+          telefono: telefonoNormalizado,
+        }),
       });
-      
-      const data = await res.json();
+
+      const data = await res.json().catch(() => null);
 
       if (res.ok) {
         setRequiereRut(false);
         return { success: true };
-      } else {
-        return { success: false, error: data.error || "Ocurrió un error al guardar los datos." };
       }
-    } catch (e) {
-      console.error(e);
-      return { success: false, error: "Error de conexión al guardar los datos." };
+
+      return {
+        success: false,
+        error: data?.error || 'No se pudo completar el perfil.',
+      };
+    } catch (error) {
+      console.error(error);
+      return {
+        success: false,
+        error: 'Error de conexion al guardar los datos.',
+      };
     } finally {
       setGuardandoRut(false);
     }

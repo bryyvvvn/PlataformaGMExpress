@@ -4,7 +4,7 @@ import { clerkIdSchema, rutSchema } from './comunes'
 export const guardarRutSchema = z.object({
   clerkId: clerkIdSchema,
   rut: rutSchema,
-  telefono: z.string().nullable().optional(),
+  telefono: z.string().min(1, 'Telefono requerido'),
 })
 
 export const guardarTokenSchema = z.object({
