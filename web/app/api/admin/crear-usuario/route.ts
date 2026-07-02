@@ -270,29 +270,9 @@ function obtenerRespuestaErrorClerk(error: unknown) {
     }
   }
 
-  if (
-    codigo.includes("phone") ||
-    mensaje.includes("phone") ||
-    mensaje.includes("telefono") ||
-    mensaje.includes("teléfono")
-  ) {
-    if (mensaje.includes("exist") || codigo.includes("exist")) {
-      return {
-        error: "Ya existe un usuario en Clerk con ese telefono.",
-        status: 409,
-      }
-    }
-
-    return {
-      error:
-        "No se pudo crear el usuario con ese telefono en Clerk. Verifica que los telefonos esten habilitados en la instancia.",
-      status: 400,
-    }
-  }
-
   if (mensaje.includes("username") && mensaje.includes("exist")) {
     return {
-      error: "Ya existe un usuario en Clerk con ese RUT.",
+      error: "Ya existe un usuario en Clerk con ese RUT o correo.",
       status: 409,
     }
   }
@@ -333,7 +313,7 @@ async function validarDuplicadosLocales(payload: CrearUsuarioPayload) {
   )
 
   if (existeRut) {
-    return { error: "Ya existe un usuario local con ese RUT.", status: 409 }
+    return { error: "Ya existe un usuario con ese RUT.", status: 409 }
   }
 
   const usuarioConCorreo = await db.usuario.findFirst({
@@ -347,7 +327,7 @@ async function validarDuplicadosLocales(payload: CrearUsuarioPayload) {
   })
 
   if (usuarioConCorreo) {
-    return { error: "Ya existe un usuario local con ese correo.", status: 409 }
+    return { error: "Ya existe un usuario con ese correo.", status: 409 }
   }
 
   const usuariosConTelefono = await db.usuario.findMany({
@@ -366,7 +346,7 @@ async function validarDuplicadosLocales(payload: CrearUsuarioPayload) {
   })
 
   if (existeTelefono) {
-    return { error: "Ya existe un usuario local con ese telefono.", status: 409 }
+    return { error: "Ya existe un usuario con ese telefono.", status: 409 }
   }
 
   return null
@@ -444,7 +424,6 @@ async function crearUsuario(req: NextRequest) {
   try {
     const usuarioClerk = await clerk.users.createUser({
       emailAddress: [payload.data.correo],
-      phoneNumber: [payload.data.telefono],
       password: payload.data.password,
       firstName: payload.data.nombre,
       lastName: payload.data.apellido,
