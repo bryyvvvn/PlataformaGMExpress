@@ -25,7 +25,7 @@ import { useCrearUsuario } from "@/hooks/useCrearUsuario"
 type AgregarUsuarioModalProps = {
   abierto: boolean
   onCerrar: () => void
-  onUsuarioCreado: () => void
+  onUsuarioCreado: () => Promise<void> | void
 }
 
 type ErrorResponse = {
@@ -85,14 +85,15 @@ function validarFormulario(form: FormState): FormErrors {
     errores.empresaId = "Selecciona una empresa."
   }
 
-  if (form.telefono.trim().length > 0 && !esTelefonoChilenoValido(form.telefono)) {
+  if (form.telefono.trim().length === 0) {
+    errores.telefono = "Ingresa el telefono del usuario."
+  } else if (!esTelefonoChilenoValido(form.telefono)) {
     errores.telefono = TELEFONO_CHILENO_ERROR
   }
 
-  if (
-    form.correo.trim().length > 0 &&
-    !EMAIL_BASICO_REGEX.test(form.correo.trim())
-  ) {
+  if (form.correo.trim().length === 0) {
+    errores.correo = "Ingresa el correo del usuario."
+  } else if (!EMAIL_BASICO_REGEX.test(form.correo.trim())) {
     errores.correo = "Ingresa un correo valido."
   }
 
@@ -104,7 +105,13 @@ export function AgregarUsuarioModal({
   onCerrar,
   onUsuarioCreado,
 }: AgregarUsuarioModalProps) {
-  const { crearUsuario, cargando: guardando, error: errorCrearUsuario } = useCrearUsuario()
+  const {
+    crearUsuario,
+    cargando: guardando,
+    error: errorCrearUsuario,
+    success,
+    limpiarEstado,
+  } = useCrearUsuario()
   const [form, setForm] = useState<FormState>(FORM_INICIAL)
   const [errores, setErrores] = useState<FormErrors>({})
   const [empresas, setEmpresas] = useState<EmpresaAsignable[]>([])
@@ -165,6 +172,7 @@ export function AgregarUsuarioModal({
   }, [abierto])
 
   const actualizarCampo = (campo: keyof FormState, value: string) => {
+    limpiarEstado()
     setForm((current) => ({ ...current, [campo]: value }))
     setErrores((current) => {
       if (!current[campo]) return current
@@ -181,6 +189,8 @@ export function AgregarUsuarioModal({
   }
 
   const guardarUsuario = async () => {
+    limpiarEstado()
+
     const erroresFormulario = validarFormulario(form)
 
     setErrores(erroresFormulario)
@@ -189,10 +199,10 @@ export function AgregarUsuarioModal({
 
     try {
       await crearUsuario(form)
-      onUsuarioCreado()
+      await onUsuarioCreado()
       onCerrar()
-    } catch (err) {
-      console.error("[AgregarUsuarioModal] crear usuario:", err)
+    } catch {
+      return
     }
   }
 
@@ -218,7 +228,8 @@ export function AgregarUsuarioModal({
               </h2>
             </div>
             <p className="text-sm text-slate-500">
-              Este formulario crea usuarios reales en Clerk y en la base de datos.
+              Crea una cuenta de acceso para la aplicacion movil y la vincula a
+              una empresa.
             </p>
           </div>
           <Button
@@ -236,7 +247,8 @@ export function AgregarUsuarioModal({
 
         <div className="overflow-y-auto px-5 py-4">
           <div className="mb-4 rounded-md border border-[#75aa46]/20 bg-[#75aa46]/10 px-3 py-2 text-xs font-semibold text-[#5d8a38]">
-            Este formulario crea usuarios reales en Clerk y en la base de datos.
+            El usuario se creara como trabajador y quedara disponible en Clerk y
+            en el directorio de usuarios de app.
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -379,7 +391,7 @@ export function AgregarUsuarioModal({
                 </p>
               ) : (
                 <p className="text-xs font-medium text-slate-500">
-                  Minimo 8 caracteres. No se enviara en esta etapa.
+                  Minimo 8 caracteres. No se guarda en la base de datos.
                 </p>
               )}
             </div>
@@ -442,6 +454,12 @@ export function AgregarUsuarioModal({
               {errorCrearUsuario}
             </p>
           )}
+          {success && (
+            <p className="mt-4 flex items-center gap-2 rounded-md border border-[#75aa46]/20 bg-[#75aa46]/10 px-3 py-2 text-sm font-semibold text-[#5d8a38]">
+              <CheckCircle2 className="size-4" />
+              {success}
+            </p>
+          )}
           {Object.keys(errores).length > 0 && (
             <p className="mt-4 flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
               <AlertCircle className="size-4" />
@@ -453,7 +471,7 @@ export function AgregarUsuarioModal({
         <div className="flex flex-col-reverse gap-3 border-t border-slate-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="flex items-center gap-1 text-xs font-semibold text-[#5d8a38]">
             <CheckCircle2 className="size-3.5" />
-            Creando usuario real en Clerk.
+            Creacion segura con validacion de administrador.
           </p>
           <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             <Button
@@ -473,10 +491,10 @@ export function AgregarUsuarioModal({
               {guardando ? (
                 <>
                   <Loader2 className="size-4 animate-spin" />
-                  Guardando...
+                  Creando...
                 </>
               ) : (
-                "Guardar"
+                "Crear usuario"
               )}
             </Button>
           </div>
