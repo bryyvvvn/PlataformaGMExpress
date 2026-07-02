@@ -1,5 +1,6 @@
 import db from "@/lib/db";
 import { EstadoPedido } from "@prisma/client";
+import { unstable_cache } from "next/cache";
 import {
   addDays,
   endOfDay,
@@ -40,133 +41,141 @@ function etiquetaDia(fecha: Date): string {
   return abrev.charAt(0).toUpperCase() + abrev.slice(1);
 }
 
-export async function getDashboardStats(): Promise<DashboardStats> {
-  const ahora = new Date();
-  const inicioHoy = startOfDay(ahora);
-  const finHoy = endOfDay(ahora);
-  const lunes = startOfWeek(ahora, { weekStartsOn: 1 });
-  const inicioSemana = startOfDay(lunes);
-  const finSemana = endOfDay(addDays(lunes, 6));
-  const inicioHoyChile = chileStartOfDay();
-  const finHoyChile = chileEndOfDay();
-  const inicioMes = chileStartOfDay(format(addDays(ahora, -29), "yyyy-MM-dd"));
+const getDashboardStatsCached = unstable_cache(
+  async (): Promise<DashboardStats> => {
+    const ahora = new Date();
+    const inicioHoy = startOfDay(ahora);
+    const finHoy = endOfDay(ahora);
+    const lunes = startOfWeek(ahora, { weekStartsOn: 1 });
+    const inicioSemana = startOfDay(lunes);
+    const finSemana = endOfDay(addDays(lunes, 6));
+    const inicioHoyChile = chileStartOfDay();
+    const finHoyChile = chileEndOfDay();
+    const inicioMes = chileStartOfDay(format(addDays(ahora, -29), "yyyy-MM-dd"));
 
-  const [
-    pedidosDelDia,
-    pedidosPendientes,
-    porciones,
-    totalEmpresas,
-    pedidosEnSemana,
-    pedidosHoyChile,
-    ultimosPedidos,
-    consolidado,
-    empaqueCount,
-    pedidosMes,
-  ] = await Promise.all([
-    db.pedido.count({
-      where: { fecha: { gte: inicioHoy, lte: finHoy } },
-    }),
-    db.pedido.count({
-      where: { estado: EstadoPedido.PENDIENTE },
-    }),
-    db.detallePedido.aggregate({_sum: { cantidad: true },
-      where: {pedido: {fecha: { gte: inicioHoyChile, lt: finHoyChile },
-      estado: { not: EstadoPedido.CANCELADO }}}}),
-    db.empresa.count(),
-    db.pedido.findMany({
-      where: { fecha: { gte: inicioSemana, lte: finSemana } },
-      select: { fecha: true },
-    }),
-    db.pedido.findMany({
-      where: { fecha: { gte: inicioHoyChile, lt: finHoyChile } },
-      select: { fecha: true },
-    }),
-    db.pedido.findMany({
-      take: 5,
-      orderBy: { fecha: "desc" },
-      include: {
-        empresa: { select: { nombre: true } },
-        detalles: { select: { cantidad: true } },
-      },
-    }),
-    getConsolidadoDia(),
-    db.pedido.count({
-      where: { estado: EstadoPedido.EN_PRODUCCION },
-    }),
-    db.pedido.findMany({
-      where: { fecha: { gte: inicioMes, lt: finHoyChile } },
-      select: { fecha: true },
-    }),
-  ]);
+    const [
+      pedidosDelDia,
+      pedidosPendientes,
+      porciones,
+      totalEmpresas,
+      pedidosEnSemana,
+      pedidosHoyChile,
+      ultimosPedidos,
+      consolidado,
+      empaqueCount,
+      pedidosMes,
+    ] = await Promise.all([
+      db.pedido.count({
+        where: { fecha: { gte: inicioHoy, lte: finHoy } },
+      }),
+      db.pedido.count({
+        where: { estado: EstadoPedido.PENDIENTE },
+      }),
+      db.detallePedido.aggregate({_sum: { cantidad: true },
+        where: {pedido: {fecha: { gte: inicioHoyChile, lt: finHoyChile },
+        estado: { not: EstadoPedido.CANCELADO }}}}),
+      db.empresa.count(),
+      db.pedido.findMany({
+        where: { fecha: { gte: inicioSemana, lte: finSemana } },
+        select: { fecha: true },
+      }),
+      db.pedido.findMany({
+        where: { fecha: { gte: inicioHoyChile, lt: finHoyChile } },
+        select: { fecha: true },
+      }),
+      db.pedido.findMany({
+        take: 5,
+        orderBy: { fecha: "desc" },
+        include: {
+          empresa: { select: { nombre: true } },
+          detalles: { select: { cantidad: true } },
+        },
+      }),
+      getConsolidadoDia(),
+      db.pedido.count({
+        where: { estado: EstadoPedido.EN_PRODUCCION },
+      }),
+      db.pedido.findMany({
+        where: { fecha: { gte: inicioMes, lt: finHoyChile } },
+        select: { fecha: true },
+      }),
+    ]);
 
-  const zonaFriaCount = consolidado.zonaFria.reduce(
-    (sum, i) => sum + i.cantidad,
-    0
-  );
-  const zonaCalienteCount = consolidado.zonaCaliente.reduce(
-    (sum, i) => sum + i.cantidad,
-    0
-  );
-  const empresaTop = consolidado.resumenGeneral.empresaTopNombre;
-
-  const conteoPorDia = Array.from({ length: 7 }, () => 0);
-  for (const { fecha } of pedidosEnSemana) {
-    const offset = Math.floor(
-      (startOfDay(fecha).getTime() - inicioSemana.getTime()) / 86_400_000
+    const zonaFriaCount = consolidado.zonaFria.reduce(
+      (sum, i) => sum + i.cantidad,
+      0
     );
-    if (offset >= 0 && offset < 7) {
-      conteoPorDia[offset]++;
+    const zonaCalienteCount = consolidado.zonaCaliente.reduce(
+      (sum, i) => sum + i.cantidad,
+      0
+    );
+    const empresaTop = consolidado.resumenGeneral.empresaTopNombre;
+
+    const conteoPorDia = Array.from({ length: 7 }, () => 0);
+    for (const { fecha } of pedidosEnSemana) {
+      const offset = Math.floor(
+        (startOfDay(fecha).getTime() - inicioSemana.getTime()) / 86_400_000
+      );
+      if (offset >= 0 && offset < 7) {
+        conteoPorDia[offset]++;
+      }
     }
-  }
 
-  const chartData = conteoPorDia.map((pedidos, i) => ({
-    day: etiquetaDia(addDays(lunes, i)),
-    pedidos,
-  }));
+    const chartData = conteoPorDia.map((pedidos, i) => ({
+      day: etiquetaDia(addDays(lunes, i)),
+      pedidos,
+    }));
 
-  const conteoPorHora = Array.from({ length: 24 }, () => 0);
-  for (const { fecha } of pedidosHoyChile) {
-    conteoPorHora[getChileHour(fecha)]++;
-  }
+    const conteoPorHora = Array.from({ length: 24 }, () => 0);
+    for (const { fecha } of pedidosHoyChile) {
+      conteoPorHora[getChileHour(fecha)]++;
+    }
 
-  const chartDataDia = conteoPorHora.map((pedidos, hour) => ({
-    time: `${String(hour).padStart(2, "0")}:00`,
-    pedidos,
-  }));
+    const chartDataDia = conteoPorHora.map((pedidos, hour) => ({
+      time: `${String(hour).padStart(2, "0")}:00`,
+      pedidos,
+    }));
 
-  const inicioVentana = startOfDay(addDays(ahora, -29));
-  const conteoPorDia30 = Array.from({ length: 30 }, () => 0);
-  for (const { fecha } of pedidosMes) {
-    const offset = Math.floor(
-      (startOfDay(fecha).getTime() - inicioVentana.getTime()) / 86_400_000
-    );
-    if (offset >= 0 && offset < 30) conteoPorDia30[offset]++;
-  }
-  const chartDataMes = conteoPorDia30.map((pedidos, i) => ({
-    day: format(addDays(inicioVentana, i), "dd/MM", { locale: es }),
-    pedidos,
-  }));
+    const inicioVentana = startOfDay(addDays(ahora, -29));
+    const conteoPorDia30 = Array.from({ length: 30 }, () => 0);
+    for (const { fecha } of pedidosMes) {
+      const offset = Math.floor(
+        (startOfDay(fecha).getTime() - inicioVentana.getTime()) / 86_400_000
+      );
+      if (offset >= 0 && offset < 30) conteoPorDia30[offset]++;
+    }
+    const chartDataMes = conteoPorDia30.map((pedidos, i) => ({
+      day: format(addDays(inicioVentana, i), "dd/MM", { locale: es }),
+      pedidos,
+    }));
 
-  const ultimosFormateados: PedidoReciente[] = ultimosPedidos.map((pedido) => ({
-    id: pedido.id,
-    empresa: pedido.empresa.nombre,
-    cantidad: pedido.detalles.reduce((sum, d) => sum + d.cantidad, 0),
-    fecha: formatDistanceToNow(pedido.fecha, { addSuffix: true, locale: es }),
-    estado: pedido.estado,
-  }));
+    const ultimosFormateados: PedidoReciente[] = ultimosPedidos.map((pedido) => ({
+      id: pedido.id,
+      empresa: pedido.empresa.nombre,
+      cantidad: pedido.detalles.reduce((sum, d) => sum + d.cantidad, 0),
+      fecha: formatDistanceToNow(pedido.fecha, { addSuffix: true, locale: es }),
+      estado: pedido.estado,
+    }));
 
-  return {
-    pedidosDelDia,
-    pedidosPendientes,
-    totalPorciones: porciones._sum.cantidad ?? 0,
-    totalEmpresas,
-    chartData,
-    chartDataDia,
-    chartDataMes,
-    ultimosPedidos: ultimosFormateados,
-    zonaCalienteCount,
-    zonaFriaCount,
-    empaqueCount,
-    empresaTop,
-  };
+    return {
+      pedidosDelDia,
+      pedidosPendientes,
+      totalPorciones: porciones._sum.cantidad ?? 0,
+      totalEmpresas,
+      chartData,
+      chartDataDia,
+      chartDataMes,
+      ultimosPedidos: ultimosFormateados,
+      zonaCalienteCount,
+      zonaFriaCount,
+      empaqueCount,
+      empresaTop,
+    };
+  },
+  ["dashboard-stats"],
+  { revalidate: 60 }
+);
+
+export async function getDashboardStats(): Promise<DashboardStats> {
+  return getDashboardStatsCached();
 }

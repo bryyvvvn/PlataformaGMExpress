@@ -7,7 +7,6 @@ import {
   obtenerMensajeError,
 } from "@/lib/pedidos/exportaciones"
 import type {
-  EmpresaAdminResponse,
   EmpresaOption,
   MensajePedidoManual,
   PedidoManual,
@@ -15,14 +14,14 @@ import type {
 } from "@/lib/pedidos/tipos"
 import { validarFormularioPedidoManual } from "@/lib/pedidos/validaciones"
 
-export function useGestionPedidos(semana: SemanaConsolidada) {
+export function useGestionPedidos(semana: SemanaConsolidada, empresasIniciales: EmpresaOption[]) {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState(semana.dias[0]?.fechaISO ?? "")
   const [ahora, setAhora] = useState<Date | null>(null)
   const [descargandoHistorico, setDescargandoHistorico] = useState(false)
   const [descargandoProduccion, setDescargandoProduccion] = useState(false)
   const [errorExportacion, setErrorExportacion] = useState<string | null>(null)
-  const [empresas, setEmpresas] = useState<EmpresaOption[]>([])
+  const [empresas, setEmpresas] = useState<EmpresaOption[]>(empresasIniciales)
   const [pedidosManuales, setPedidosManuales] = useState<PedidoManual[]>([])
   const [loadingManuales, setLoadingManuales] = useState(true)
   const [modalManualOpen, setModalManualOpen] = useState(false)
@@ -41,33 +40,6 @@ export function useGestionPedidos(semana: SemanaConsolidada) {
     return () => window.clearInterval(interval)
   }, [])
 
-  useEffect(() => {
-    const cargarEmpresas = async () => {
-      try {
-        const response = await fetch("/api/admin/empresas", { cache: "no-store" })
-        const data = await response.json()
-
-        if (!response.ok) {
-          throw new Error(data.error || "No se pudieron cargar las empresas")
-        }
-
-        const empresasData = (data.empresas ?? []) as EmpresaAdminResponse[]
-
-        setEmpresas(
-          empresasData
-            .filter((empresa) => empresa.estado === "ACTIVA")
-            .map((empresa) => ({ id: empresa.id, nombre: empresa.nombre }))
-        )
-      } catch (error) {
-        setMensajeManual({
-          tipo: "error",
-          texto: error instanceof Error ? error.message : "No se pudieron cargar las empresas",
-        })
-      }
-    }
-
-    void cargarEmpresas()
-  }, [])
 
   const cargarPedidosManuales = useCallback(async () => {
     try {
@@ -90,41 +62,8 @@ export function useGestionPedidos(semana: SemanaConsolidada) {
   }, [])
 
   useEffect(() => {
-    let cancelado = false
-
-    void fetch("/api/admin/pedidos-manuales", { cache: "no-store" })
-      .then(async (response) => {
-        const data = await response.json()
-
-        if (!response.ok) {
-          throw new Error(data.error || "No se pudieron cargar los pedidos manuales")
-        }
-
-        if (!cancelado) {
-          setPedidosManuales(data.pedidosManuales ?? [])
-        }
-      })
-      .catch((error) => {
-        if (!cancelado) {
-          setMensajeManual({
-            tipo: "error",
-            texto:
-              error instanceof Error
-                ? error.message
-                : "No se pudieron cargar los pedidos manuales",
-          })
-        }
-      })
-      .finally(() => {
-        if (!cancelado) {
-          setLoadingManuales(false)
-        }
-      })
-
-    return () => {
-      cancelado = true
-    }
-  }, [])
+    void cargarPedidosManuales()
+  }, [cargarPedidosManuales])
 
   function seleccionarTab(value: string) {
     setActiveTab(value)
