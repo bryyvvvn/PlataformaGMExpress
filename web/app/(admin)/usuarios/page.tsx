@@ -88,12 +88,6 @@ export default function UsuariosAppPage() {
     setMensajeExito(null)
   }
 
-  const confirmarAgregarUsuarioMock = () => {
-    setMensajeExito(
-      "Formulario mock enviado. La creacion con Clerk se conectara en una siguiente etapa."
-    )
-  }
-
   const confirmarEdicion = async () => {
     setMensajeExito("Usuario actualizado correctamente.")
     await cargarUsuarios()
@@ -123,7 +117,10 @@ export default function UsuariosAppPage() {
         <AgregarUsuarioModal
           abierto={modalAgregarAbierto}
           onCerrar={() => setModalAgregarAbierto(false)}
-          onMockGuardado={confirmarAgregarUsuarioMock}
+          onUsuarioCreado={async () => {
+            setMensajeExito("Usuario creado correctamente.")
+            await cargarUsuarios()
+          }}
         />
       )}
 

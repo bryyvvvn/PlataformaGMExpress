@@ -20,11 +20,12 @@ import type {
   EmpresaAsignable,
   EmpresasAsignablesResponse,
 } from "@/lib/usuarios/tipos"
+import { useCrearUsuario } from "@/hooks/useCrearUsuario"
 
 type AgregarUsuarioModalProps = {
   abierto: boolean
   onCerrar: () => void
-  onMockGuardado: () => void
+  onUsuarioCreado: () => void
 }
 
 type ErrorResponse = {
@@ -101,14 +102,14 @@ function validarFormulario(form: FormState): FormErrors {
 export function AgregarUsuarioModal({
   abierto,
   onCerrar,
-  onMockGuardado,
+  onUsuarioCreado,
 }: AgregarUsuarioModalProps) {
+  const { crearUsuario, cargando: guardando, error: errorCrearUsuario } = useCrearUsuario()
   const [form, setForm] = useState<FormState>(FORM_INICIAL)
   const [errores, setErrores] = useState<FormErrors>({})
   const [empresas, setEmpresas] = useState<EmpresaAsignable[]>([])
   const [cargandoEmpresas, setCargandoEmpresas] = useState(false)
   const [errorEmpresas, setErrorEmpresas] = useState<string | null>(null)
-  const [guardando, setGuardando] = useState(false)
 
   const empresasActivas = useMemo(
     () => empresas.filter((empresa) => empresa.estado !== "INACTIVA"),
@@ -179,20 +180,20 @@ export function AgregarUsuarioModal({
     onCerrar()
   }
 
-  const guardarMock = () => {
+  const guardarUsuario = async () => {
     const erroresFormulario = validarFormulario(form)
 
     setErrores(erroresFormulario)
 
     if (Object.keys(erroresFormulario).length > 0) return
 
-    setGuardando(true)
-
-    window.setTimeout(() => {
-      setGuardando(false)
-      onMockGuardado()
+    try {
+      await crearUsuario(form)
+      onUsuarioCreado()
       onCerrar()
-    }, 250)
+    } catch (err) {
+      console.error("[AgregarUsuarioModal] crear usuario:", err)
+    }
   }
 
   if (!abierto) return null
@@ -217,8 +218,7 @@ export function AgregarUsuarioModal({
               </h2>
             </div>
             <p className="text-sm text-slate-500">
-              Formulario preliminar para crear usuarios. La conexion con Clerk
-              se implementara en una siguiente etapa.
+              Este formulario crea usuarios reales en Clerk y en la base de datos.
             </p>
           </div>
           <Button
@@ -236,8 +236,7 @@ export function AgregarUsuarioModal({
 
         <div className="overflow-y-auto px-5 py-4">
           <div className="mb-4 rounded-md border border-[#75aa46]/20 bg-[#75aa46]/10 px-3 py-2 text-xs font-semibold text-[#5d8a38]">
-            Este formulario es mock: no crea usuarios reales ni envia datos a
-            Clerk o base de datos.
+            Este formulario crea usuarios reales en Clerk y en la base de datos.
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -437,6 +436,12 @@ export function AgregarUsuarioModal({
             </div>
           </div>
 
+          {errorCrearUsuario && (
+            <p className="mt-4 flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+              <AlertCircle className="size-4" />
+              {errorCrearUsuario}
+            </p>
+          )}
           {Object.keys(errores).length > 0 && (
             <p className="mt-4 flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
               <AlertCircle className="size-4" />
@@ -462,7 +467,7 @@ export function AgregarUsuarioModal({
             <Button
               type="button"
               disabled={guardando || cargandoEmpresas}
-              onClick={guardarMock}
+              onClick={guardarUsuario}
               className="bg-[#75aa46] text-white hover:bg-[#5d8a38]"
             >
               {guardando ? (
@@ -471,7 +476,7 @@ export function AgregarUsuarioModal({
                   Guardando...
                 </>
               ) : (
-                "Guardar mock"
+                "Guardar"
               )}
             </Button>
           </div>
