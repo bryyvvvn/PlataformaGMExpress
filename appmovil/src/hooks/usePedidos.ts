@@ -14,35 +14,66 @@ export interface PedidoPayload {
   observacion?: string | null;
 }
 
+// 🔥 MEMORIA GLOBAL PARA LOS PEDIDOS
+// Estructura: { "2026-07-01-user123-almuerzo": { existe: true, pedido: {...} } }
+const cacheGlobalPedidos: Record<string, { existe: boolean; pedido: any | null }> = {};
+
 export const usePedidos = (
   usuarioId: string | undefined,
   fecha?: string,
   token?: string | null,
   esCena: boolean = false
 ) => {
-  const [yaPedioHoy,           setYaPedioHoy]           = useState(false);
-  const [cargandoVerificacion, setCargandoVerificacion] = useState(true);
-  const [enviando,             setEnviando]             = useState(false);
-  const [eliminando,           setEliminando]           = useState(false);
-  const [pedidoExistente,      setPedidoExistente]      = useState<any | null>(null);
-  const [tokenListo,           setTokenListo]           = useState(false);
+  const cacheKey = `${fecha || 'hoy'}-${usuarioId}-${esCena ? 'cena' : 'almuerzo'}`;
+  const dataEnCache = cacheGlobalPedidos[cacheKey];
 
-  // Ref para usar siempre el token más reciente sin causarr re-ejecuciones
+  const [yaPedioHoy, setYaPedioHoy] = useState(dataEnCache ? dataEnCache.existe : false);
+  const [cargandoVerificacion, setCargandoVerificacion] = useState(!dataEnCache);
+  const [pedidoExistente, setPedidoExistente] = useState<any | null>(dataEnCache ? dataEnCache.pedido : null);
+  const [enviando, setEnviando] = useState(false);
+  const [eliminando, setEliminando] = useState(false);
+  const [tokenListo, setTokenListo] = useState(false);
+
+  // 🔥 EL ARREGLO DEL PARPADEO
+  const [fechaActual, setFechaActual] = useState(fecha);
+  const [esCenaActual, setEsCenaActual] = useState(esCena);
+  
+  if (fecha !== fechaActual || esCena !== esCenaActual) {
+    setFechaActual(fecha);
+    setEsCenaActual(esCena);
+    
+    const cacheNuevo = cacheGlobalPedidos[cacheKey];
+    if (cacheNuevo) {
+      setYaPedioHoy(cacheNuevo.existe);
+      setPedidoExistente(cacheNuevo.pedido);
+      setCargandoVerificacion(false); // Apagado instantáneo 🚀
+    } else {
+      setYaPedioHoy(false);
+      setPedidoExistente(null);
+      setCargandoVerificacion(true);
+    }
+  }
+
   const tokenRef = useRef(token);
   tokenRef.current = token;
 
-  // tokenListo pasa a true una sola vez cuando llega el primer token válido
   useEffect(() => {
     if (token && !tokenListo) setTokenListo(true);
     if (!token && token !== undefined) setCargandoVerificacion(false);
   }, [token]);
 
-  const refrescarVerificacion = useCallback(async () => {
+  // Le agregamos ignorarCache por si el usuario acaba de crear/borrar un pedido
+  const refrescarVerificacion = useCallback(async (ignorarCache = false) => {
     if (!usuarioId || !tokenListo || !tokenRef.current) return;
 
+    // Si no forzamos la recarga y ya tenemos los datos en RAM, abortamos el viaje a Railway
+    if (!ignorarCache && cacheGlobalPedidos[cacheKey]) return;
+
     setCargandoVerificacion(true);
-    setPedidoExistente(null);
-    setYaPedioHoy(false);
+    if (ignorarCache) {
+      setPedidoExistente(null);
+      setYaPedioHoy(false);
+    }
 
     try {
       const url = `${API_BASE_URL}/api/trabajador/pedidos?usuarioId=${usuarioId}${fecha ? `&fecha=${fecha}` : ''}&esCena=${esCena}`;
@@ -50,6 +81,10 @@ export const usePedidos = (
         headers: { 'Authorization': `Bearer ${tokenRef.current}` },
       });
       const data = await res.json();
+      
+      // 🔥 Guardamos en la memoria RAM
+      cacheGlobalPedidos[cacheKey] = { existe: data.existe, pedido: data.pedido ?? null };
+      
       setYaPedioHoy(data.existe);
       setPedidoExistente(data.pedido ?? null);
     } catch (e) {
@@ -57,7 +92,7 @@ export const usePedidos = (
     } finally {
       setCargandoVerificacion(false);
     }
-  }, [usuarioId, fecha, esCena, tokenListo]); // token fuera — usa tokenRef internamente
+  }, [usuarioId, fecha, esCena, tokenListo, cacheKey]);
 
   useEffect(() => {
     refrescarVerificacion();
@@ -65,7 +100,6 @@ export const usePedidos = (
 
   const enviarPedido = async (pedido: PedidoPayload): Promise<boolean> => {
     if (!usuarioId || !tokenRef.current) return false;
-
     setEnviando(true);
     try {
       const payload = {
@@ -94,14 +128,8 @@ export const usePedidos = (
       });
 
       if (respuesta.ok) {
-        setYaPedioHoy(true);
-        try {
-          const check = await fetch(`${API_BASE_URL}/api/trabajador/pedidos?usuarioId=${usuarioId}${fecha ? `&fecha=${fecha}` : ''}&esCena=${esCena}`, {
-            headers: { 'Authorization': `Bearer ${tokenRef.current}` },
-          });
-          const data = await check.json();
-          setPedidoExistente(data.pedido ?? null);
-        } catch (e) { /* ignore */ }
+        // 🔥 Forzamos la actualización pasándole 'true' a refrescarVerificacion
+        await refrescarVerificacion(true); 
         return true;
       }
 
@@ -111,10 +139,9 @@ export const usePedidos = (
       if (respuesta.status === 403) { alert('El horario de pedidos ha cerrado.'); return false; }
       if (respuesta.status === 409) { setYaPedioHoy(true); return false; }
 
-      alert(`Error: ${errorData.error || 'No se pudo procesar el pedido'}`);
+      alert(`Error: ${errorData?.error || 'No se pudo procesar el pedido'}`);
       return false;
     } catch (error) {
-      console.error('[usePedidos] Error de red:', error);
       alert(`Fallo de conexión con el servidor: ${error instanceof Error ? error.message : String(error)}`);
       return false;
     } finally {
@@ -124,7 +151,6 @@ export const usePedidos = (
 
   const eliminarPedido = async (fechaParam?: string): Promise<boolean> => {
     if (!usuarioId || !tokenRef.current) return false;
-
     setEliminando(true);
     try {
       const url = `${API_BASE_URL}/api/trabajador/pedidos?usuarioId=${usuarioId}${fechaParam ? `&fecha=${fechaParam}` : (fecha ? `&fecha=${fecha}` : '')}&esCena=${esCena}`;
@@ -133,14 +159,12 @@ export const usePedidos = (
         headers: { 'Authorization': `Bearer ${tokenRef.current}` },
       });
       if (res.ok) {
-        setPedidoExistente(null);
-        setYaPedioHoy(false);
-        try { await refrescarVerificacion(); } catch (e) { /* ignore */ }
+        // 🔥 Forzamos la actualización para que el caché sepa que ya no hay pedido
+        await refrescarVerificacion(true);
         return true;
       }
       return false;
     } catch (e) {
-      console.error('[usePedidos] Error eliminando pedido:', e);
       return false;
     } finally {
       setEliminando(false);
@@ -149,7 +173,6 @@ export const usePedidos = (
 
   const enviarItems = async (items: Array<{ platoId: number; guarnicionId?: number | null; cantidad?: number }>, observacion?: string | null): Promise<boolean> => {
     if (!usuarioId || !tokenRef.current) return false;
-
     setEnviando(true);
     try {
       const payload = {
@@ -171,14 +194,8 @@ export const usePedidos = (
       });
 
       if (respuesta.ok) {
-        setYaPedioHoy(true);
-        try {
-          const check = await fetch(`${API_BASE_URL}/api/trabajador/pedidos?usuarioId=${usuarioId}${fecha ? `&fecha=${fecha}` : ''}&esCena=${esCena}`, {
-            headers: { 'Authorization': `Bearer ${tokenRef.current}` },
-          });
-          const data = await check.json();
-          setPedidoExistente(data.pedido ?? null);
-        } catch (e) { /* ignore */ }
+        // 🔥 Forzamos actualización
+        await refrescarVerificacion(true);
         return true;
       }
 
@@ -191,8 +208,7 @@ export const usePedidos = (
       alert(`Error: ${errorData?.error || 'No se pudo procesar el pedido'}`);
       return false;
     } catch (error) {
-      console.error('[usePedidos] Error de red (items):', error);
-      alert(`Fallo de conexión con el servidor: ${error instanceof Error ? error.message : String(error)}`);
+      alert(`Fallo de conexión con el servidor`);
       return false;
     } finally {
       setEnviando(false);
