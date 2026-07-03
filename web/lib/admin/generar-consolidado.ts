@@ -99,7 +99,10 @@ function esZonaCaliente(categoria: CategoriaPlato, nombreLower: string): boolean
   return categoria === CategoriaPlato.ENTRADA && nombreLower.includes("sopa")
 }
 
-export async function getConsolidadoDia(fecha?: Date): Promise<ConsolidadoDia> {
+export async function getConsolidadoDia(
+  fecha?: Date,
+  soloCenas: boolean = false
+): Promise<ConsolidadoDia> {
   const fechaISO = fecha ? toChileISODate(fecha) : undefined
   const fechaInicio = chileStartOfDay(fechaISO)
   const fechaFin = chileEndOfDay(fechaISO)
@@ -109,6 +112,7 @@ export async function getConsolidadoDia(fecha?: Date): Promise<ConsolidadoDia> {
       where: {
         fecha: { gte: fechaInicio, lte: fechaFin },
         estado: { not: EstadoPedido.CANCELADO },
+        ...(soloCenas ? { esCena: true } : {}),
       },
       include: {
         detalles: {
@@ -126,12 +130,14 @@ export async function getConsolidadoDia(fecha?: Date): Promise<ConsolidadoDia> {
         },
       },
     }),
-    db.pedidoManual.findMany({
-      where: {
-        fecha: { gte: fechaInicio, lte: fechaFin },
-      },
-      include: { empresa: true },
-    }),
+    soloCenas
+      ? Promise.resolve([])
+      : db.pedidoManual.findMany({
+          where: {
+            fecha: { gte: fechaInicio, lte: fechaFin },
+          },
+          include: { empresa: true },
+        }),
   ])
 
   const zonaFriaMap = new Map<string, ItemConsolidado>()
