@@ -5,10 +5,10 @@ import { Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 type UsuariosHeaderProps = {
-  onAsignarRepresentante: () => void
+  onAgregarUsuario: () => void
 }
 
-export function UsuariosHeader({ onAsignarRepresentante }: UsuariosHeaderProps) {
+export function UsuariosHeader({ onAgregarUsuario }: UsuariosHeaderProps) {
   return (
     <header className="flex flex-col gap-4 border-b border-slate-200 pb-5 sm:flex-row sm:items-center sm:justify-between">
       <div>
@@ -27,11 +27,11 @@ export function UsuariosHeader({ onAsignarRepresentante }: UsuariosHeaderProps) 
       </div>
       <Button
         type="button"
-        onClick={onAsignarRepresentante}
+        onClick={onAgregarUsuario}
         className="h-10 w-full bg-[#75aa46] px-3 text-white hover:bg-[#5d8a38] sm:w-auto"
       >
         <Plus className="size-4" />
-        Asignar representante
+        Agregar usuario
       </Button>
     </header>
   )

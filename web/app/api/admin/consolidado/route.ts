@@ -28,6 +28,7 @@ export async function GET(req: NextRequest) {
     const modo = searchParams.get("modo") ?? "dia"
     const fechaParam = searchParams.get("fecha")
     const fecha = fechaParam ? new Date(fechaParam) : undefined
+    const soloCenas = searchParams.get("cenas") === "true"
 
     if (modo === "semana") {
       const consolidado = await getConsolidadoSemana(fecha)
@@ -36,7 +37,7 @@ export async function GET(req: NextRequest) {
         { headers: { "Cache-Control": "no-store" } }
       )
     } else {
-      const consolidado = await getConsolidadoDia(fecha)
+      const consolidado = await getConsolidadoDia(fecha, soloCenas)
       return NextResponse.json(
         { modo: "dia", ...consolidado },
         { headers: { "Cache-Control": "no-store" } }

@@ -8,7 +8,6 @@ import { TarjetaPlato } from '../../components/TarjetaPlato';
 import { BottomSheet } from '../../components/BottomSheet';
 import LoadingView from '../../components/LoadingView';
 import { Sidebar } from '../../components/Sidebar';
-import { VerificadorRut } from '../../components/VerificadorRut';
 
 // Hooks
 import { useCountdown } from '../../hooks/useCountdown';
@@ -79,7 +78,11 @@ const OPCIONES_PREFIJADAS = [
   { id: 'COLACION', nombre: 'COLACIÓN', descripcion: 'Opción rápida o sándwich.' },
 ];
 
-const HomePageTrabajador: React.FC = () => {
+interface HomePageTrabajadorProps {
+  empresaNombre: string;
+}
+
+const HomePageTrabajador: React.FC<HomePageTrabajadorProps> = ({ empresaNombre }) => {
   const { user } = useUser();
   const location = useLocation();
 
@@ -449,7 +452,7 @@ const HomePageTrabajador: React.FC = () => {
 
   return (
     <div className="min-h-screen pb-48 relative flex flex-col" style={{ backgroundColor: THEME.colors.background }}>
-      <Sidebar isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} rolPropVisible="Trabajador" empresaNombre="Starco" />
+      <Sidebar isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} rolPropVisible="Trabajador" empresaNombre={empresaNombre} />
 
       <div className="pt-5 pb-3 flex justify-between items-center px-6" style={{ backgroundColor: THEME.colors.secondary }}>
         <h1 className="text-[24px] font-black italic text-white m-0 leading-none">GM <span style={{ color: THEME.colors.primary }}>EXPRESS</span></h1>
@@ -934,7 +937,6 @@ const HomePageTrabajador: React.FC = () => {
         </div>
       )}
 
-      <VerificadorRut />
     </div>
   );
 };

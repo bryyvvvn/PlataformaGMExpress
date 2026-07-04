@@ -6,7 +6,6 @@ import { TarjetaTrabajador } from '../../components/TarjetaTrabajador';
 import { useTrabajadores } from '../../hooks/useTrabajadores'; 
 import { useCalendario } from '../../hooks/useCalendario';
 import { usePlanilla } from '../../hooks/usePlanilla';
-import { VerificadorRut } from '../../components/VerificadorRut';
 import { useUser } from '@clerk/clerk-react';
 import { useClerkToken } from '../../hooks/useClerkToken';
 import type { ConvenioEmpresa } from '../../hooks/usePerfil';
@@ -258,7 +257,6 @@ const HomePageRepresentante: React.FC<HomePageRepresentanteProps> = ({ empresaId
         </div>
       )}
 
-      <VerificadorRut />
     </div>
   );
 };
