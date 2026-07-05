@@ -1,4 +1,5 @@
 // src/components/VerificadorRut.tsx
+import { useClerk } from '@clerk/clerk-react';
 import React, { useState } from 'react';
 import {
   normalizarTelefonoPerfil,
@@ -41,6 +42,8 @@ export const VerificadorRut: React.FC<VerificadorRutProps> = ({
 }) => {
   const [inputRut, setInputRut] = useState('');
   const [inputTelefono, setInputTelefono] = useState('');
+  const [cerrandoSesion, setCerrandoSesion] = useState(false);
+  const { signOut } = useClerk();
   const { guardandoRut, guardarRutAPI } = useVerificadorRut();
 
   const manejarCambioRut = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -79,6 +82,20 @@ export const VerificadorRut: React.FC<VerificadorRutProps> = ({
     }
 
     await (onPerfilCompletado ?? onGuardado)?.();
+  };
+
+  const manejarCerrarSesion = async () => {
+    if (guardandoRut || cerrandoSesion) return;
+
+    setCerrandoSesion(true);
+
+    try {
+      await signOut();
+    } catch (error) {
+      console.error('[VerificadorRut] Error cerrando sesion:', error);
+      alert('No se pudo cerrar sesión. Intenta nuevamente.');
+      setCerrandoSesion(false);
+    }
   };
 
   const esRutValido = validarRutChileno(inputRut);
@@ -125,6 +142,7 @@ export const VerificadorRut: React.FC<VerificadorRutProps> = ({
         />
 
         <button
+          type="button"
           onClick={manejarGuardado}
           disabled={guardandoRut || !esTodoValido}
           className={`w-full py-4 rounded-xl font-black text-white transition-all shadow-lg ${
@@ -134,6 +152,15 @@ export const VerificadorRut: React.FC<VerificadorRutProps> = ({
           }`}
         >
           {guardandoRut ? 'Guardando...' : 'Completar Perfil'}
+        </button>
+
+        <button
+          type="button"
+          onClick={manejarCerrarSesion}
+          disabled={guardandoRut || cerrandoSesion}
+          className="mt-3 w-full py-3 rounded-xl border-2 border-gray-100 text-sm font-black text-[#1d2d50] transition-all hover:border-[#70a344]/40 hover:bg-[#70a344]/5 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {cerrandoSesion ? 'Cerrando sesión...' : 'Cerrar sesión'}
         </button>
       </div>
     </main>
