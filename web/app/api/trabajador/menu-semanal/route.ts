@@ -67,6 +67,15 @@ type MenuCacheData = {
   ensaladaSurtida: PlatoBebida | null;
 };
 
+type MenuCacheStatus = "HIT" | "MISS" | "BYPASS";
+
+type MenuResponseMeta = {
+  cacheStatus: MenuCacheStatus;
+  cacheKey: string;
+  durationMs: number;
+  fecha: string;
+};
+
 function platoOmiteGuarnicion(plato: { nombre: string; tipo: string }) {
   return plato.tipo === "PLATO_UNICO" || plato.tipo === "HIPOCALORICO" || esPlatoUnicoPorLegumbre(plato.nombre);
 }
@@ -128,10 +137,35 @@ const serverMenuCache = new Map<string, { data: MenuCacheData; timestamp: number
 const CACHE_TTL_MS = 1000 * 60 * 60 * 14; // 14 horas de vida
 
 function getMenuCacheKey(fecha: string) {
-  return `menu-semanal:${fecha}`;
+  return `menu-semanal:${fecha}:base`;
+}
+
+function crearHeadersDiagnosticoMenu(meta: MenuResponseMeta) {
+  return {
+    "X-Menu-Cache": meta.cacheStatus,
+    "X-Menu-Cache-Key": meta.cacheKey,
+    "X-Menu-Duration-Ms": String(meta.durationMs),
+    "X-Menu-Fecha": meta.fecha,
+  };
+}
+
+function jsonMenu(
+  data: unknown,
+  meta: MenuResponseMeta,
+  init?: ResponseInit
+) {
+  return NextResponse.json(data, {
+    ...init,
+    headers: {
+      ...init?.headers,
+      ...crearHeadersDiagnosticoMenu(meta),
+    },
+  });
 }
 
 export async function GET(req: NextRequest) {
+  const startMs = Date.now();
+
   try {
     // Si la caché guarda más de 7 días, la limpiamos para no acumular basura
     if (serverMenuCache.size > 7) {
@@ -141,29 +175,68 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const fechaParam = searchParams.get("fecha");
     const usuarioId = searchParams.get("usuarioId");
+    const esCena = searchParams.get("esCena");
+    const isoFecha: string = fechaParam && /^\d{4}-\d{2}-\d{2}$/.test(fechaParam) ? fechaParam : nowChile().iso;
+    const cacheKey = getMenuCacheKey(isoFecha);
+
+    console.log("[menu-semanal] Inicio", {
+      fecha: isoFecha,
+      hasUsuarioId: Boolean(usuarioId),
+      esCena,
+      cacheKey,
+    });
 
     if (usuarioId) {
       const verificacion = await verificarTokenTrabajador(req, usuarioId);
       if ("error" in verificacion) {
-        return NextResponse.json({ error: verificacion.error }, { status: verificacion.status });
+        const durationMs = Date.now() - startMs;
+
+        console.warn("[menu-semanal] Token rechazado", {
+          fecha: isoFecha,
+          cacheKey,
+          durationMs,
+          status: verificacion.status,
+        });
+
+        return jsonMenu(
+          { error: verificacion.error },
+          {
+            cacheStatus: "BYPASS",
+            cacheKey,
+            durationMs,
+            fecha: isoFecha,
+          },
+          { status: verificacion.status }
+        );
       }
     }
 
-    const isoFecha: string = fechaParam && /^\d{4}-\d{2}-\d{2}$/.test(fechaParam) ? fechaParam : nowChile().iso;
-    const cacheKey = getMenuCacheKey(isoFecha);
-
     // 1. Buscamos el convenio del usuario (ligero, no se cachea porque cambia por usuario)
+    if (usuarioId) {
+      console.log("[menu-semanal] Consultando convenio de usuario", {
+        fecha: isoFecha,
+        cacheKey,
+      });
+    }
+
     const convenio = await obtenerConvenioUsuario(usuarioId);
 
     // 2. Revisamos si ya tenemos el menú en la RAM
     const now = Date.now();
     let menuBaseData = serverMenuCache.get(cacheKey);
+    let cacheStatus: MenuCacheStatus = "HIT";
 
     // Si NO lo tenemos o pasaron las 14 horas, hacemos la consulta pesada
     if (!menuBaseData || (now - menuBaseData.timestamp > CACHE_TTL_MS)) {
+      cacheStatus = "MISS";
       const diaNombre = getChileDayName(isoFecha);
       const inicioDia = chileStartOfDay(isoFecha);
       const finDia = chileEndOfDay(isoFecha);
+
+      console.log("[menu-semanal] CACHE MISS: consultando BD menu", {
+        fecha: isoFecha,
+        cacheKey,
+      });
 
       const [menuActivo, ensaladaSurtida] = await Promise.all([
         db.menuSemanal.findFirst({
@@ -204,10 +277,32 @@ export async function GET(req: NextRequest) {
       // 🔥 EL SALVAVIDAS: Si el admin no subió la minuta, no guardamos basura en caché
       if (!menuActivo || menuActivo.detalles.length === 0) {
         serverMenuCache.delete(cacheKey);
-        return NextResponse.json({
-          entradas: [], fondos: [], postres: [], menuDia: null,
-          convenio: { trabajaFinDeSemana: Boolean(convenio?.trabajaFinDeSemana), permiteCena: Boolean(convenio?.permiteCena) },
+        const durationMs = Date.now() - startMs;
+
+        console.log("[menu-semanal] Sin menu activo; no se guarda cache", {
+          fecha: isoFecha,
+          cacheKey,
+          durationMs,
         });
+
+        return jsonMenu(
+          {
+            entradas: [],
+            fondos: [],
+            postres: [],
+            menuDia: null,
+            convenio: {
+              trabajaFinDeSemana: Boolean(convenio?.trabajaFinDeSemana),
+              permiteCena: Boolean(convenio?.permiteCena),
+            },
+          },
+          {
+            cacheStatus,
+            cacheKey,
+            durationMs,
+            fecha: isoFecha,
+          }
+        );
       }
 
       // Guardamos la respuesta procesada en la RAM
@@ -241,7 +336,23 @@ export async function GET(req: NextRequest) {
       convenio: { trabajaFinDeSemana: Boolean(convenio?.trabajaFinDeSemana), permiteCena: Boolean(convenio?.permiteCena) },
     };
 
-    return NextResponse.json(menuFormateado);
+    const durationMs = Date.now() - startMs;
+
+    console.log("[menu-semanal] Fin", {
+      fecha: isoFecha,
+      hasUsuarioId: Boolean(usuarioId),
+      esCena,
+      cacheKey,
+      cacheStatus,
+      durationMs,
+    });
+
+    return jsonMenu(menuFormateado, {
+      cacheStatus,
+      cacheKey,
+      durationMs,
+      fecha: isoFecha,
+    });
   } catch (error) {
     console.error("[menu-semanal] Error:", error);
     return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });

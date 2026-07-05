@@ -144,11 +144,21 @@ export const useMenuAPI = (
       const params = new URLSearchParams();
       params.set("fecha", fechaNormalizada);
       params.set("usuarioId", usuarioId);
+      params.set("esCena", esCena ? "true" : "false");
       const url = `${API_BASE_URL}/api/trabajador/menu-semanal?${params.toString()}`;
 
       const respuesta = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
+
+      if (__DEV__) {
+        console.log("[useMenuAPI] BACKEND CACHE", {
+          cache: respuesta.headers.get("X-Menu-Cache"),
+          cacheKey: respuesta.headers.get("X-Menu-Cache-Key"),
+          durationMs: respuesta.headers.get("X-Menu-Duration-Ms"),
+          fecha: respuesta.headers.get("X-Menu-Fecha"),
+        });
+      }
 
       if (!respuesta.ok) {
         throw new Error(`HTTP ${respuesta.status}`);
