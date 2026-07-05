@@ -10,6 +10,22 @@ function normalizarRutComparable(rut: string) {
   return rut.replace(/[.\-\s]/g, "").toUpperCase()
 }
 
+function obtenerAmbienteSecretKey() {
+  const secretKey = process.env.CLERK_SECRET_KEY
+
+  if (!secretKey) return "missing"
+  if (secretKey.startsWith("sk_live")) return "live"
+  if (secretKey.startsWith("sk_test")) return "test"
+
+  return "unknown"
+}
+
+function sanitizarMensajeError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error)
+
+  return message.replace(/(sk|pk)_(live|test)_[A-Za-z0-9._-]+/g, "$1_$2_...")
+}
+
 async function validarDuplicadoRut(clerkId: string, rut: string) {
   const usuarios = await db.usuario.findMany({
     where: { rut: { not: null } },
@@ -56,19 +72,62 @@ export async function PATCH(request: Request) {
   const authHeader = request.headers.get("Authorization")
 
   if (!authHeader?.startsWith("Bearer ")) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+    console.error("[usuarios/rut] token ausente", {
+      hasAuthorizationHeader: Boolean(authHeader),
+      route: "/api/usuarios/rut",
+    })
+
+    return NextResponse.json(
+      { error: "No autorizado: token ausente." },
+      { status: 401 }
+    )
   }
 
-  const token = authHeader.slice(7)
+  const token = authHeader.slice(7).trim()
+
+  if (!token) {
+    console.error("[usuarios/rut] token ausente", {
+      hasAuthorizationHeader: true,
+      route: "/api/usuarios/rut",
+    })
+
+    return NextResponse.json(
+      { error: "No autorizado: token ausente." },
+      { status: 401 }
+    )
+  }
+
   let tokenUserId: string
 
   try {
+    if (!process.env.CLERK_SECRET_KEY) {
+      throw new Error("CLERK_SECRET_KEY no configurada")
+    }
+
     const payload = await verifyToken(token, {
       secretKey: process.env.CLERK_SECRET_KEY,
     })
+
+    if (!payload.sub) {
+      throw new Error("Token Clerk sin subject")
+    }
+
     tokenUserId = payload.sub
-  } catch {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+  } catch (error) {
+    console.error("[usuarios/rut] error autenticando Clerk", {
+      message: sanitizarMensajeError(error),
+      secretKeyEnv: obtenerAmbienteSecretKey(),
+      tokenLength: token.length,
+      route: "/api/usuarios/rut",
+    })
+
+    return NextResponse.json(
+      {
+        error:
+          "No autorizado: sesión inválida o ambiente Clerk incompatible.",
+      },
+      { status: 401 }
+    )
   }
 
   let body: unknown
@@ -86,8 +145,14 @@ export async function PATCH(request: Request) {
   }
 
   if (result.data.clerkId !== tokenUserId) {
+    console.error("[usuarios/rut] usuario no coincide con sesion", {
+      hasBodyClerkId: Boolean(result.data.clerkId),
+      hasTokenUserId: Boolean(tokenUserId),
+      route: "/api/usuarios/rut",
+    })
+
     return NextResponse.json(
-      { error: "No autorizado para modificar este usuario" },
+      { error: "No autorizado: el usuario no coincide con la sesión." },
       { status: 403 }
     )
   }
