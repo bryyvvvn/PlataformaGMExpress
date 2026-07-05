@@ -4,6 +4,29 @@ export const dynamic = "force-dynamic";
 
 const CHILE_TIMEZONE = "America/Santiago";
 
+class MenuSemanalPreloadError extends Error {
+  fecha: string;
+  status: number | null;
+  url: string;
+
+  constructor({
+    fecha,
+    status,
+    url,
+    message,
+  }: {
+    fecha: string;
+    status: number | null;
+    url: string;
+    message: string;
+  }) {
+    super(message);
+    this.fecha = fecha;
+    this.status = status;
+    this.url = url;
+  }
+}
+
 function getChileDateParts(date = new Date()) {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: CHILE_TIMEZONE,
@@ -56,22 +79,42 @@ function addDaysToChileDate(
   );
 }
 
+function getCurrentChileWeekdays() {
+  const hoyChile = getChileDateParts();
+  const diaSemanaChile = getChileDayOfWeek(hoyChile.weekday);
+  const diasHastaLunes = 1 - diaSemanaChile;
+
+  return Array.from({ length: 5 }, (_, index) =>
+    addDaysToChileDate(
+      hoyChile.year,
+      hoyChile.month,
+      hoyChile.day,
+      diasHastaLunes + index
+    )
+  );
+}
+
+function getMenuSemanalUrl(urlBase: string, fecha: string) {
+  return `${urlBase}/api/trabajador/menu-semanal?fecha=${encodeURIComponent(fecha)}`;
+}
+
 export async function GET(request: NextRequest) {
   const querySecret = request.nextUrl.searchParams.get("secret");
 
   if (!process.env.CRON_SECRET) {
-    console.error("[CRON CACHÉ] Falta CRON_SECRET");
+    console.error("[CRON CACHE] Falta CRON_SECRET");
 
     return NextResponse.json(
       {
         success: false,
-        error: "CRON_SECRET no está configurado",
+        error: "CRON_SECRET no esta configurado",
       },
       { status: 500 }
     );
   }
 
   if (querySecret !== process.env.CRON_SECRET) {
+    console.warn("[CRON CACHE] Acceso denegado: secret invalido o ausente");
     return new NextResponse("Acceso denegado", { status: 401 });
   }
 
@@ -80,29 +123,19 @@ export async function GET(request: NextRequest) {
       process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
       "https://admin.gmexpress.cl";
 
-    const hoyChile = getChileDateParts();
-    const diaSemanaChile = getChileDayOfWeek(hoyChile.weekday);
+    const fechasSemana = getCurrentChileWeekdays();
 
-    const diasHastaLunes = 1 - diaSemanaChile;
-
-    const fechasSemana = Array.from({ length: 5 }, (_, index) =>
-      addDaysToChileDate(
-        hoyChile.year,
-        hoyChile.month,
-        hoyChile.day,
-        diasHastaLunes + index
-      )
-    );
-
-    console.log("[CRON CACHÉ] Iniciando calentamiento de menú semanal");
-    console.log("[CRON CACHÉ] URL base:", urlBase);
-    console.log("[CRON CACHÉ] Fechas:", fechasSemana);
+    console.log("[CRON CACHE] Iniciando primera carga de menu semanal", {
+      timezone: CHILE_TIMEZONE,
+      urlBase,
+      fechas: fechasSemana,
+    });
 
     const resultados = await Promise.allSettled(
       fechasSemana.map(async (fecha) => {
-        const url = `${urlBase}/api/trabajador/menu-semanal?fecha=${fecha}`;
+        const url = getMenuSemanalUrl(urlBase, fecha);
 
-        console.log(`[CRON CACHÉ] Llamando: ${url}`);
+        console.log("[CRON CACHE] Llamando menu-semanal", { fecha, url });
 
         const response = await fetch(url, {
           method: "GET",
@@ -111,15 +144,25 @@ export async function GET(request: NextRequest) {
 
         const body = await response.text();
 
+        console.log("[CRON CACHE] Respuesta menu-semanal", {
+          fecha,
+          status: response.status,
+          ok: response.ok,
+        });
+
         if (!response.ok) {
-          throw new Error(
-            `Falló menú semanal para ${fecha}. Status: ${response.status}. Body: ${body}`
-          );
+          throw new MenuSemanalPreloadError({
+            fecha,
+            status: response.status,
+            url,
+            message: body.slice(0, 500) || "menu-semanal respondio con error",
+          });
         }
 
         return {
           fecha,
           status: response.status,
+          url,
         };
       })
     );
@@ -129,20 +172,43 @@ export async function GET(request: NextRequest) {
       .map((resultado) => resultado.value);
 
     const fallidos = resultados
-      .filter((resultado) => resultado.status === "rejected")
-      .map((resultado) => {
+      .map((resultado, index) => ({ resultado, fecha: fechasSemana[index] }))
+      .filter(
+        (item): item is {
+          resultado: PromiseRejectedResult;
+          fecha: string;
+        } => item.resultado.status === "rejected"
+      )
+      .map(({ resultado, fecha }) => {
         const error = resultado.reason;
-        return error instanceof Error ? error.message : String(error);
+
+        if (error instanceof MenuSemanalPreloadError) {
+          return {
+            fecha: error.fecha,
+            status: error.status,
+            url: error.url,
+            error: error.message,
+          };
+        }
+
+        return {
+          fecha,
+          status: null,
+          url: getMenuSemanalUrl(urlBase, fecha),
+          error: error instanceof Error ? error.message : String(error),
+        };
       });
 
     if (fallidos.length > 0) {
-      console.error("[CRON CACHÉ] Algunas fechas fallaron:", fallidos);
+      console.error("[CRON CACHE] Fechas fallidas en primera carga", {
+        fallidos,
+      });
 
       return NextResponse.json(
         {
           success: false,
           mensaje:
-            "El cron se ejecutó, pero una o más llamadas a menú semanal fallaron.",
+            "El cron se ejecuto, pero una o mas llamadas a menu-semanal fallaron.",
           fechas: fechasSemana,
           exitosos,
           fallidos,
@@ -151,21 +217,25 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    console.log("[CRON CACHE] Primera carga completada", {
+      exitosos,
+    });
+
     return NextResponse.json({
       success: true,
       mensaje:
-        "Cron ejecutado correctamente. La ruta de menú semanal fue llamada para poblar la caché.",
+        "Cron ejecutado correctamente. La ruta menu-semanal fue llamada para poblar la cache.",
       fechas: fechasSemana,
       resultados: exitosos,
       timezone: CHILE_TIMEZONE,
     });
   } catch (error) {
-    console.error("[CRON CACHÉ] Error crítico:", error);
+    console.error("[CRON CACHE] Error critico:", error);
 
     return NextResponse.json(
       {
         success: false,
-        error: "Error interno del cron de caché",
+        error: "Error interno del cron de cache",
       },
       { status: 500 }
     );

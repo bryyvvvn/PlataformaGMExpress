@@ -23,11 +23,55 @@ type PlatoBebida = {
   carbohidratos: number | null; grasas: number | null;
 };
 
+type PlatoMenu = {
+  id: number;
+  nombre: string;
+  url_imagen: string | null;
+  categoria: string;
+  tipo: string;
+};
+
+type GuarnicionMenu = {
+  id: number;
+  nombre: string;
+};
+
+type MenuDetalleConPlato = {
+  id: number;
+  plato: PlatoMenu;
+  guarniciones: GuarnicionMenu[];
+};
+
+type EntradaSeleccionada = {
+  orden: number;
+  id: number;
+  menuDetalle: MenuDetalleConPlato;
+};
+
+type MenuDiaSeleccion = {
+  entradasSeleccionadas: EntradaSeleccionada[];
+  entradaDetalle: MenuDetalleConPlato;
+  fondoDetalle: MenuDetalleConPlato;
+  postreDetalle: MenuDetalleConPlato;
+  guarnicion: GuarnicionMenu | null;
+  bebidaPlato: PlatoBebida | null;
+};
+
+type MenuActivoCache = {
+  detalles: MenuDetalleConPlato[];
+  menuDiaSelecciones: MenuDiaSeleccion[];
+};
+
+type MenuCacheData = {
+  menuActivo: MenuActivoCache;
+  ensaladaSurtida: PlatoBebida | null;
+};
+
 function platoOmiteGuarnicion(plato: { nombre: string; tipo: string }) {
   return plato.tipo === "PLATO_UNICO" || plato.tipo === "HIPOCALORICO" || esPlatoUnicoPorLegumbre(plato.nombre);
 }
 
-function formatearDetalle(d: { id: number; plato: { id: number; nombre: string; url_imagen: string | null; categoria: string; tipo: string; }; guarniciones: { id: number; nombre: string }[]; }) {
+function formatearDetalle(d: MenuDetalleConPlato) {
   return { ...d.plato, guarniciones: platoOmiteGuarnicion(d.plato) ? [] : d.guarniciones, menuDetalleId: d.id };
 }
 
@@ -58,9 +102,9 @@ async function obtenerConvenioUsuario(usuarioId: string | null): Promise<Conveni
   return usuario?.empresa?.ConvenioEmpresa ?? null;
 }
 
-function formatearSeleccion(seleccion: any, convenio: ConvenioMenuDia | null) {
+function formatearSeleccion(seleccion: MenuDiaSeleccion, convenio: ConvenioMenuDia | null) {
   const entradas = seleccion.entradasSeleccionadas.length > 0
-    ? seleccion.entradasSeleccionadas.sort((a: any, b: any) => a.orden - b.orden).map((item: any) => formatearDetalle(item.menuDetalle))
+    ? seleccion.entradasSeleccionadas.sort((a, b) => a.orden - b.orden).map((item) => formatearDetalle(item.menuDetalle))
     : [formatearDetalle(seleccion.entradaDetalle)];
   const permiteEntrada = convenio?.permiteEntrada ?? true;
   const permitePlato = convenio?.permitePlato ?? true;
@@ -80,8 +124,12 @@ function formatearSeleccion(seleccion: any, convenio: ConvenioMenuDia | null) {
 }
 
 // 🔥 LA MAGIA: CACHÉ EN LA RAM DEL SERVIDOR
-const serverMenuCache = new Map<string, { data: any; timestamp: number }>();
+const serverMenuCache = new Map<string, { data: MenuCacheData; timestamp: number }>();
 const CACHE_TTL_MS = 1000 * 60 * 60 * 14; // 14 horas de vida
+
+function getMenuCacheKey(fecha: string) {
+  return `menu-semanal:${fecha}`;
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -102,13 +150,14 @@ export async function GET(req: NextRequest) {
     }
 
     const isoFecha: string = fechaParam && /^\d{4}-\d{2}-\d{2}$/.test(fechaParam) ? fechaParam : nowChile().iso;
+    const cacheKey = getMenuCacheKey(isoFecha);
 
     // 1. Buscamos el convenio del usuario (ligero, no se cachea porque cambia por usuario)
     const convenio = await obtenerConvenioUsuario(usuarioId);
 
     // 2. Revisamos si ya tenemos el menú en la RAM
     const now = Date.now();
-    let menuBaseData = serverMenuCache.get(isoFecha);
+    let menuBaseData = serverMenuCache.get(cacheKey);
 
     // Si NO lo tenemos o pasaron las 14 horas, hacemos la consulta pesada
     if (!menuBaseData || (now - menuBaseData.timestamp > CACHE_TTL_MS)) {
@@ -154,7 +203,7 @@ export async function GET(req: NextRequest) {
 
       // 🔥 EL SALVAVIDAS: Si el admin no subió la minuta, no guardamos basura en caché
       if (!menuActivo || menuActivo.detalles.length === 0) {
-        serverMenuCache.delete(isoFecha); 
+        serverMenuCache.delete(cacheKey);
         return NextResponse.json({
           entradas: [], fondos: [], postres: [], menuDia: null,
           convenio: { trabajaFinDeSemana: Boolean(convenio?.trabajaFinDeSemana), permiteCena: Boolean(convenio?.permiteCena) },
@@ -163,7 +212,11 @@ export async function GET(req: NextRequest) {
 
       // Guardamos la respuesta procesada en la RAM
       menuBaseData = { data: { menuActivo, ensaladaSurtida }, timestamp: now };
-      serverMenuCache.set(isoFecha, menuBaseData);
+      serverMenuCache.set(cacheKey, menuBaseData);
+      console.log("[menu-semanal] Cache miss: menu guardado en RAM", {
+        fecha: isoFecha,
+        cacheKey,
+      });
       console.log(`[Cache Miss] Menú guardado en RAM para: ${isoFecha}`);
     } else {
       console.log(`[Cache Hit] Menú servido rapidísimo para: ${isoFecha}`);
@@ -172,18 +225,18 @@ export async function GET(req: NextRequest) {
     // 3. Extraemos los datos (ya sea de BD o RAM) y aplicamos reglas de convenio
     const { menuActivo, ensaladaSurtida } = menuBaseData.data;
     const seleccion = menuActivo.menuDiaSelecciones[0];
-    const entradas = menuActivo.detalles.filter((d: any) => d.plato.categoria === "ENTRADA").map(formatearDetalle);
+    const entradas = menuActivo.detalles.filter((d) => d.plato.categoria === "ENTRADA").map(formatearDetalle);
 
     const entradasConSurtida = ensaladaSurtida
-      ? entradas.some((p: any) => p.nombre.toLowerCase().trim() === "ensalada surtida")
+      ? entradas.some((p) => p.nombre.toLowerCase().trim() === "ensalada surtida")
         ? entradas
         : [{ ...ensaladaSurtida, guarniciones: [], menuDetalleId: null }, ...entradas]
       : entradas;
 
     const menuFormateado = {
       entradas: entradasConSurtida,
-      fondos: menuActivo.detalles.filter((d: any) => d.plato.categoria === "FONDO").map(formatearDetalle),
-      postres: menuActivo.detalles.filter((d: any) => d.plato.categoria === "POSTRE").map(formatearDetalle),
+      fondos: menuActivo.detalles.filter((d) => d.plato.categoria === "FONDO").map(formatearDetalle),
+      postres: menuActivo.detalles.filter((d) => d.plato.categoria === "POSTRE").map(formatearDetalle),
       menuDia: seleccion ? formatearSeleccion(seleccion, convenio) : null,
       convenio: { trabajaFinDeSemana: Boolean(convenio?.trabajaFinDeSemana), permiteCena: Boolean(convenio?.permiteCena) },
     };
