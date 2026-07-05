@@ -11,8 +11,8 @@ import { Sidebar } from '../../components/Sidebar';
 
 // Hooks
 import { useCountdown } from '../../hooks/useCountdown';
-import { useMenuAPI } from '../../hooks/useMenuAPI';
-import { usePedidos } from '../../hooks/usePedidos';
+import { precargarMenus, useMenuAPI } from '../../hooks/useMenuAPI';
+import { precargarPedidos, usePedidos } from '../../hooks/usePedidos';
 import { useCalendario } from '../../hooks/useCalendario';
 import { useHistorial } from '../../hooks/useHistorial';
 import { usePerfilTrabajador } from '../../hooks/usePerfilTrabajador';
@@ -140,8 +140,33 @@ const HomePageTrabajador: React.FC<HomePageTrabajadorProps> = ({ empresaNombre }
   const { timeRemaining } = useCountdown(DEADLINE_HOUR);
   const fechaSeleccionadaNormalizada = useMemo(() => String(fechaSeleccionadaISO || '').slice(0, 10), [fechaSeleccionadaISO]);
   const esCenaSeleccionada = modoComida === 'CENA';
+  const fechasSemanaVisibles = useMemo(
+    () => (diasSemanaArray || [])
+      .map((dia) => dia?.iso)
+      .filter((fecha): fecha is string => Boolean(fecha)),
+    [diasSemanaArray]
+  );
   const { menuHoy, cargando: cargandoMenu } = useMenuAPI(fechaSeleccionadaNormalizada, user?.id, clerkToken, esCenaSeleccionada);
   const { pedidoExistente, cargandoVerificacion, enviarPedido, enviarItems, enviando, refrescarVerificacion, eliminarPedido, eliminando } = usePedidos(user?.id, fechaSeleccionadaNormalizada, clerkToken, esCenaSeleccionada);
+
+  useEffect(() => {
+    if (!user?.id || !clerkToken || fechasSemanaVisibles.length === 0) return;
+
+    void Promise.all([
+      precargarMenus({
+        esCena: esCenaSeleccionada,
+        fechas: fechasSemanaVisibles,
+        token: clerkToken,
+        usuarioId: user.id,
+      }),
+      precargarPedidos({
+        esCena: esCenaSeleccionada,
+        fechas: fechasSemanaVisibles,
+        token: clerkToken,
+        usuarioId: user.id,
+      }),
+    ]);
+  }, [clerkToken, esCenaSeleccionada, fechasSemanaVisibles, user?.id]);
 
   // 🔥 EXTRAEMOS estadoFechas DEL HISTORIAL
   const { historial, estadoFechas, cargando: cargandoHistorial, cargarHistorial } = useHistorial(user?.id, clerkToken);

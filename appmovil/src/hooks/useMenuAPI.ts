@@ -23,7 +23,7 @@ const normalizeMenuDate = (fecha: MenuDateInput) => {
 };
 
 const getMenuCacheKey = (usuarioId: string, fechaNormalizada: string, esCena: boolean) =>
-  `${usuarioId}-${fechaNormalizada}-${esCena ? "cena" : "almuerzo"}`;
+  `menu:${usuarioId}:${fechaNormalizada}:${esCena ? "cena" : "almuerzo"}`;
 
 const getMenuCacheVersion = (cacheKey: string) => menuCacheVersions.get(cacheKey) ?? 0;
 
@@ -52,14 +52,156 @@ export const invalidateMenuCache = (fecha?: MenuDateInput, esCena?: boolean) => 
   const fechaNormalizada = normalizeMenuDate(fecha);
 
   if (typeof esCena === "boolean") {
-    const suffix = `-${fechaNormalizada}-${esCena ? "cena" : "almuerzo"}`;
+    const suffix = `:${fechaNormalizada}:${esCena ? "cena" : "almuerzo"}`;
     deleteMenuCacheKeys((key) => key.endsWith(suffix));
     return;
   }
 
-  const almuerzoSuffix = `-${fechaNormalizada}-almuerzo`;
-  const cenaSuffix = `-${fechaNormalizada}-cena`;
+  const almuerzoSuffix = `:${fechaNormalizada}:almuerzo`;
+  const cenaSuffix = `:${fechaNormalizada}:cena`;
   deleteMenuCacheKeys((key) => key.endsWith(almuerzoSuffix) || key.endsWith(cenaSuffix));
+};
+
+const fetchMenuBackend = async ({
+  cacheKey,
+  esCena,
+  fechaNormalizada,
+  requestVersion,
+  token,
+  usuarioId,
+}: {
+  cacheKey: string;
+  esCena: boolean;
+  fechaNormalizada: string;
+  requestVersion: number;
+  token: string;
+  usuarioId: string;
+}) => {
+  if (__DEV__) {
+    console.log("[useMenuAPI] MENU FETCH START", cacheKey);
+  }
+
+  const params = new URLSearchParams();
+  params.set("fecha", fechaNormalizada);
+  params.set("usuarioId", usuarioId);
+  params.set("esCena", esCena ? "true" : "false");
+  const url = `${API_BASE_URL}/api/trabajador/menu-semanal?${params.toString()}`;
+
+  const respuesta = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (__DEV__) {
+    console.log("[useMenuAPI] BACKEND CACHE", {
+      cache: respuesta.headers.get("X-Menu-Cache"),
+      cacheKey: respuesta.headers.get("X-Menu-Cache-Key"),
+      durationMs: respuesta.headers.get("X-Menu-Duration-Ms"),
+      fecha: respuesta.headers.get("X-Menu-Fecha"),
+    });
+  }
+
+  if (!respuesta.ok) {
+    throw new Error(`HTTP ${respuesta.status}`);
+  }
+
+  const datos = (await respuesta.json()) as MenuDia;
+
+  if (getMenuCacheVersion(cacheKey) === requestVersion) {
+    menuCache.set(cacheKey, datos);
+  }
+
+  if (__DEV__) {
+    console.log("[useMenuAPI] MENU FETCH END", cacheKey);
+  }
+
+  return datos;
+};
+
+const getOrCreateMenuRequest = ({
+  esCena,
+  fechaNormalizada,
+  token,
+  usuarioId,
+}: {
+  esCena: boolean;
+  fechaNormalizada: string;
+  token: string;
+  usuarioId: string;
+}) => {
+  const cacheKey = getMenuCacheKey(usuarioId, fechaNormalizada, esCena);
+
+  if (menuCache.has(cacheKey)) {
+    if (__DEV__) {
+      console.log("[useMenuAPI] MENU LOCAL CACHE HIT", cacheKey);
+    }
+
+    return Promise.resolve(menuCache.get(cacheKey) ?? MENU_VACIO);
+  }
+
+  const requestInFlight = menuRequestsInFlight.get(cacheKey);
+  if (requestInFlight) {
+    if (__DEV__) {
+      console.log("[useMenuAPI] MENU FETCH DEDUPE", cacheKey);
+    }
+
+    return requestInFlight;
+  }
+
+  if (__DEV__) {
+    console.log("[useMenuAPI] MENU LOCAL CACHE MISS", cacheKey);
+  }
+
+  const requestVersion = getMenuCacheVersion(cacheKey);
+  const requestBase = fetchMenuBackend({
+    cacheKey,
+    esCena,
+    fechaNormalizada,
+    requestVersion,
+    token,
+    usuarioId,
+  });
+
+  let request: Promise<MenuDia>;
+  request = requestBase.finally(() => {
+    if (menuRequestsInFlight.get(cacheKey) === request) {
+      menuRequestsInFlight.delete(cacheKey);
+    }
+  });
+
+  menuRequestsInFlight.set(cacheKey, request);
+  return request;
+};
+
+export const precargarMenus = async ({
+  esCena = false,
+  fechas,
+  token,
+  usuarioId,
+}: {
+  esCena?: boolean;
+  fechas: MenuDateInput[];
+  token: string | null | undefined;
+  usuarioId: string | undefined;
+}) => {
+  if (!usuarioId || !token) return;
+
+  const fechasNormalizadas = Array.from(
+    new Set(fechas.map(normalizeMenuDate).filter(Boolean))
+  );
+
+  await Promise.all(
+    fechasNormalizadas.map((fechaNormalizada) =>
+      getOrCreateMenuRequest({
+        esCena,
+        fechaNormalizada,
+        token,
+        usuarioId,
+      }).catch((error) => {
+        console.error("[useMenuAPI] Error precargando menu:", error);
+        return MENU_VACIO;
+      })
+    )
+  );
 };
 
 export const useMenuAPI = (
@@ -93,7 +235,7 @@ export const useMenuAPI = (
 
     if (menuCache.has(cacheKey)) {
       if (__DEV__) {
-        console.log("[useMenuAPI] CACHE HIT", cacheKey);
+        console.log("[useMenuAPI] MENU LOCAL CACHE HIT", cacheKey);
       }
 
       setMenuFetch(menuCache.get(cacheKey) ?? MENU_VACIO);
@@ -102,13 +244,13 @@ export const useMenuAPI = (
     }
 
     if (__DEV__) {
-      console.log("[useMenuAPI] CACHE MISS", cacheKey);
+      console.log("[useMenuAPI] MENU LOCAL CACHE MISS", cacheKey);
     }
 
     const requestInFlight = menuRequestsInFlight.get(cacheKey);
     if (requestInFlight) {
       if (__DEV__) {
-        console.log("[useMenuAPI] REQUEST IN FLIGHT", cacheKey);
+        console.log("[useMenuAPI] MENU FETCH DEDUPE", cacheKey);
       }
 
       const waitVersion = getMenuCacheVersion(cacheKey);
@@ -136,42 +278,14 @@ export const useMenuAPI = (
     }
 
     const requestVersion = getMenuCacheVersion(cacheKey);
-    const requestBase = (async () => {
-      if (__DEV__) {
-        console.trace("[useMenuAPI] FETCH BACKEND", cacheKey);
-      }
-
-      const params = new URLSearchParams();
-      params.set("fecha", fechaNormalizada);
-      params.set("usuarioId", usuarioId);
-      params.set("esCena", esCena ? "true" : "false");
-      const url = `${API_BASE_URL}/api/trabajador/menu-semanal?${params.toString()}`;
-
-      const respuesta = await fetch(url, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (__DEV__) {
-        console.log("[useMenuAPI] BACKEND CACHE", {
-          cache: respuesta.headers.get("X-Menu-Cache"),
-          cacheKey: respuesta.headers.get("X-Menu-Cache-Key"),
-          durationMs: respuesta.headers.get("X-Menu-Duration-Ms"),
-          fecha: respuesta.headers.get("X-Menu-Fecha"),
-        });
-      }
-
-      if (!respuesta.ok) {
-        throw new Error(`HTTP ${respuesta.status}`);
-      }
-
-      const datos = (await respuesta.json()) as MenuDia;
-
-      if (getMenuCacheVersion(cacheKey) === requestVersion) {
-        menuCache.set(cacheKey, datos);
-      }
-
-      return datos;
-    })();
+    const requestBase = fetchMenuBackend({
+      cacheKey,
+      esCena,
+      fechaNormalizada,
+      requestVersion,
+      token,
+      usuarioId,
+    });
 
     let request: Promise<MenuDia>;
     request = requestBase.finally(() => {
