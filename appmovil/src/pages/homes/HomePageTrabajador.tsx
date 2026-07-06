@@ -1,5 +1,5 @@
 // HomePageTrabajador.tsx
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Clock, Menu, ChevronDown, ChevronUp, X, CalendarOff, Lock, Check } from 'lucide-react';
 import { THEME, DEADLINE_HOUR } from '../../constants/theme';
 import { useUser } from '@clerk/clerk-react';
@@ -11,8 +11,8 @@ import { Sidebar } from '../../components/Sidebar';
 
 // Hooks
 import { useCountdown } from '../../hooks/useCountdown';
-import { useMenuAPI } from '../../hooks/useMenuAPI';
-import { usePedidos } from '../../hooks/usePedidos';
+import { precargarMenus, useMenuAPI } from '../../hooks/useMenuAPI';
+import { precargarPedidos, usePedidos } from '../../hooks/usePedidos';
 import { useCalendario } from '../../hooks/useCalendario';
 import { useHistorial } from '../../hooks/useHistorial';
 import { usePerfilTrabajador } from '../../hooks/usePerfilTrabajador';
@@ -133,16 +133,118 @@ const HomePageTrabajador: React.FC<HomePageTrabajadorProps> = ({ empresaNombre }
   const [seccionAbierta, setSeccionAbierta] = useState<Categoria>(null);
   const [tipoOtroSeleccionado, setTipoOtroSeleccionado] = useState<'CANJE' | 'PREMIUM' | null>(null);
   const [modoEdicion, setModoEdicion] = useState(false);
+  const [preloadingSemana, setPreloadingSemana] = useState(false);
+  const precargasSemanaRef = useRef(new Set<string>());
+  const precargasActivasRef = useRef(0);
+  const cargaDiaActualLogRef = useRef<string | null>(null);
+  const componenteMontadoRef = useRef(true);
 
+  useEffect(() => () => { componenteMontadoRef.current = false; }, []);
   useEffect(() => { window.scrollTo(0, 0); }, []);
 
   const { otrosPlatos, loadingOtros } = useOtrosPlatos(activeTab === 'OTRO' || activeTab === 'PERSONALIZADO', clerkToken);
   const { timeRemaining } = useCountdown(DEADLINE_HOUR);
   const fechaSeleccionadaNormalizada = useMemo(() => String(fechaSeleccionadaISO || '').slice(0, 10), [fechaSeleccionadaISO]);
   const esCenaSeleccionada = modoComida === 'CENA';
+  const fechasSemanaVisibles = useMemo(
+    () => (diasSemanaArray || [])
+      .map((dia) => dia?.iso)
+      .filter((fecha): fecha is string => Boolean(fecha)),
+    [diasSemanaArray]
+  );
+  const fechasSemanaVisiblesKey = useMemo(() => fechasSemanaVisibles.join('|'), [fechasSemanaVisibles]);
   const { menuHoy, cargando: cargandoMenu } = useMenuAPI(fechaSeleccionadaNormalizada, user?.id, clerkToken, esCenaSeleccionada);
   const { pedidoExistente, cargandoVerificacion, enviarPedido, enviarItems, enviando, refrescarVerificacion, eliminarPedido, eliminando } = usePedidos(user?.id, fechaSeleccionadaNormalizada, clerkToken, esCenaSeleccionada);
   const loadingDiaActual = cargandoMenu || cargandoVerificacion;
+
+  useEffect(() => {
+    if (!user?.id || !clerkToken || !fechasSemanaVisiblesKey) return;
+
+    const modoKey = esCenaSeleccionada ? 'cena' : 'almuerzo';
+    const diaActualKey = `${user.id}:${fechaSeleccionadaNormalizada}:${modoKey}`;
+    const precargaKey = `${user.id}:${fechasSemanaVisiblesKey}:${modoKey}`;
+    const fechasPrecarga = fechasSemanaVisiblesKey.split('|').filter(Boolean);
+
+    if (loadingDiaActual) {
+      if (import.meta.env.DEV && cargaDiaActualLogRef.current !== diaActualKey) {
+        console.log('[HomePageTrabajador] Cargando dia actual', {
+          esCena: esCenaSeleccionada,
+          fecha: fechaSeleccionadaNormalizada,
+        });
+        cargaDiaActualLogRef.current = diaActualKey;
+      }
+      return;
+    }
+
+    if (precargasSemanaRef.current.has(precargaKey)) return;
+
+    precargasSemanaRef.current.add(precargaKey);
+    precargasActivasRef.current += 1;
+    cargaDiaActualLogRef.current = null;
+    setPreloadingSemana(true);
+
+    if (import.meta.env.DEV) {
+      console.log('[HomePageTrabajador] Dia actual cargado', {
+        esCena: esCenaSeleccionada,
+        fecha: fechaSeleccionadaNormalizada,
+      });
+      console.log('[HomePageTrabajador] Iniciando precarga semanal en segundo plano', {
+        esCena: esCenaSeleccionada,
+        fechas: fechasPrecarga,
+      });
+      console.log('[HomePageTrabajador] Precarga semanal no bloqueante');
+    }
+
+    void Promise.allSettled([
+      precargarMenus({
+        esCena: esCenaSeleccionada,
+        fechas: fechasPrecarga,
+        token: clerkToken,
+        usuarioId: user.id,
+      }),
+      precargarPedidos({
+        esCena: esCenaSeleccionada,
+        fechas: fechasPrecarga,
+        token: clerkToken,
+        usuarioId: user.id,
+      }),
+    ]).then((resultados) => {
+      if (!componenteMontadoRef.current) return;
+
+      const errores = resultados.filter((resultado) => resultado.status === 'rejected');
+      if (errores.length > 0) {
+        precargasSemanaRef.current.delete(precargaKey);
+        console.warn('[HomePageTrabajador] Precarga semanal con errores', {
+          errores: errores.length,
+        });
+      }
+
+      if (import.meta.env.DEV) {
+        console.log('[HomePageTrabajador] Precarga semanal finalizada', {
+          esCena: esCenaSeleccionada,
+          fechas: fechasPrecarga,
+        });
+      }
+    }).finally(() => {
+      precargasActivasRef.current = Math.max(0, precargasActivasRef.current - 1);
+      if (componenteMontadoRef.current && precargasActivasRef.current === 0) {
+        setPreloadingSemana(false);
+      }
+    });
+  }, [
+    clerkToken,
+    esCenaSeleccionada,
+    fechaSeleccionadaNormalizada,
+    fechasSemanaVisiblesKey,
+    loadingDiaActual,
+    user?.id,
+  ]);
+
+  useEffect(() => {
+    if (import.meta.env.DEV && preloadingSemana) {
+      console.log('[HomePageTrabajador] preloadingSemana activo');
+    }
+  }, [preloadingSemana]);
 
   // 🔥 EXTRAEMOS estadoFechas DEL HISTORIAL
   const { historial, estadoFechas, cargando: cargandoHistorial, cargarHistorial } = useHistorial(user?.id, clerkToken);

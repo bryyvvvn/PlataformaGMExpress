@@ -172,6 +172,38 @@ const getOrCreateMenuRequest = ({
   return request;
 };
 
+export const precargarMenus = async ({
+  esCena = false,
+  fechas,
+  token,
+  usuarioId,
+}: {
+  esCena?: boolean;
+  fechas: MenuDateInput[];
+  token: string | null | undefined;
+  usuarioId: string | undefined;
+}) => {
+  if (!usuarioId || !token) return;
+
+  const fechasNormalizadas = Array.from(
+    new Set(fechas.map(normalizeMenuDate).filter(Boolean))
+  );
+
+  await Promise.all(
+    fechasNormalizadas.map((fechaNormalizada) =>
+      getOrCreateMenuRequest({
+        esCena,
+        fechaNormalizada,
+        token,
+        usuarioId,
+      }).catch((error) => {
+        console.error("[useMenuAPI] Error precargando menu:", error);
+        return MENU_VACIO;
+      })
+    )
+  );
+};
+
 export const useMenuAPI = (
   fecha?: MenuDateInput,
   usuarioId?: string,

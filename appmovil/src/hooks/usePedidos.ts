@@ -135,6 +135,38 @@ const getOrCreatePedidoRequest = ({
   return request;
 };
 
+export const precargarPedidos = async ({
+  esCena = false,
+  fechas,
+  token,
+  usuarioId,
+}: {
+  esCena?: boolean;
+  fechas: string[];
+  token: string | null | undefined;
+  usuarioId: string | undefined;
+}) => {
+  if (!usuarioId || !token) return;
+
+  const fechasNormalizadas = Array.from(
+    new Set(fechas.map(normalizePedidoDate).filter(Boolean))
+  );
+
+  await Promise.all(
+    fechasNormalizadas.map((fechaNormalizada) =>
+      getOrCreatePedidoRequest({
+        esCena,
+        fechaNormalizada,
+        token,
+        usuarioId,
+      }).catch((error) => {
+        console.error('[usePedidos] Error precargando pedido:', error);
+        return { existe: false, pedido: null };
+      })
+    )
+  );
+};
+
 export const usePedidos = (
   usuarioId: string | undefined,
   fecha?: string,
