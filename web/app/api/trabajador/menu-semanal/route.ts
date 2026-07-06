@@ -136,8 +136,9 @@ function formatearSeleccion(seleccion: MenuDiaSeleccion, convenio: ConvenioMenuD
 const serverMenuCache = new Map<string, { data: MenuCacheData; timestamp: number }>();
 const CACHE_TTL_MS = 1000 * 60 * 60 * 14; // 14 horas de vida
 
-function getMenuCacheKey(fecha: string, esCena: boolean | undefined) {
-  return `menu-semanal:${fecha}:${esCena ? 'cena' : 'almuerzo'}`;
+// 🔥 CORRECCIÓN: Una sola llave por día, sin importar si es cena o almuerzo
+function getMenuCacheKey(fecha: string) {
+  return `menu-semanal:${fecha}`;
 }
 
 function crearHeadersDiagnosticoMenu(meta: MenuResponseMeta) {
@@ -167,8 +168,8 @@ export async function GET(req: NextRequest) {
   const startMs = Date.now();
 
   try {
-    // Si la caché guarda más de 7 días, la limpiamos para no acumular basura
-    if (serverMenuCache.size > 7) {
+    // 🔥 CORRECCIÓN: Aumentamos a 15 para que quepa toda la semana tranquilamente
+    if (serverMenuCache.size > 15) {
       serverMenuCache.clear();
     }
 
@@ -178,7 +179,9 @@ export async function GET(req: NextRequest) {
     const esCena = searchParams.get("esCena");
     const isoFecha: string = fechaParam && /^\d{4}-\d{2}-\d{2}$/.test(fechaParam) ? fechaParam : nowChile().iso;
     const esCenaQuery = searchParams.get("esCena") === 'true';
-    const cacheKey = getMenuCacheKey(isoFecha, esCenaQuery);
+    
+    // 🔥 CORRECCIÓN: Llamamos la llave solo con la fecha
+    const cacheKey = getMenuCacheKey(isoFecha);
 
     console.log("[menu-semanal] Inicio", {
       fecha: isoFecha,
@@ -212,7 +215,6 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // 1. Buscamos el convenio del usuario (ligero, no se cachea porque cambia por usuario)
     if (usuarioId) {
       console.log("[menu-semanal] Consultando convenio de usuario", {
         fecha: isoFecha,
@@ -222,12 +224,10 @@ export async function GET(req: NextRequest) {
 
     const convenio = await obtenerConvenioUsuario(usuarioId);
 
-    // 2. Revisamos si ya tenemos el menú en la RAM
     const now = Date.now();
     let menuBaseData = serverMenuCache.get(cacheKey);
     let cacheStatus: MenuCacheStatus = "HIT";
 
-    // Si NO lo tenemos o pasaron las 14 horas, hacemos la consulta pesada
     if (!menuBaseData || (now - menuBaseData.timestamp > CACHE_TTL_MS)) {
       cacheStatus = "MISS";
       const diaNombre = getChileDayName(isoFecha);
@@ -275,7 +275,6 @@ export async function GET(req: NextRequest) {
         })
       ]);
 
-      // 🔥 EL SALVAVIDAS: Si el admin no subió la minuta, no guardamos basura en caché
       if (!menuActivo || menuActivo.detalles.length === 0) {
         serverMenuCache.delete(cacheKey);
         const durationMs = Date.now() - startMs;
@@ -306,7 +305,6 @@ export async function GET(req: NextRequest) {
         );
       }
 
-      // Guardamos la respuesta procesada en la RAM
       menuBaseData = { data: { menuActivo, ensaladaSurtida }, timestamp: now };
       serverMenuCache.set(cacheKey, menuBaseData);
       console.log("[menu-semanal] Cache miss: menu guardado en RAM", {
@@ -318,7 +316,6 @@ export async function GET(req: NextRequest) {
       console.log(`[Cache Hit] Menú servido rapidísimo para: ${isoFecha}`);
     }
 
-    // 3. Extraemos los datos (ya sea de BD o RAM) y aplicamos reglas de convenio
     const { menuActivo, ensaladaSurtida } = menuBaseData.data;
     const seleccion = menuActivo.menuDiaSelecciones[0];
     const entradas = menuActivo.detalles.filter((d) => d.plato.categoria === "ENTRADA").map(formatearDetalle);

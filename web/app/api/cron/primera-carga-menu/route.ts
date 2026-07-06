@@ -84,8 +84,6 @@ function getCurrentChileWeekdays() {
   const diaSemanaChile = getChileDayOfWeek(hoyChile.weekday);
   const diasHastaLunes = 1 - diaSemanaChile;
 
-  // Precargamos 7 días (lunes → domingo) para asegurar que tanto almuerzos
-  // como cenas (especialmente fines de semana) queden en la cache del servidor.
   return Array.from({ length: 7 }, (_, index) =>
     addDaysToChileDate(
       hoyChile.year,
@@ -136,12 +134,10 @@ export async function GET(request: NextRequest) {
       fechas: fechasSemana,
     });
 
-    // Para asegurar que tanto almuerzo como cena queden en cache, llamamos
-    // explícitamente con esCena=false y esCena=true para cada fecha.
+    // 🔥 CORRECCIÓN: Solo hacemos 1 llamada por día, porque esa llamada ya carga almuerzos y cenas en caché.
     const tareas: { fecha: string; esCena: boolean; url: string }[] = [];
     fechasSemana.forEach((fecha) => {
-      tareas.push({ fecha, esCena: false, url: getMenuSemanalUrl(urlBase, fecha, false) });
-      tareas.push({ fecha, esCena: true, url: getMenuSemanalUrl(urlBase, fecha, true) });
+      tareas.push({ fecha, esCena: false, url: getMenuSemanalUrl(urlBase, fecha) });
     });
 
     const resultados = await Promise.allSettled(
