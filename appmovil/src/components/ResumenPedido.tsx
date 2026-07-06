@@ -62,7 +62,11 @@ export const ResumenPedido: React.FC<ResumenPedidoProps> = ({
                 if (guarnicionObj) nombreGuarnicion = guarnicionObj.nombre;
               }
 
-              return nombreGuarnicion ? `${r.nombre} + ${nombreGuarnicion}` : r.nombre;
+              const cantidad = Number(r.cantidad ?? 1);
+              const sufijoCantidad = Number.isInteger(cantidad) && cantidad > 1 ? ` x${cantidad}` : '';
+              const nombreBase = nombreGuarnicion ? `${r.nombre} + ${nombreGuarnicion}` : r.nombre;
+
+              return `${nombreBase}${sufijoCantidad}`;
             });
 
             const textoFinalCategoria = textosPlatos.join(' + ');

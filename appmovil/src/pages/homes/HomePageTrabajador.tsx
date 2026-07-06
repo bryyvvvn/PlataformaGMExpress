@@ -472,12 +472,13 @@ const HomePageTrabajador: React.FC<HomePageTrabajadorProps> = ({ empresaNombre }
             entradasIds: getEntradasMenuDia(menuHoy.menuDia).map((entrada) => entrada.id),
             fondoId: menuHoy.menuDia.fondo?.id ?? null,
             postreId: menuHoy.menuDia.postre?.id ?? null,
+            postreCantidad: 1,
             guarnicionId: menuHoy.menuDia.guarnicion?.id ?? null,
             jugoId: menuHoy.menuDia.bebida?.id ?? null,
             isDoblePostre: false,
             observacion,
           }
-        : { ...pedido, observacion };
+        : { ...pedido, postreCantidad: pedido.isDoblePostre ? 2 : 1, observacion };
       const exito = await enviarPedido(pedidoAEnviar as any);
       if (exito) { setSeccionAbierta(null); setModoEdicion(false); setObservacion(''); cargarHistorial(); }
       return;
