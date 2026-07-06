@@ -96,8 +96,11 @@ function getCurrentChileWeekdays() {
   );
 }
 
-function getMenuSemanalUrl(urlBase: string, fecha: string) {
-  return `${urlBase}/api/trabajador/menu-semanal?fecha=${encodeURIComponent(fecha)}`;
+function getMenuSemanalUrl(urlBase: string, fecha: string, esCena?: boolean) {
+  const params = new URLSearchParams();
+  params.set('fecha', fecha);
+  if (typeof esCena === 'boolean') params.set('esCena', esCena ? 'true' : 'false');
+  return `${urlBase}/api/trabajador/menu-semanal?${params.toString()}`;
 }
 
 export async function GET(request: NextRequest) {
@@ -133,13 +136,19 @@ export async function GET(request: NextRequest) {
       fechas: fechasSemana,
     });
 
+    // Para asegurar que tanto almuerzo como cena queden en cache, llamamos
+    // explícitamente con esCena=false y esCena=true para cada fecha.
+    const tareas: { fecha: string; esCena: boolean; url: string }[] = [];
+    fechasSemana.forEach((fecha) => {
+      tareas.push({ fecha, esCena: false, url: getMenuSemanalUrl(urlBase, fecha, false) });
+      tareas.push({ fecha, esCena: true, url: getMenuSemanalUrl(urlBase, fecha, true) });
+    });
+
     const resultados = await Promise.allSettled(
-      fechasSemana.map(async (fecha) => {
-        const url = getMenuSemanalUrl(urlBase, fecha);
+      tareas.map(async (t) => {
+        console.log("[CRON CACHE] Llamando menu-semanal", { fecha: t.fecha, esCena: t.esCena, url: t.url });
 
-        console.log("[CRON CACHE] Llamando menu-semanal", { fecha, url });
-
-        const response = await fetch(url, {
+        const response = await fetch(t.url, {
           method: "GET",
           cache: "no-store",
         });
@@ -147,46 +156,50 @@ export async function GET(request: NextRequest) {
         const body = await response.text();
 
         console.log("[CRON CACHE] Respuesta menu-semanal", {
-          fecha,
+          fecha: t.fecha,
+          esCena: t.esCena,
           status: response.status,
           ok: response.ok,
         });
 
         if (!response.ok) {
           throw new MenuSemanalPreloadError({
-            fecha,
+            fecha: t.fecha,
             status: response.status,
-            url,
+            url: t.url,
             message: body.slice(0, 500) || "menu-semanal respondio con error",
           });
         }
 
         return {
-          fecha,
+          fecha: t.fecha,
+          esCena: t.esCena,
           status: response.status,
-          url,
+          url: t.url,
         };
       })
     );
 
     const exitosos = resultados
-      .filter((resultado) => resultado.status === "fulfilled")
-      .map((resultado) => resultado.value);
+      .map((r, idx) => ({ r, meta: tareas[idx] }))
+      .filter(({ r }) => r.status === "fulfilled")
+      .map(({ r }) => (r as PromiseFulfilledResult<any>).value);
 
     const fallidos = resultados
-      .map((resultado, index) => ({ resultado, fecha: fechasSemana[index] }))
+      .map((resultado, index) => ({ resultado, meta: tareas[index] }))
       .filter(
         (item): item is {
           resultado: PromiseRejectedResult;
-          fecha: string;
+          meta: { fecha: string; esCena: boolean; url: string };
         } => item.resultado.status === "rejected"
       )
-      .map(({ resultado, fecha }) => {
+      .map(({ resultado, meta }) => {
         const error = resultado.reason;
 
         if (error instanceof MenuSemanalPreloadError) {
           return {
             fecha: error.fecha,
+            esCena: meta.esCena,
             status: error.status,
             url: error.url,
             error: error.message,
@@ -194,9 +207,10 @@ export async function GET(request: NextRequest) {
         }
 
         return {
-          fecha,
+          fecha: meta.fecha,
+          esCena: meta.esCena,
           status: null,
-          url: getMenuSemanalUrl(urlBase, fecha),
+          url: meta.url,
           error: error instanceof Error ? error.message : String(error),
         };
       });

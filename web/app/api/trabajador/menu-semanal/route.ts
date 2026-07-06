@@ -136,8 +136,8 @@ function formatearSeleccion(seleccion: MenuDiaSeleccion, convenio: ConvenioMenuD
 const serverMenuCache = new Map<string, { data: MenuCacheData; timestamp: number }>();
 const CACHE_TTL_MS = 1000 * 60 * 60 * 14; // 14 horas de vida
 
-function getMenuCacheKey(fecha: string) {
-  return `menu-semanal:${fecha}:base`;
+function getMenuCacheKey(fecha: string, esCena: boolean | undefined) {
+  return `menu-semanal:${fecha}:${esCena ? 'cena' : 'almuerzo'}`;
 }
 
 function crearHeadersDiagnosticoMenu(meta: MenuResponseMeta) {
@@ -177,12 +177,13 @@ export async function GET(req: NextRequest) {
     const usuarioId = searchParams.get("usuarioId");
     const esCena = searchParams.get("esCena");
     const isoFecha: string = fechaParam && /^\d{4}-\d{2}-\d{2}$/.test(fechaParam) ? fechaParam : nowChile().iso;
-    const cacheKey = getMenuCacheKey(isoFecha);
+    const esCenaQuery = searchParams.get("esCena") === 'true';
+    const cacheKey = getMenuCacheKey(isoFecha, esCenaQuery);
 
     console.log("[menu-semanal] Inicio", {
       fecha: isoFecha,
       hasUsuarioId: Boolean(usuarioId),
-      esCena,
+      esCena: esCenaQuery,
       cacheKey,
     });
 
