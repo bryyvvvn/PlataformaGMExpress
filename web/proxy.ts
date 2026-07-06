@@ -13,6 +13,7 @@ const isPublicRoute = createRouteMatcher([
   '/api/cron/auto-asignar',
   '/api/cron/auto-confirmar', 
   '/api/cron/primera-carga-menu', 
+  '/api/cron/auto-asignar-global',
   '/api/representante/bloqueos',
 ])
 
