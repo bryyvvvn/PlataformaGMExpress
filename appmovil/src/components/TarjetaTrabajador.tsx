@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { ChevronDown, ChevronUp, Utensils, CheckCircle2, CalendarPlus } from 'lucide-react';
-// 🔥 Importamos tu nuevo hook
 import { useAsignarManual } from '../hooks/useAsignarManual';
 
 interface Pedido {
@@ -18,7 +17,7 @@ interface TarjetaTrabajadorProps {
     pedidos?: Pedido[];
   };
   permiteCena?: boolean;
-  token?: string | null; // 🔥 Agregamos el token a las Props
+  token?: string | null; 
 }
 
 const getNombreDia = (fechaStr: string) => {
@@ -42,10 +41,8 @@ export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({ trabajador
   const [pedidoActivoId, setPedidoActivoId] = useState<number | null>(null);
   const [diaManualActivo, setDiaManualActivo] = useState<string | null>(null);
 
-  // 🔥 Usamos el nuevo hook pasándole el token
   const { asignarPedido, isSubmitting } = useAsignarManual(token);
 
-  // ... (getDiasSemana y useEffects se mantienen igualitos) ...
   const getDiasSemana = () => {
     let refDate = new Date();
     if (pedidosVisibles.length > 0 && pedidosVisibles[0].fecha) {
@@ -83,12 +80,13 @@ export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({ trabajador
 
   const pedidoSeleccionado = pedidosFiltrados.find(p => p.id === pedidoActivoId);
   const cantidadPedidos = pedidosVisibles.length;
-  const cantidadConfirmados = pedidosVisibles.filter(p => p.estado === 'CONFIRMADO').length;
+  
+  // 🔥 AQUÍ ESTÁ EL ARREGLO PARA EL ACORDEÓN PRINCIPAL
+  const cantidadConfirmados = pedidosVisibles.filter(p => ['CONFIRMADO', 'EN_PRODUCCION', 'ENTREGADO'].includes(p.estado || '')).length;
   const cantidadPendientes = cantidadPedidos - cantidadConfirmados;
   const estaTotalmenteConfirmado = cantidadPedidos > 0 && cantidadPendientes === 0;
   const tieneParciales = cantidadConfirmados > 0 && cantidadPendientes > 0;
 
-  // 🔥 Nueva función súper limpia llamando al hook
   const manejarAsignacionManual = async (tipo: string) => {
     if (!diaManualActivo) return;
     const exito = await asignarPedido(
@@ -99,11 +97,10 @@ export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({ trabajador
     );
     
     if (exito) {
-      window.location.reload(); // Recarga para ver los cambios
+      window.location.reload(); 
     }
   };
 
-  // 🔥 COLORES DINÁMICOS Y EL RESTO DEL COMPONENTE QUEDAN INTACTOS
   const isAlmuerzo = modoComida === 'ALMUERZO';
   const themeActiveBg = isAlmuerzo ? 'bg-[#70a344] border-[#70a344]' : 'bg-[#1d2d50] border-[#1d2d50]';
   const themeHoverBorder = isAlmuerzo ? 'hover:border-[#70a344]/50' : 'hover:border-[#1d2d50]/50';
@@ -169,7 +166,6 @@ export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({ trabajador
           </div>
           )}
           
-          {/* TIMELINE DE DÍAS */}
           <div className="flex gap-2 pb-4 overflow-x-auto [&::-webkit-scrollbar]:hidden">
             {diasSemana.map((fechaString) => {
               const pedido = pedidosFiltrados.find(p => p.fecha?.startsWith(fechaString));
@@ -178,21 +174,22 @@ export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({ trabajador
 
               if (pedido) {
                 const isActive = pedidoActivoId === pedido.id;
+                // 🔥 CONDICIÓN PARA MOSTRAR EL PUNTITO DE VALIDADO
+                const estaValidado = ['CONFIRMADO', 'EN_PRODUCCION', 'ENTREGADO'].includes(pedido.estado || '');
                 return (
                   <button
                     key={fechaString}
                     onClick={() => { setPedidoActivoId(pedido.id); setDiaManualActivo(null); }}
                     className={`h-[64px] min-w-[56px] shrink-0 rounded-2xl flex flex-col items-center justify-center gap-0.5 transition-all relative border ${
                       isActive 
-                        ? `${themeActiveBg} text-white shadow-md scale-105` // 🔥 SE APLICA EL COLOR DINÁMICO AQUÍ
+                        ? `${themeActiveBg} text-white shadow-md scale-105` 
                         : `bg-white border-slate-200 text-[#1d2d50] ${themeHoverBorder}`
                     }`}
                   >
                     <span className={`text-[9px] font-black uppercase tracking-wider ${isActive ? 'text-white/90' : 'text-slate-400'}`}>{diaCorto}</span>
                     <span className={`text-base font-black ${isActive ? 'text-white' : 'text-[#1d2d50]'}`}>{numeroDia}</span>
                     
-                    {/* Puntito del mismo color del turno */}
-                    {pedido.estado === 'CONFIRMADO' && !isActive && (
+                    {estaValidado && !isActive && (
                       <div className={`absolute bottom-1.5 w-1.5 h-1.5 rounded-full ${themeDot}`}></div>
                     )}
                   </button>
@@ -217,7 +214,6 @@ export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({ trabajador
             })}
           </div>
 
-          {/* PANEL DE DETALLE DEL PEDIDO */}
           {pedidoSeleccionado && (
             <div className={`p-4 rounded-2xl border animate-in fade-in duration-200 mt-2 ${themePanelBg}`}>
               <div className="flex items-center justify-between mb-3">
@@ -225,9 +221,11 @@ export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({ trabajador
                   <Utensils size={14} /> Detalle
                 </span>
                 
-                {pedidoSeleccionado.estado === 'CONFIRMADO' ? (
+                {/* 🔥 AQUÍ ESTÁ EL ARREGLO VISUAL DE LAS ETIQUETAS DE LA FOTO */}
+                {['CONFIRMADO', 'EN_PRODUCCION', 'ENTREGADO'].includes(pedidoSeleccionado.estado || '') ? (
                   <span className={`flex items-center gap-1 bg-white text-[9px] font-black uppercase px-2 py-1 rounded-md tracking-widest shadow-sm ${themeText}`}>
-                    <CheckCircle2 size={12} strokeWidth={3} /> Confirmado
+                    <CheckCircle2 size={12} strokeWidth={3} /> 
+                    {pedidoSeleccionado.estado === 'EN_PRODUCCION' ? 'EN PRODUCCIÓN' : pedidoSeleccionado.estado}
                   </span>
                 ) : (
                   <span className="flex items-center gap-1 bg-white text-slate-500 text-[9px] font-black uppercase px-2 py-1 rounded-md tracking-widest shadow-sm">
@@ -251,7 +249,6 @@ export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({ trabajador
             </div>
           )}
 
-          {/* PANEL DE ASIGNACIÓN MANUAL (SE MANTIENE IGUAL DE LIMPIO) */}
           {diaManualActivo && !pedidoSeleccionado && (
             <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 animate-in fade-in duration-200 mt-2">
               <div className="flex items-center justify-between mb-3">
@@ -268,7 +265,7 @@ export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({ trabajador
                   <button 
                     key={tipo}
                     disabled={isSubmitting}
-                    onClick={() => manejarAsignacionManual(tipo)} // 🔥 Llamamos a la nueva función
+                    onClick={() => manejarAsignacionManual(tipo)}
                     className="text-[10px] font-bold text-[#1d2d50] bg-white border border-slate-200 py-3 rounded-xl hover:border-slate-300 hover:bg-slate-100 transition-all disabled:opacity-50"
                   >
                     {tipo.replace('_', ' ')}

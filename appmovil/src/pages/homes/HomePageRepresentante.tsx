@@ -29,11 +29,9 @@ const HomePageRepresentante: React.FC<HomePageRepresentanteProps> = ({ empresaId
   const trabajaFinDeSemana = Boolean(convenio?.trabajaFinDeSemana);
   const permiteCena = Boolean(convenio?.permiteCena);
 
-  // 🔥 Extraemos semanaOffset del hook para saber si estamos en el pasado
   const { setSemanaOffset, getSemanaTexto, fechaSeleccionadaISO, fechaTexto, semanaOffset } = useCalendario(trabajaFinDeSemana);
   const { trabajadores, cargando, resumenEmpresa } = useTrabajadores(empresaId, fechaSeleccionadaISO, clerkToken);
 
-  // 🔥 LÓGICA PARA DETECTAR SEMANAS PASADAS
   const esSemanaPasada = semanaOffset !== undefined 
     ? semanaOffset < 0 
     : (() => {
@@ -54,7 +52,6 @@ const HomePageRepresentante: React.FC<HomePageRepresentanteProps> = ({ empresaId
       })();
 
   const manejarEnviarTodo = async () => {
-    // Protección adicional por seguridad
     if (esSemanaPasada) {
       alert('No puedes enviar ni modificar planillas de semanas anteriores.');
       return;
@@ -82,8 +79,11 @@ const HomePageRepresentante: React.FC<HomePageRepresentanteProps> = ({ empresaId
 
   const totalPedidos = trabajadores.reduce((acc, t) => acc + pedidosVisibles(t.pedidos).length, 0);
   
+  // 🔥 AQUÍ ESTÁ EL ARREGLO: AHORA CONTAMOS CUALQUIER ESTADO QUE SEA SUPERIOR A PENDIENTE
   const pedidosConfirmados = trabajadores.reduce((acc, t) => 
-    acc + pedidosVisibles(t.pedidos).filter((p: any) => p.estado === 'CONFIRMADO').length
+    acc + pedidosVisibles(t.pedidos).filter((p: any) => 
+      ['CONFIRMADO', 'EN_PRODUCCION', 'ENTREGADO'].includes(p.estado)
+    ).length
   , 0);
   
   const faltanConfirmar = totalPedidos > 0 && pedidosConfirmados < totalPedidos;
@@ -205,13 +205,12 @@ const HomePageRepresentante: React.FC<HomePageRepresentanteProps> = ({ empresaId
           </div>
         ) : (
           <div>
-            {/* 2. Cuando pintas las tarjetas (el .map), le pasas el token como Prop */}
             {trabajadores.map(trabajador => (
               <TarjetaTrabajador 
                 key={trabajador.id} 
                 trabajador={trabajador} 
                 permiteCena={resumenEmpresa?.permiteCena} 
-                token={clerkToken} // 🔥 AQUÍ LE INYECTAMOS EL TOKEN
+                token={clerkToken} 
               />
             ))}
           </div>
@@ -221,7 +220,6 @@ const HomePageRepresentante: React.FC<HomePageRepresentanteProps> = ({ empresaId
       {tieneEmpresa && !cargando && trabajadores.length > 0 && (
         <div className="fixed bottom-0 left-0 w-full p-6 bg-white/90 backdrop-blur-xl shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-30">
           
-          {/* 🔥 LÓGICA DE BOTÓN ACTUALIZADA */}
           {estaCompletado ? (
             <div className="w-full h-14 bg-gray-100 text-gray-400 rounded-[20px] font-black text-sm shadow-sm flex items-center justify-center gap-2 uppercase tracking-widest">
               <CheckCircle2 size={18} className="text-gray-400" />
