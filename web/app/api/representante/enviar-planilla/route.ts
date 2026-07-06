@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import db from '../../../../lib/db';
-import nodemailer from 'nodemailer'; // 🔥 IMPORTAMOS NODEMAILER
+import nodemailer from 'nodemailer';
 
 import type { Prisma } from '@prisma/client';
 import { enviarPlanillaSchema } from '@/lib/schemas/representante';
@@ -110,16 +110,15 @@ export async function POST(request: Request) {
     if (usuarioId) whereClause.usuarioId = usuarioId;
     else whereClause.empresaId = empresaIdSeguro;
 
-    // 1. ACTUALIZAMOS LA BASE DE DATOS (Tu código original)
+    // 1. ACTUALIZAMOS LA BASE DE DATOS
     const actualizados = await db.pedido.updateMany({
       where: whereClause,
       data: { estado: 'CONFIRMADO' },
     });
 
-    // 🔥 2. SI SE CONFIRMARON PEDIDOS, MANDAMOS EL CORREO
+    // 🔥 2. SI SE CONFIRMARON PEDIDOS, MANDAMOS EL CORREO EN SEGUNDO PLANO
     if (actualizados.count > 0) {
       try {
-        // Buscamos el nombre de la empresa para personalizar el correo
         const empresaData = await db.empresa.findUnique({
           where: { id: empresaIdSeguro },
           select: { nombre: true }
@@ -128,7 +127,6 @@ export async function POST(request: Request) {
         const nombreEmpresa = empresaData?.nombre || 'Una empresa';
         const correoAdmin = process.env.ADMIN_EMAIL || 'maickol@ejemplo.com';
 
-        // Configuramos el "Cartero" de Nodemailer
         const transporter = nodemailer.createTransport({
           service: 'gmail',
           auth: {
@@ -137,7 +135,6 @@ export async function POST(request: Request) {
           },
         });
 
-        // Armamos el correo
         const mailOptions = {
           from: `"GM Express Sistema" <${process.env.EMAIL_USER}>`,
           to: correoAdmin,
@@ -166,14 +163,17 @@ export async function POST(request: Request) {
           `,
         };
 
-        // Disparamos el correo
-        await transporter.sendMail(mailOptions);
-        console.log(`[CORREO] Aviso enviado a ${correoAdmin} por consolidación de ${nombreEmpresa}`);
+        // 🔥 AQUÍ ESTÁ EL CAMBIO CLAVE: Sin await, usamos .then y .catch
+        transporter.sendMail(mailOptions)
+          .then(() => {
+            console.log(`[CORREO] Aviso enviado a ${correoAdmin} por consolidación de ${nombreEmpresa}`);
+          })
+          .catch((emailError) => {
+            console.error('[CORREO ERROR] Falló el envío de consolidación:', emailError);
+          });
 
-      } catch (emailError) {
-        // Si el correo falla (ej. clave mal puesta), lo registramos en consola 
-        // pero NO rompemos la ejecución, para que la app del usuario diga "Éxito".
-        console.error('[CORREO ERROR] Falló el envío de consolidación:', emailError);
+      } catch (errorGeneral) {
+        console.error('[PROCESO ERROR] Error al armar el correo:', errorGeneral);
       }
     }
 
