@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import db from '../../../../lib/db';
-import nodemailer from 'nodemailer';
+import nodemailer from 'nodemailer'; 
 
 import type { Prisma } from '@prisma/client';
 import { enviarPlanillaSchema } from '@/lib/schemas/representante';
@@ -65,7 +65,7 @@ export async function POST(request: Request) {
   }
 
   const { usuarioId, fecha } = result.data;
-  const empresaIdSeguro = rep.empresaId; // ignorar body.empresaId
+  const empresaIdSeguro = rep.empresaId; 
 
   try {
     if (usuarioId) {
@@ -82,21 +82,34 @@ export async function POST(request: Request) {
       }
     }
 
-    let fechaBase = new Date();
-    if (fecha) {
-      const safeDate = fecha.includes('T') ? fecha : `${fecha}T12:00:00`;
-      fechaBase = new Date(safeDate);
+    // 🔥 LA MAGIA ANTI-ZONAS HORARIAS: Usamos Date.UTC puro
+    let fechaString = fecha;
+    if (!fechaString) {
+      // Si no viene fecha, calculamos la actual forzada a Chile (UTC-4 aprox)
+      const now = new Date();
+      now.setUTCHours(now.getUTCHours() - 4);
+      fechaString = now.toISOString().split('T')[0];
+    } else if (fechaString.includes('T')) {
+      fechaString = fechaString.split('T')[0];
     }
 
-    const diaSemana = fechaBase.getDay() || 7;
+    const [year, month, day] = fechaString.split('-').map(Number);
+    
+    // Usamos el mediodía UTC para evitar que cualquier servidor salte de día
+    const fechaBase = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+    
+    // getUTCDay: 1 es Lunes, 0 es Domingo. Lo convertimos para que Domingo sea 7.
+    const diaSemana = fechaBase.getUTCDay() || 7; 
+    
     const inicioSemana = new Date(fechaBase);
-    inicioSemana.setDate(fechaBase.getDate() - diaSemana + 1);
-    inicioSemana.setHours(0, 0, 0, 0);
+    inicioSemana.setUTCDate(fechaBase.getUTCDate() - diaSemana + 1);
+    inicioSemana.setUTCHours(0, 0, 0, 0); // Lunes a las 00:00:00 UTC absoluto
 
-    const finSemana = new Date(inicioSemana);
     const convenio = await obtenerConvenioEmpresa(empresaIdSeguro, usuarioId);
-    finSemana.setDate(inicioSemana.getDate() + (convenio.trabajaFinDeSemana ? 6 : 4));
-    finSemana.setHours(23, 59, 59, 999);
+    
+    const finSemana = new Date(inicioSemana);
+    finSemana.setUTCDate(inicioSemana.getUTCDate() + (convenio.trabajaFinDeSemana ? 6 : 4));
+    finSemana.setUTCHours(23, 59, 59, 999); // Viernes o Domingo a las 23:59:59 UTC absoluto
 
     const whereClause: Prisma.PedidoWhereInput = {
       estado: 'PENDIENTE',
@@ -116,7 +129,7 @@ export async function POST(request: Request) {
       data: { estado: 'CONFIRMADO' },
     });
 
-    // 🔥 2. SI SE CONFIRMARON PEDIDOS, MANDAMOS EL CORREO EN SEGUNDO PLANO
+    // 2. SI SE CONFIRMARON PEDIDOS, MANDAMOS EL CORREO EN SEGUNDO PLANO
     if (actualizados.count > 0) {
       try {
         const empresaData = await db.empresa.findUnique({
@@ -163,7 +176,6 @@ export async function POST(request: Request) {
           `,
         };
 
-        // 🔥 AQUÍ ESTÁ EL CAMBIO CLAVE: Sin await, usamos .then y .catch
         transporter.sendMail(mailOptions)
           .then(() => {
             console.log(`[CORREO] Aviso enviado a ${correoAdmin} por consolidación de ${nombreEmpresa}`);
