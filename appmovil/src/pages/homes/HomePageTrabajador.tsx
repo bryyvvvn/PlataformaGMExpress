@@ -478,6 +478,45 @@ const HomePageTrabajador: React.FC<HomePageTrabajadorProps> = ({ empresaNombre }
             observacion,
           }
         : { ...pedido, observacion };
+
+      // Si es doble postre, usar enviarItems para enviar cantidad: 2
+      if (pedidoAEnviar.isDoblePostre && pedidoAEnviar.postreId) {
+        const items: Array<{ platoId: number; guarnicionId?: number | null; cantidad: number }> = [];
+
+        // Entradas (sopa si eligió sopa en hipocalórico)
+        for (const entradaId of (pedidoAEnviar.entradasIds || [])) {
+          items.push({ platoId: entradaId, cantidad: 1 });
+        }
+
+        // Fondo
+        if (pedidoAEnviar.fondoId) {
+          items.push({
+            platoId: pedidoAEnviar.fondoId,
+            guarnicionId: pedidoAEnviar.guarnicionId === -1
+              ? null
+              : pedidoAEnviar.guarnicionId ?? null,
+            cantidad: 1
+          });
+        }
+
+        // Postre con cantidad 2
+        items.push({ platoId: pedidoAEnviar.postreId, cantidad: 2 });
+
+        // Jugo si hay
+        if (pedidoAEnviar.jugoId) {
+          items.push({ platoId: pedidoAEnviar.jugoId, cantidad: 1 });
+        }
+
+        const exito = await enviarItems(items, observacion);
+        if (exito) {
+          setSeccionAbierta(null);
+          setModoEdicion(false);
+          setObservacion('');
+          cargarHistorial();
+        }
+        return;
+      }
+
       const exito = await enviarPedido(pedidoAEnviar as any);
       if (exito) { setSeccionAbierta(null); setModoEdicion(false); setObservacion(''); cargarHistorial(); }
       return;
