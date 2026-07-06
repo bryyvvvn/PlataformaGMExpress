@@ -14,14 +14,27 @@ const diasSemanaLaboral = ['L', 'M', 'M', 'J', 'V'];
 const diasSemanaCompleta = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 
 // 🔥 Lo hacemos dinámico según si tiene o no fin de semana
+// Obtener la fecha 'hoy' en la zona horaria de Chile para evitar cambios de día prematuros
+function hoyChile(): Date {
+  // Construimos una Date usando la representación local en America/Santiago
+  // Esto evita que dispositivos en otras zonas horarias vean un día diferente
+  const nowChileStr = new Date().toLocaleString('en-US', { timeZone: 'America/Santiago' });
+  return new Date(nowChileStr);
+}
+
 function getIndiceHoy(incluyeFines: boolean): number {
-  const d = new Date().getDay(); 
+  const d = hoyChile().getDay();
   if (!incluyeFines) {
-    if (d >= 1 && d <= 5) return d - 1; 
-    return 0; // Si es sábado/domingo pero no tiene convenio, vuelve al Lunes
+    // Lunes(1)-Viernes(5) => índices 0-4
+    if (d >= 1 && d <= 5) return d - 1;
+    // Sábado: mantener en el último índice laboral (Viernes) para que la semana
+    // no avance hasta el domingo. Domingo: considerar como inicio de semana (0)
+    if (d === 6) return 4; // Sábado -> índice Viernes
+    return 0; // Domingo -> índice 0 (lunes del siguiente ciclo visual)
   } else {
+    // Cuando incluye fines de semana, mapeamos Domingo(0) a índice 6
     if (d === 0) return 6; // Domingo es el índice 6 en una semana de 7 días
-    return d - 1; 
+    return d - 1;
   }
 }
 
@@ -37,7 +50,7 @@ export const useCalendario = (incluyeFinesDeSemana: boolean = false) => {
   }, [incluyeFinesDeSemana, diaSeleccionadoIdx]);
 
   const { fechaTexto, diasSemanaArray } = useMemo(() => {
-    const hoy = new Date();
+    const hoy = hoyChile();
     const hoySoloFecha = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
 
     const txt = new Intl.DateTimeFormat('es-CL', {
@@ -46,7 +59,10 @@ export const useCalendario = (incluyeFinesDeSemana: boolean = false) => {
 
     const lunesReferencia = new Date(hoySoloFecha);
     const diaActual = lunesReferencia.getDay() === 0 ? 7 : lunesReferencia.getDay();
-    lunesReferencia.setDate(lunesReferencia.getDate() - (diaActual - 1) + semanaOffset * 7);
+    // Si no incluye fines y hoy es sábado, queremos que la semana referenciada
+    // siga siendo la semana actual (no avanzar hasta el domingo).
+    const ajusteDia = (!incluyeFinesDeSemana && diaActual === 6) ? 5 : diaActual;
+    lunesReferencia.setDate(lunesReferencia.getDate() - (ajusteDia - 1) + semanaOffset * 7);
 
     // 🔥 GENERADOR DINÁMICO: 5 o 7 Días
     const letras = incluyeFinesDeSemana ? diasSemanaCompleta : diasSemanaLaboral;
