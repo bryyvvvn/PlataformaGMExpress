@@ -132,13 +132,12 @@ function formatearSeleccion(seleccion: MenuDiaSeleccion, convenio: ConvenioMenuD
   };
 }
 
-// CACHÉ DEL MENÚ[cite: 11]
+// CACHÉ DEL MENÚ
 const serverMenuCache = new Map<string, { data: MenuCacheData; timestamp: number }>();
 const CACHE_TTL_MS = 1000 * 60 * 60 * 14;
 
-// 🔥 CACHÉ ANTI-ESTAMPIDAS (Guarda Promesas, no solo resultados)
-type AuthResult = { error?: string; status?: number; convenio?: ConvenioMenuDia | null };
-const userAuthCache = new Map<string, { promise: Promise<AuthResult>; timestamp: number }>();
+// 🔥 NUEVO: CACHÉ DEL USUARIO (Evita 28 consultas a la BD al abrir la app)
+const userAuthCache = new Map<string, { convenio: ConvenioMenuDia | null; timestamp: number }>();
 const USER_CACHE_TTL_MS = 1000 * 60 * 5; // Dura 5 minutos en RAM
 
 function getMenuCacheKey(fecha: string) {
@@ -184,43 +183,35 @@ export async function GET(req: NextRequest) {
     
     const cacheKey = getMenuCacheKey(isoFecha);
 
-    // 🔥 LA MAGIA CONTRA LA ESTAMPIDA DE CONEXIONES
+    // 🔥 LA MAGIA DE VERIFICACIÓN RÁPIDA
     let convenio: ConvenioMenuDia | null = null;
 
     if (usuarioId) {
       const authHeader = req.headers.get("authorization") || "sin-token";
       const userCacheKey = `${usuarioId}-${authHeader}`;
+      let authData = userAuthCache.get(userCacheKey);
 
-      let authCacheData = userAuthCache.get(userCacheKey);
+      // Si no está en caché o ya pasaron 5 minutos, vamos a la BD
+      if (!authData || (Date.now() - authData.timestamp > USER_CACHE_TTL_MS)) {
+        
+        const verificacion = await verificarTokenTrabajador(req, usuarioId);
+        if ("error" in verificacion) {
+          const durationMs = Date.now() - startMs;
+          return jsonMenu(
+            { error: verificacion.error },
+            { cacheStatus: "BYPASS", cacheKey, durationMs, fecha: isoFecha },
+            { status: verificacion.status }
+          );
+        }
 
-      // Si no hay caché o caducó, creamos la promesa y la guardamos INMEDIATAMENTE
-      if (!authCacheData || (Date.now() - authCacheData.timestamp > USER_CACHE_TTL_MS)) {
-        const authPromise = (async (): Promise<AuthResult> => {
-          const verificacion = await verificarTokenTrabajador(req, usuarioId);
-          if ("error" in verificacion) {
-            return { error: verificacion.error, status: verificacion.status };
-          }
-          const conv = await obtenerConvenioUsuario(usuarioId);
-          return { convenio: conv };
-        })();
-
-        authCacheData = { promise: authPromise, timestamp: Date.now() };
-        userAuthCache.set(userCacheKey, authCacheData);
+        convenio = await obtenerConvenioUsuario(usuarioId);
+        
+        // Guardamos en la RAM para las siguientes 13 peticiones
+        userAuthCache.set(userCacheKey, { convenio, timestamp: Date.now() });
+      } else {
+        // Sacamos el convenio fresquito de la RAM sin tocar la BD
+        convenio = authData.convenio;
       }
-
-      // TODAS las 14 peticiones esperan a que se resuelva la ÚNICA promesa
-      const authResult = await authCacheData.promise;
-
-      if (authResult.error) {
-        const durationMs = Date.now() - startMs;
-        return jsonMenu(
-          { error: authResult.error },
-          { cacheStatus: "BYPASS", cacheKey, durationMs, fecha: isoFecha },
-          { status: authResult.status || 401 }
-        );
-      }
-
-      convenio = authResult.convenio || null;
     }
 
     const now = Date.now();
