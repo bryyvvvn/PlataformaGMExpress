@@ -9,6 +9,7 @@ export const dynamic = 'force-dynamic';
 const HORA_LIMITE_DEFAULT = '10:00';
 const HORA_REGEX = /^([01]\d|2[0-3]):[0-5]\d$/;
 const CRON_LOG_PREFIX = '[CRON AUTO-ASIGNAR-GLOBAL]';
+const CREATE_MANY_BATCH_SIZE = 1000;
 
 type MenuDiaSeleccionConDetalles = Prisma.MenuDiaSeleccionGetPayload<{
   include: {
@@ -44,6 +45,18 @@ type ErrorAutoAsignacion = {
   usuarioId?: string;
   motivo: string;
 };
+
+type LockResult = {
+  locked: boolean;
+};
+
+function chunkArray<T>(items: T[], size: number) {
+  const chunks: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+  return chunks;
+}
 
 function validarHoraLimite(horaLimite: string | null | undefined) {
   if (horaLimite && HORA_REGEX.test(horaLimite)) return horaLimite;
@@ -215,7 +228,22 @@ export async function GET(request: NextRequest) {
 
     const resultado = await db.$transaction(
       async (tx) => {
-        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey})::bigint)`;
+        const [lock] = await tx.$queryRaw<LockResult[]>`
+          SELECT pg_try_advisory_xact_lock(hashtext(${lockKey})::bigint) AS locked
+        `;
+
+        if (!lock?.locked) {
+          console.log(`${CRON_LOG_PREFIX} Otra ejecucion ya esta en curso`, { fechaProcesada });
+          return {
+            lockAdquirido: false,
+            menuEncontrado: true,
+            trabajadoresEvaluados: 0,
+            pedidosAutoasignados: 0,
+            omitidosYaTenianPedido: 0,
+            omitidosNoCorresponden: 0,
+            errores: [],
+          };
+        }
 
         const menuHoy = await tx.menuDiaSeleccion.findFirst({
           where: {
@@ -242,6 +270,7 @@ export async function GET(request: NextRequest) {
         if (!menuHoy) {
           console.warn(`${CRON_LOG_PREFIX} Sin menu del dia configurado`, { fechaProcesada });
           return {
+            lockAdquirido: true,
             menuEncontrado: false,
             trabajadoresEvaluados: 0,
             pedidosAutoasignados: 0,
@@ -279,10 +308,26 @@ export async function GET(request: NextRequest) {
           },
         });
 
-        let pedidosAutoasignados = 0;
         let omitidosYaTenianPedido = 0;
         let omitidosNoCorresponden = 0;
         const errores: ErrorAutoAsignacion[] = [];
+        const trabajadoresIds = trabajadores.map((trabajador) => trabajador.id);
+        const pedidosExistentes = trabajadoresIds.length > 0
+          ? await tx.pedido.findMany({
+              where: {
+                usuarioId: { in: trabajadoresIds },
+                fecha: { gte: inicioDia, lte: finDia },
+                esCena: false,
+              },
+              select: { usuarioId: true },
+            })
+          : [];
+        const usuariosConPedido = new Set(pedidosExistentes.map((pedido) => pedido.usuarioId));
+        const asignaciones: Array<{
+          usuarioId: string;
+          empresaId: number;
+          detallesData: DetallePedidoData[];
+        }> = [];
 
         for (const trabajador of trabajadores) {
           const convenio = trabajador.empresa?.ConvenioEmpresa;
@@ -310,16 +355,7 @@ export async function GET(request: NextRequest) {
             continue;
           }
 
-          const pedidoExistente = await tx.pedido.findFirst({
-            where: {
-              usuarioId: trabajador.id,
-              fecha: { gte: inicioDia, lte: finDia },
-              esCena: false,
-            },
-            select: { id: true },
-          });
-
-          if (pedidoExistente) {
+          if (usuariosConPedido.has(trabajador.id)) {
             omitidosYaTenianPedido += 1;
             continue;
           }
@@ -335,31 +371,70 @@ export async function GET(request: NextRequest) {
             continue;
           }
 
-          await tx.pedido.create({
-            data: {
-              fecha: inicioDia,
-              usuarioId: trabajador.id,
-              empresaId: trabajador.empresaId,
-              estado: 'CONFIRMADO',
-              esCena: false,
-              detalles: { create: detallesData },
-            },
+          asignaciones.push({
+            usuarioId: trabajador.id,
+            empresaId: trabajador.empresaId,
+            detallesData,
           });
+        }
 
-          pedidosAutoasignados += 1;
+        const detallesPorUsuarioId = new Map(
+          asignaciones.map((asignacion) => [asignacion.usuarioId, asignacion.detallesData])
+        );
+        const pedidosData: Prisma.PedidoCreateManyInput[] = asignaciones.map((asignacion) => ({
+          fecha: inicioDia,
+          usuarioId: asignacion.usuarioId,
+          empresaId: asignacion.empresaId,
+          estado: 'CONFIRMADO',
+          esCena: false,
+        }));
+        const pedidosCreados: Array<{ id: number; usuarioId: string }> = [];
+
+        for (const lote of chunkArray(pedidosData, CREATE_MANY_BATCH_SIZE)) {
+          const creados = await tx.pedido.createManyAndReturn({
+            data: lote,
+            select: { id: true, usuarioId: true },
+          });
+          pedidosCreados.push(...creados);
+        }
+
+        const detallesCrear: Prisma.DetallePedidoCreateManyInput[] = pedidosCreados.flatMap((pedido) => {
+          const detallesData = detallesPorUsuarioId.get(pedido.usuarioId) ?? [];
+          return detallesData.map((detalle) => ({
+            pedidoId: pedido.id,
+            platoId: detalle.platoId,
+            guarnicionId: detalle.guarnicionId ?? null,
+            cantidad: detalle.cantidad,
+          }));
+        });
+
+        for (const lote of chunkArray(detallesCrear, CREATE_MANY_BATCH_SIZE)) {
+          await tx.detallePedido.createMany({ data: lote });
         }
 
         return {
+          lockAdquirido: true,
           menuEncontrado: true,
           trabajadoresEvaluados: trabajadores.length,
-          pedidosAutoasignados,
+          pedidosAutoasignados: pedidosCreados.length,
           omitidosYaTenianPedido,
           omitidosNoCorresponden,
           errores,
         };
       },
-      { maxWait: 10000, timeout: 120000 }
+      { maxWait: 5000, timeout: 30000 }
     );
+
+    if (!resultado.lockAdquirido) {
+      return NextResponse.json(
+        respuestaBase({
+          ok: true,
+          mensaje: 'Otra ejecucion ya esta en curso.',
+          fechaProcesada,
+          horaLimiteUsada,
+        })
+      );
+    }
 
     if (!resultado.menuEncontrado) {
       return NextResponse.json(
