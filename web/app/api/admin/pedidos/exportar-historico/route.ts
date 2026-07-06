@@ -1,3 +1,4 @@
+import { EstadoPedido } from "@prisma/client"
 import { NextResponse } from "next/server"
 import db from "@/lib/db"
 import { chileStartOfDay } from "@/lib/chile-time"
@@ -68,6 +69,9 @@ export async function GET(request: Request) {
           gte: chileStartOfDay(fecha),
           lt: chileStartOfDay(obtenerDiaSiguiente(fecha)),
         },
+        estado: {
+          in: [EstadoPedido.CONFIRMADO, EstadoPedido.EN_PRODUCCION],
+        },
       },
       orderBy: { id: "asc" },
       select: {
@@ -107,7 +111,7 @@ export async function GET(request: Request) {
 
     if (pedidos.length === 0) {
       return NextResponse.json(
-        { error: "No hay pedidos para exportar en esta fecha" },
+        { error: "No hay pedidos confirmados o en producción para exportar en esta fecha" },
         { status: 404 }
       )
     }
