@@ -2,7 +2,6 @@ import { NextResponse } from "next/server"
 import db from "@/lib/db"
 import { chileStartOfDay } from "@/lib/chile-time"
 import {
-  ERROR_HISTORICO_ANTES_CIERRE,
   esDiaLaboral,
   esFechaISOValida,
   obtenerDisponibilidadHistorico,
@@ -57,12 +56,7 @@ export async function GET(request: Request) {
 
   if (!disponibilidad.permitido) {
     return NextResponse.json(
-      {
-        error:
-          disponibilidad.motivo === "ANTES_DEL_CIERRE"
-            ? ERROR_HISTORICO_ANTES_CIERRE
-            : disponibilidad.mensaje,
-      },
+      { error: disponibilidad.mensaje },
       { status: 409 }
     )
   }

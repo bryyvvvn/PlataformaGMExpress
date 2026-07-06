@@ -31,7 +31,6 @@ type MotivoDisponibilidadHistorico =
   | "FECHA_INVALIDA"
   | "FIN_DE_SEMANA"
   | "FECHA_FUTURA"
-  | "ANTES_DEL_CIERRE"
 
 export type DisponibilidadHistorico = {
   permitido: boolean
@@ -59,7 +58,6 @@ type MotivoDisponibilidadPlanillaProduccion =
   | "FIN_DE_SEMANA"
   | "FECHA_PASADA"
   | "FECHA_FUTURA"
-  | "DESPUES_DEL_CIERRE"
 
 export type DisponibilidadPlanillaProduccion = {
   permitido: boolean
@@ -160,14 +158,6 @@ export function obtenerDisponibilidadDespuesCierre(
       permitido: false,
       motivo: "FECHA_FUTURA",
       mensaje: ERROR_HISTORICO_FECHA_FUTURA,
-    }
-  }
-
-  if (ahoraChile.minutosDelDia < obtenerMinutosCierre()) {
-    return {
-      permitido: false,
-      motivo: "ANTES_DEL_CIERRE",
-      mensaje: MENSAJE_DISPONIBILIDAD_HISTORICO,
     }
   }
 
@@ -276,15 +266,6 @@ export function obtenerDisponibilidadPlanillaProduccion(
       permitido: false,
       motivo: "FECHA_FUTURA",
       mensaje: "La planilla de producción solo puede generarse para el día actual.",
-    }
-  }
-
-  if (ahoraChile.minutosDelDia > obtenerMinutosCierre(horaCierre)) {
-    return {
-      permitido: false,
-      motivo: "DESPUES_DEL_CIERRE",
-      mensaje:
-        "La planilla de producción ya no está disponible porque pasó la hora límite.",
     }
   }
 
