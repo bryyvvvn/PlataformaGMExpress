@@ -158,7 +158,34 @@ export async function getConsolidadoDia(
       packingMap.set(pedido.empresaId, packingEmpresa)
     }
 
-    for (const detalle of pedido.detalles) {
+    const entradasDelPedido = pedido.detalles.filter(
+      (detalle) => detalle.plato.categoria === CategoriaPlato.ENTRADA
+    )
+    const otrosDetalles = pedido.detalles.filter(
+      (detalle) => detalle.plato.categoria !== CategoriaPlato.ENTRADA
+    )
+
+    const esEnsaladaSurtida = entradasDelPedido.length === 3
+
+    if (esEnsaladaSurtida) {
+      acumularItem(zonaFriaMap, "Ensalada Surtida", "Ensalada Surtida", 1)
+
+      const actual = packingEmpresa.detalles.get("Ensalada Surtida")
+      if (actual) {
+        actual.cantidad += 1
+      } else {
+        packingEmpresa.detalles.set("Ensalada Surtida", {
+          cantidad: 1,
+          categoria: CategoriaPlato.ENTRADA,
+        })
+      }
+
+      packingEmpresa.totalRaciones += 1
+    }
+
+    const detallesAProcesar = esEnsaladaSurtida ? otrosDetalles : pedido.detalles
+
+    for (const detalle of detallesAProcesar) {
       const { plato, guarnicion, cantidad } = detalle
       const nombreLower = plato.nombre.toLowerCase()
 
