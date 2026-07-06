@@ -132,14 +132,14 @@ function formatearSeleccion(seleccion: MenuDiaSeleccion, convenio: ConvenioMenuD
   };
 }
 
-// CACHÉ DEL MENÚ[cite: 11]
-const serverMenuCache = new Map<string, { data: MenuCacheData; timestamp: number }>();
+// 🔥 CACHÉ DEL MENÚ ANTI-ESTAMPIDAS
+const serverMenuCache = new Map<string, { promise: Promise<MenuCacheData | null>; timestamp: number }>();
 const CACHE_TTL_MS = 1000 * 60 * 60 * 14;
 
-// 🔥 CACHÉ ANTI-ESTAMPIDAS (Guarda Promesas, no solo resultados)
+// 🔥 CACHÉ DEL USUARIO ANTI-ESTAMPIDAS
 type AuthResult = { error?: string; status?: number; convenio?: ConvenioMenuDia | null };
 const userAuthCache = new Map<string, { promise: Promise<AuthResult>; timestamp: number }>();
-const USER_CACHE_TTL_MS = 1000 * 60 * 5; // Dura 5 minutos en RAM
+const USER_CACHE_TTL_MS = 1000 * 60 * 5; 
 
 function getMenuCacheKey(fecha: string) {
   return `menu-semanal:${fecha}`;
@@ -173,7 +173,7 @@ export async function GET(req: NextRequest) {
 
   try {
     if (serverMenuCache.size > 15) serverMenuCache.clear();
-    if (userAuthCache.size > 100) userAuthCache.clear(); // Limpiamos caché de usuarios si se llena mucho
+    if (userAuthCache.size > 100) userAuthCache.clear(); 
 
     const { searchParams } = new URL(req.url);
     const fechaParam = searchParams.get("fecha");
@@ -184,7 +184,7 @@ export async function GET(req: NextRequest) {
     
     const cacheKey = getMenuCacheKey(isoFecha);
 
-    // 🔥 LA MAGIA CONTRA LA ESTAMPIDA DE CONEXIONES
+    // 1. PROTECCIÓN DE CONEXIONES: AUTENTICACIÓN
     let convenio: ConvenioMenuDia | null = null;
 
     if (usuarioId) {
@@ -193,7 +193,6 @@ export async function GET(req: NextRequest) {
 
       let authCacheData = userAuthCache.get(userCacheKey);
 
-      // Si no hay caché o caducó, creamos la promesa y la guardamos INMEDIATAMENTE
       if (!authCacheData || (Date.now() - authCacheData.timestamp > USER_CACHE_TTL_MS)) {
         const authPromise = (async (): Promise<AuthResult> => {
           const verificacion = await verificarTokenTrabajador(req, usuarioId);
@@ -208,7 +207,6 @@ export async function GET(req: NextRequest) {
         userAuthCache.set(userCacheKey, authCacheData);
       }
 
-      // TODAS las 14 peticiones esperan a que se resuelva la ÚNICA promesa
       const authResult = await authCacheData.promise;
 
       if (authResult.error) {
@@ -223,73 +221,80 @@ export async function GET(req: NextRequest) {
       convenio = authResult.convenio || null;
     }
 
+    // 2. PROTECCIÓN DE CONEXIONES: MENÚ EN BASE DE DATOS
     const now = Date.now();
-    let menuBaseData = serverMenuCache.get(cacheKey);
+    let menuCacheEntry = serverMenuCache.get(cacheKey);
     let cacheStatus: MenuCacheStatus = "HIT";
 
-    if (!menuBaseData || (now - menuBaseData.timestamp > CACHE_TTL_MS)) {
+    if (!menuCacheEntry || (now - menuCacheEntry.timestamp > CACHE_TTL_MS)) {
       cacheStatus = "MISS";
       const diaNombre = getChileDayName(isoFecha);
       const inicioDia = chileStartOfDay(isoFecha);
       const finDia = chileEndOfDay(isoFecha);
 
-      const [menuActivo, ensaladaSurtida] = await Promise.all([
-        db.menuSemanal.findFirst({
-          where: { fecha_inicio: { lte: finDia }, fecha_fin: { gte: inicioDia } },
-          orderBy: { creado_en: "desc" },
-          include: {
-            detalles: {
-              where: {
-                OR: [
-                  { fecha_dia: { gte: inicioDia, lte: finDia } },
-                  { fecha_dia: null, dia_semana: diaNombre },
-                ],
+      const fetchPromise = (async (): Promise<MenuCacheData | null> => {
+        const [menuActivo, ensaladaSurtida] = await Promise.all([
+          db.menuSemanal.findFirst({
+            where: { fecha_inicio: { lte: finDia }, fecha_fin: { gte: inicioDia } },
+            orderBy: { creado_en: "desc" },
+            include: {
+              detalles: {
+                where: {
+                  OR: [
+                    { fecha_dia: { gte: inicioDia, lte: finDia } },
+                    { fecha_dia: null, dia_semana: diaNombre },
+                  ],
+                },
+                orderBy: [{ fecha_dia: "asc" }, { id: "asc" }],
+                include: { plato: true, guarniciones: true },
               },
-              orderBy: [{ fecha_dia: "asc" }, { id: "asc" }],
-              include: { plato: true, guarniciones: true },
-            },
-            menuDiaSelecciones: {
-              where: { fecha_dia: { gte: inicioDia, lte: finDia } },
-              include: {
-                entradaDetalle: { include: { plato: true, guarniciones: true } },
-                fondoDetalle: { include: { plato: true, guarniciones: true } },
-                postreDetalle: { include: { plato: true, guarniciones: true } },
-                guarnicion: true,
-                bebidaPlato: true,
-                entradasSeleccionadas: {
-                  orderBy: [{ orden: "asc" }, { id: "asc" }],
-                  include: { menuDetalle: { include: { plato: true, guarniciones: true } } },
+              menuDiaSelecciones: {
+                where: { fecha_dia: { gte: inicioDia, lte: finDia } },
+                include: {
+                  entradaDetalle: { include: { plato: true, guarniciones: true } },
+                  fondoDetalle: { include: { plato: true, guarniciones: true } },
+                  postreDetalle: { include: { plato: true, guarniciones: true } },
+                  guarnicion: true,
+                  bebidaPlato: true,
+                  entradasSeleccionadas: {
+                    orderBy: [{ orden: "asc" }, { id: "asc" }],
+                    include: { menuDetalle: { include: { plato: true, guarniciones: true } } },
+                  },
                 },
               },
             },
-          },
-        }),
-        db.plato.findFirst({
-          where: { nombre: { equals: "Ensalada surtida", mode: "insensitive" }, categoria: "ENTRADA" },
-        })
-      ]);
+          }),
+          db.plato.findFirst({
+            where: { nombre: { equals: "Ensalada surtida", mode: "insensitive" }, categoria: "ENTRADA" },
+          })
+        ]);
 
-      if (!menuActivo || menuActivo.detalles.length === 0) {
-        serverMenuCache.delete(cacheKey);
-        const durationMs = Date.now() - startMs;
+        if (!menuActivo || menuActivo.detalles.length === 0) return null;
+        return { menuActivo, ensaladaSurtida };
+      })();
 
-        return jsonMenu(
-          {
-            entradas: [], fondos: [], postres: [], menuDia: null,
-            convenio: {
-              trabajaFinDeSemana: Boolean(convenio?.trabajaFinDeSemana),
-              permiteCena: Boolean(convenio?.permiteCena),
-            },
-          },
-          { cacheStatus, cacheKey, durationMs, fecha: isoFecha }
-        );
-      }
-
-      menuBaseData = { data: { menuActivo, ensaladaSurtida }, timestamp: now };
-      serverMenuCache.set(cacheKey, menuBaseData);
+      menuCacheEntry = { promise: fetchPromise, timestamp: now };
+      serverMenuCache.set(cacheKey, menuCacheEntry);
     } 
 
-    const { menuActivo, ensaladaSurtida } = menuBaseData.data;
+    const menuData = await menuCacheEntry.promise;
+
+    if (!menuData) {
+      serverMenuCache.delete(cacheKey);
+      const durationMs = Date.now() - startMs;
+      return jsonMenu(
+        {
+          entradas: [], fondos: [], postres: [], menuDia: null,
+          convenio: {
+            trabajaFinDeSemana: Boolean(convenio?.trabajaFinDeSemana),
+            permiteCena: Boolean(convenio?.permiteCena),
+          },
+        },
+        { cacheStatus, cacheKey, durationMs, fecha: isoFecha }
+      );
+    }
+
+    const { menuActivo, ensaladaSurtida } = menuData;
     const seleccion = menuActivo.menuDiaSelecciones[0];
     const entradas = menuActivo.detalles.filter((d) => d.plato.categoria === "ENTRADA").map(formatearDetalle);
 

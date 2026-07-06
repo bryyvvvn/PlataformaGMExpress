@@ -173,7 +173,7 @@ const getOrCreateMenuRequest = ({
 };
 
 export const precargarMenus = async ({
-  esCena, // Lo dejamos en los parámetros para que no se rompa donde sea que lo estés llamando
+  esCena, // Lo dejamos aquí para que no se rompan las llamadas en otras pantallas
   fechas,
   token,
   usuarioId,
@@ -189,31 +189,28 @@ export const precargarMenus = async ({
     new Set(fechas.map(normalizeMenuDate).filter(Boolean))
   );
 
-  // 🔥 LA MAGIA: Usamos flatMap para disparar 2 peticiones (almuerzo y cena) por cada fecha
   await Promise.all(
-    fechasNormalizadas.flatMap((fechaNormalizada) => [
-      // 1. Pedimos y guardamos el Almuerzo en caché
-      getOrCreateMenuRequest({
-        esCena: false,
-        fechaNormalizada,
-        token,
-        usuarioId,
-      }).catch((error) => {
-        console.error("[useMenuAPI] Error precargando almuerzo:", error);
-        return MENU_VACIO;
-      }),
-      
-      // 2. Pedimos y guardamos la Cena en caché simultáneamente
-      getOrCreateMenuRequest({
-        esCena: true,
-        fechaNormalizada,
-        token,
-        usuarioId,
-      }).catch((error) => {
-        console.error("[useMenuAPI] Error precargando cena:", error);
-        return MENU_VACIO;
-      })
-    ])
+    fechasNormalizadas.map(async (fechaNormalizada) => {
+      try {
+        // 1. Pedimos a internet SOLO el almuerzo (Ahorramos la mitad del ancho de banda y la fila)
+        const datos = await getOrCreateMenuRequest({
+          esCena: false,
+          fechaNormalizada,
+          token,
+          usuarioId,
+        });
+
+        // 2. 🔥 TRUCO MÁGICO: Clonamos silenciosamente la respuesta en el caché de la CENA.
+        // Así, cuando toques "Cenas", el celular cargará al instante sin volver a ir a internet.
+        const cenaCacheKey = getMenuCacheKey(usuarioId, fechaNormalizada, true);
+        if (!menuCache.has(cenaCacheKey)) {
+          menuCache.set(cenaCacheKey, datos);
+          bumpMenuCacheVersion(cenaCacheKey);
+        }
+      } catch (error) {
+        console.error("[useMenuAPI] Error precargando:", error);
+      }
+    })
   );
 };
 
