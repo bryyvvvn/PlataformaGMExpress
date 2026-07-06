@@ -62,7 +62,21 @@ export const ResumenPedido: React.FC<ResumenPedidoProps> = ({
                 if (guarnicionObj) nombreGuarnicion = guarnicionObj.nombre;
               }
 
-              return nombreGuarnicion ? `${r.nombre} + ${nombreGuarnicion}` : r.nombre;
+              // Guardamos el nombre base del plato
+              let nombrePlato = r.nombre;
+
+              // 🔥 VALIDACIÓN A PRUEBA DE BALAS PARA EL DOBLE POSTRE
+              // Buscamos si viene como número, como texto, o si el pedido trae la bandera general
+              const esDoblePostre = 
+                r.cantidad == 2 || // Usamos == por si la BD lo manda como string "2"
+                pedidoExistente?.isDoblePostre === true ||
+                pedidoExistente?.doblePostre === true;
+
+              if (r.categoria === 'POSTRE' && esDoblePostre) {
+                nombrePlato += ' x2';
+              }
+
+              return nombreGuarnicion ? `${nombrePlato} + ${nombreGuarnicion}` : nombrePlato;
             });
 
             const textoFinalCategoria = textosPlatos.join(' + ');
