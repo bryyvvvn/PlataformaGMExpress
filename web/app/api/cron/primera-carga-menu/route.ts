@@ -1,49 +1,243 @@
 import { NextRequest, NextResponse } from "next/server";
-import { chileStartOfDay } from "@/lib/chile-time";
 
 export const dynamic = "force-dynamic";
 
+const CHILE_TIMEZONE = "America/Santiago";
+
+class MenuSemanalPreloadError extends Error {
+  fecha: string;
+  status: number | null;
+  url: string;
+
+  constructor({
+    fecha,
+    status,
+    url,
+    message,
+  }: {
+    fecha: string;
+    status: number | null;
+    url: string;
+    message: string;
+  }) {
+    super(message);
+    this.fecha = fecha;
+    this.status = status;
+    this.url = url;
+  }
+}
+
+function getChileDateParts(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: CHILE_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    weekday: "short",
+  }).formatToParts(date);
+
+  const get = (type: string) => parts.find((part) => part.type === type)?.value;
+
+  return {
+    year: Number(get("year")),
+    month: Number(get("month")),
+    day: Number(get("day")),
+    weekday: get("weekday"),
+  };
+}
+
+function getChileDayOfWeek(weekday: string | undefined) {
+  const map: Record<string, number> = {
+    Mon: 1,
+    Tue: 2,
+    Wed: 3,
+    Thu: 4,
+    Fri: 5,
+    Sat: 6,
+    Sun: 7,
+  };
+
+  return map[weekday ?? "Mon"] ?? 1;
+}
+
+function formatYmd(year: number, month: number, day: number) {
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+function addDaysToChileDate(
+  year: number,
+  month: number,
+  day: number,
+  daysToAdd: number
+) {
+  const date = new Date(Date.UTC(year, month - 1, day + daysToAdd, 12, 0, 0));
+
+  return formatYmd(
+    date.getUTCFullYear(),
+    date.getUTCMonth() + 1,
+    date.getUTCDate()
+  );
+}
+
+function getCurrentChileWeekdays() {
+  const hoyChile = getChileDateParts();
+  const diaSemanaChile = getChileDayOfWeek(hoyChile.weekday);
+  const diasHastaLunes = 1 - diaSemanaChile;
+
+  return Array.from({ length: 5 }, (_, index) =>
+    addDaysToChileDate(
+      hoyChile.year,
+      hoyChile.month,
+      hoyChile.day,
+      diasHastaLunes + index
+    )
+  );
+}
+
+function getMenuSemanalUrl(urlBase: string, fecha: string) {
+  return `${urlBase}/api/trabajador/menu-semanal?fecha=${encodeURIComponent(fecha)}`;
+}
+
 export async function GET(request: NextRequest) {
-  // 1. Seguridad: Solo permitimos la ejecución con el secreto de Railway
-  const querySecret = request.nextUrl.searchParams.get('secret');
+  const querySecret = request.nextUrl.searchParams.get("secret");
+
+  if (!process.env.CRON_SECRET) {
+    console.error("[CRON CACHE] Falta CRON_SECRET");
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: "CRON_SECRET no esta configurado",
+      },
+      { status: 500 }
+    );
+  }
+
   if (querySecret !== process.env.CRON_SECRET) {
-    return new NextResponse('Acceso denegado', { status: 401 });
+    console.warn("[CRON CACHE] Acceso denegado: secret invalido o ausente");
+    return new NextResponse("Acceso denegado", { status: 401 });
   }
 
   try {
-    const urlBase = process.env.NEXT_PUBLIC_APP_URL || 'https://admin.gmexpress.cl';
+    const urlBase =
+      process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
+      "https://admin.gmexpress.cl";
 
-    // 2. Calcular las fechas de Lunes a Viernes
-    const hoy = new Date();
-    const diaSemana = hoy.getDay() === 0 ? 7 : hoy.getDay();
-    const lunes = new Date(hoy);
-    lunes.setDate(hoy.getDate() - diaSemana + 1);
+    const fechasSemana = getCurrentChileWeekdays();
 
-    const promesas = [];
+    console.log("[CRON CACHE] Iniciando primera carga de menu semanal", {
+      timezone: CHILE_TIMEZONE,
+      urlBase,
+      fechas: fechasSemana,
+    });
 
-    // 3. Generamos las llamadas
-    for (let i = 0; i < 5; i++) {
-        const fechaDia = new Date(lunes);
-        fechaDia.setDate(lunes.getDate() + i);
-        const iso = fechaDia.toISOString().split('T')[0]; // Esto genera "2026-07-02"
+    const resultados = await Promise.allSettled(
+      fechasSemana.map(async (fecha) => {
+        const url = getMenuSemanalUrl(urlBase, fecha);
 
-        console.log(`[CRON CACHÉ] Calentando menú para el día: ${iso}`);
-        
-        promesas.push(
-        fetch(`${urlBase}/api/trabajador/menu-semanal?fecha=${iso}`)
-        );
+        console.log("[CRON CACHE] Llamando menu-semanal", { fecha, url });
+
+        const response = await fetch(url, {
+          method: "GET",
+          cache: "no-store",
+        });
+
+        const body = await response.text();
+
+        console.log("[CRON CACHE] Respuesta menu-semanal", {
+          fecha,
+          status: response.status,
+          ok: response.ok,
+        });
+
+        if (!response.ok) {
+          throw new MenuSemanalPreloadError({
+            fecha,
+            status: response.status,
+            url,
+            message: body.slice(0, 500) || "menu-semanal respondio con error",
+          });
+        }
+
+        return {
+          fecha,
+          status: response.status,
+          url,
+        };
+      })
+    );
+
+    const exitosos = resultados
+      .filter((resultado) => resultado.status === "fulfilled")
+      .map((resultado) => resultado.value);
+
+    const fallidos = resultados
+      .map((resultado, index) => ({ resultado, fecha: fechasSemana[index] }))
+      .filter(
+        (item): item is {
+          resultado: PromiseRejectedResult;
+          fecha: string;
+        } => item.resultado.status === "rejected"
+      )
+      .map(({ resultado, fecha }) => {
+        const error = resultado.reason;
+
+        if (error instanceof MenuSemanalPreloadError) {
+          return {
+            fecha: error.fecha,
+            status: error.status,
+            url: error.url,
+            error: error.message,
+          };
+        }
+
+        return {
+          fecha,
+          status: null,
+          url: getMenuSemanalUrl(urlBase, fecha),
+          error: error instanceof Error ? error.message : String(error),
+        };
+      });
+
+    if (fallidos.length > 0) {
+      console.error("[CRON CACHE] Fechas fallidas en primera carga", {
+        fallidos,
+      });
+
+      return NextResponse.json(
+        {
+          success: false,
+          mensaje:
+            "El cron se ejecuto, pero una o mas llamadas a menu-semanal fallaron.",
+          fechas: fechasSemana,
+          exitosos,
+          fallidos,
+        },
+        { status: 500 }
+      );
     }
 
-    // 4. Disparamos todas las peticiones al mismo tiempo
-    await Promise.all(promesas);
-
-    return NextResponse.json({ 
-      success: true, 
-      mensaje: "¡Caché de la semana calentada con éxito en la memoria RAM!" 
+    console.log("[CRON CACHE] Primera carga completada", {
+      exitosos,
     });
-    
+
+    return NextResponse.json({
+      success: true,
+      mensaje:
+        "Cron ejecutado correctamente. La ruta menu-semanal fue llamada para poblar la cache.",
+      fechas: fechasSemana,
+      resultados: exitosos,
+      timezone: CHILE_TIMEZONE,
+    });
   } catch (error) {
-    console.error("[CRON CACHÉ] Error crítico:", error);
-    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
+    console.error("[CRON CACHE] Error critico:", error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Error interno del cron de cache",
+      },
+      { status: 500 }
+    );
   }
 }

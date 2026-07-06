@@ -9,6 +9,8 @@ type ResultadoGuardarRut =
 
 const MENSAJE_TELEFONO_INVALIDO =
   'Ingresa un telefono valido, por ejemplo +56 9 27832211 o 927832211.';
+const MENSAJE_SESION_INVALIDA =
+  'Tu sesión no pudo ser validada. Cierra sesión e inicia nuevamente.';
 
 export function normalizarTelefonoPerfil(valor: string): string | null {
   const digitos = valor.replace(/\D/g, '');
@@ -29,12 +31,16 @@ export function normalizarTelefonoPerfil(valor: string): string | null {
 }
 
 export const useVerificadorRut = () => {
-  const { getToken, userId } = useAuth();
+  const { getToken, isLoaded, userId } = useAuth();
   const [requiereRut, setRequiereRut] = useState(false);
   const [guardandoRut, setGuardandoRut] = useState(false);
 
   useEffect(() => {
     const fetchPerfil = async () => {
+      if (!isLoaded) {
+        return;
+      }
+
       if (!userId) {
         setRequiereRut(false);
         return;
@@ -55,7 +61,7 @@ export const useVerificadorRut = () => {
     };
 
     fetchPerfil();
-  }, [userId]);
+  }, [isLoaded, userId]);
 
   const guardarRutAPI = async (
     rut: string,
@@ -64,10 +70,17 @@ export const useVerificadorRut = () => {
     setGuardandoRut(true);
 
     try {
+      if (!isLoaded) {
+        return {
+          success: false,
+          error: 'Espera a que la sesión termine de cargar.',
+        };
+      }
+
       if (!userId) {
         return {
           success: false,
-          error: 'No se encontro una sesion activa de Clerk.',
+          error: MENSAJE_SESION_INVALIDA,
         };
       }
 
@@ -80,9 +93,16 @@ export const useVerificadorRut = () => {
       const token = await getToken({ skipCache: true });
 
       if (!token) {
+        if (import.meta.env.DEV) {
+          console.error('[useVerificadorRut] token ausente', {
+            clerkLoaded: isLoaded,
+            hasUserId: Boolean(userId),
+          });
+        }
+
         return {
           success: false,
-          error: 'No se pudo obtener la sesion de Clerk.',
+          error: MENSAJE_SESION_INVALIDA,
         };
       }
 
@@ -104,6 +124,13 @@ export const useVerificadorRut = () => {
       if (res.ok) {
         setRequiereRut(false);
         return { success: true };
+      }
+
+      if (res.status === 401) {
+        return {
+          success: false,
+          error: MENSAJE_SESION_INVALIDA,
+        };
       }
 
       return {

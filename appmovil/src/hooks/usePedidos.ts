@@ -17,6 +17,7 @@ export interface PedidoPayload {
 
 type PedidoCache = { existe: boolean; pedido: any | null };
 
+const __DEV__ = import.meta.env.DEV;
 const cacheGlobalPedidos: Record<string, PedidoCache> = {};
 const pedidosRequestsInFlight = new Map<string, Promise<PedidoCache>>();
 const pedidosCacheVersions = new Map<string, number>();
@@ -36,6 +37,136 @@ const invalidateMenuCacheForPedido = (fechaPedido: string | undefined, esCenaPed
   }
 };
 
+const getPedidoCacheKey = (
+  usuarioId: string | undefined,
+  fechaNormalizada: string,
+  esCena: boolean
+) => `pedido:${usuarioId ?? 'sin-usuario'}:${fechaNormalizada || 'hoy'}:${esCena ? 'cena' : 'almuerzo'}`;
+
+const fetchPedidoBackend = async ({
+  esCena,
+  fechaNormalizada,
+  requestVersion,
+  token,
+  usuarioId,
+  cacheKey,
+}: {
+  cacheKey: string;
+  esCena: boolean;
+  fechaNormalizada: string;
+  requestVersion: number;
+  token: string;
+  usuarioId: string;
+}) => {
+  if (__DEV__) {
+    console.log('[usePedidos] PEDIDO FETCH START', cacheKey);
+  }
+
+  const url = `${API_BASE_URL}/api/trabajador/pedidos?usuarioId=${usuarioId}${fechaNormalizada ? `&fecha=${fechaNormalizada}` : ''}&esCena=${esCena}`;
+  const res = await fetch(url, {
+    headers: { 'Authorization': `Bearer ${token}` },
+  });
+  const data = await res.json();
+  const pedidoCache = { existe: Boolean(data.existe), pedido: data.pedido ?? null };
+
+  if (getPedidosCacheVersion(cacheKey) === requestVersion) {
+    cacheGlobalPedidos[cacheKey] = pedidoCache;
+  }
+
+  if (__DEV__) {
+    console.log('[usePedidos] PEDIDO FETCH END', cacheKey);
+  }
+
+  return pedidoCache;
+};
+
+const getOrCreatePedidoRequest = ({
+  esCena,
+  fechaNormalizada,
+  token,
+  usuarioId,
+}: {
+  esCena: boolean;
+  fechaNormalizada: string;
+  token: string;
+  usuarioId: string;
+}) => {
+  const cacheKey = getPedidoCacheKey(usuarioId, fechaNormalizada, esCena);
+
+  if (cacheGlobalPedidos[cacheKey]) {
+    if (__DEV__) {
+      console.log('[usePedidos] PEDIDO LOCAL CACHE HIT', cacheKey);
+    }
+
+    return Promise.resolve(cacheGlobalPedidos[cacheKey]);
+  }
+
+  const requestInFlight = pedidosRequestsInFlight.get(cacheKey);
+  if (requestInFlight) {
+    if (__DEV__) {
+      console.log('[usePedidos] PEDIDO FETCH DEDUPE', cacheKey);
+    }
+
+    return requestInFlight;
+  }
+
+  if (__DEV__) {
+    console.log('[usePedidos] PEDIDO LOCAL CACHE MISS', cacheKey);
+  }
+
+  const requestVersion = getPedidosCacheVersion(cacheKey);
+  const requestBase = fetchPedidoBackend({
+    cacheKey,
+    esCena,
+    fechaNormalizada,
+    requestVersion,
+    token,
+    usuarioId,
+  });
+
+  let request: Promise<PedidoCache>;
+  request = requestBase.finally(() => {
+    if (pedidosRequestsInFlight.get(cacheKey) === request) {
+      pedidosRequestsInFlight.delete(cacheKey);
+    }
+  });
+
+  pedidosRequestsInFlight.set(cacheKey, request);
+  return request;
+};
+
+export const precargarPedidos = async ({
+  esCena = false,
+  fechas,
+  token,
+  usuarioId,
+}: {
+  esCena?: boolean;
+  fechas: string[];
+  token: string | null | undefined;
+  usuarioId: string | undefined;
+}) => {
+  if (!usuarioId || !token) return;
+
+  const fechasNormalizadas = Array.from(
+    new Set(fechas.map(normalizePedidoDate).filter(Boolean))
+  );
+
+  await Promise.all(
+    fechasNormalizadas.map((fechaNormalizada) =>
+      getOrCreatePedidoRequest({
+        esCena,
+        fechaNormalizada,
+        token,
+        usuarioId,
+      }).catch((error) => {
+        console.error('[usePedidos] Error precargando pedido:', error);
+        return { existe: false, pedido: null };
+      })
+    )
+  );
+};
+
 export const usePedidos = (
   usuarioId: string | undefined,
   fecha?: string,
@@ -44,7 +175,7 @@ export const usePedidos = (
 ) => {
   const fechaNormalizada = useMemo(() => normalizePedidoDate(fecha), [fecha]);
   const cacheKey = useMemo(
-    () => `${fechaNormalizada || 'hoy'}-${usuarioId}-${esCena ? 'cena' : 'almuerzo'}`,
+    () => getPedidoCacheKey(usuarioId, fechaNormalizada, esCena),
     [fechaNormalizada, usuarioId, esCena]
   );
   const dataEnCache = cacheGlobalPedidos[cacheKey];
@@ -88,6 +219,10 @@ export const usePedidos = (
 
     const pedidoEnCache = cacheGlobalPedidos[cacheKey];
     if (!ignorarCache && pedidoEnCache) {
+      if (__DEV__) {
+        console.log('[usePedidos] PEDIDO LOCAL CACHE HIT', cacheKey);
+      }
+
       setYaPedioHoy(pedidoEnCache.existe);
       setPedidoExistente(pedidoEnCache.pedido);
       setCargandoVerificacion(false);
@@ -107,32 +242,18 @@ export const usePedidos = (
       let request = !ignorarCache ? pedidosRequestsInFlight.get(cacheKey) : undefined;
 
       if (!request) {
-        const requestVersion = getPedidosCacheVersion(cacheKey);
-        const requestBase = (async () => {
-          const url = `${API_BASE_URL}/api/trabajador/pedidos?usuarioId=${usuarioId}${fechaNormalizada ? `&fecha=${fechaNormalizada}` : ''}&esCena=${esCena}`;
-          const res = await fetch(url, {
-            headers: { 'Authorization': `Bearer ${tokenRef.current}` },
-          });
-          const data = await res.json();
-          return { existe: Boolean(data.existe), pedido: data.pedido ?? null };
-        })();
+        if (__DEV__) {
+          console.log('[usePedidos] PEDIDO LOCAL CACHE MISS', cacheKey);
+        }
 
-        let nuevaRequest: Promise<PedidoCache>;
-        nuevaRequest = requestBase
-          .then((data) => {
-            if (getPedidosCacheVersion(cacheKey) === requestVersion) {
-              cacheGlobalPedidos[cacheKey] = data;
-            }
-            return data;
-          })
-          .finally(() => {
-            if (pedidosRequestsInFlight.get(cacheKey) === nuevaRequest) {
-              pedidosRequestsInFlight.delete(cacheKey);
-            }
-          });
-
-        pedidosRequestsInFlight.set(cacheKey, nuevaRequest);
-        request = nuevaRequest;
+        request = getOrCreatePedidoRequest({
+          esCena,
+          fechaNormalizada,
+          token: tokenRef.current,
+          usuarioId,
+        });
+      } else if (__DEV__) {
+        console.log('[usePedidos] PEDIDO FETCH DEDUPE', cacheKey);
       }
 
       const waitVersion = getPedidosCacheVersion(cacheKey);
