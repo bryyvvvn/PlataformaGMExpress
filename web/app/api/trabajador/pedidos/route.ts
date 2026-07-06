@@ -150,7 +150,6 @@ export async function GET(request: Request) {
       cantidad: d.cantidad,
       guarnicionId: d.guarnicionId ?? null,
       guarnicionNombre: d.guarnicion?.nombre ?? null,
-      cantidad: d.cantidad // Aseguramos enviar la cantidad al frontend
     }));
 
     let tipoFinde = null;
