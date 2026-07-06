@@ -105,7 +105,7 @@ export function PedidosSemanaTabs({
           ? obtenerDisponibilidadHistorico(dia.fechaISO, ahora)
           : {
               permitido: false,
-              motivo: "ANTES_DEL_CIERRE" as const,
+              motivo: "FECHA_INVALIDA" as const,
               mensaje: "Verificando conexión...",
             }
         const disponibilidadProduccion = ahora

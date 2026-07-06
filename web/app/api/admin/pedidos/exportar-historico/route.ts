@@ -1,8 +1,8 @@
+import { EstadoPedido } from "@prisma/client"
 import { NextResponse } from "next/server"
 import db from "@/lib/db"
 import { chileStartOfDay } from "@/lib/chile-time"
 import {
-  ERROR_HISTORICO_ANTES_CIERRE,
   esDiaLaboral,
   esFechaISOValida,
   obtenerDisponibilidadHistorico,
@@ -57,12 +57,7 @@ export async function GET(request: Request) {
 
   if (!disponibilidad.permitido) {
     return NextResponse.json(
-      {
-        error:
-          disponibilidad.motivo === "ANTES_DEL_CIERRE"
-            ? ERROR_HISTORICO_ANTES_CIERRE
-            : disponibilidad.mensaje,
-      },
+      { error: disponibilidad.mensaje },
       { status: 409 }
     )
   }
@@ -73,6 +68,9 @@ export async function GET(request: Request) {
         fecha: {
           gte: chileStartOfDay(fecha),
           lt: chileStartOfDay(obtenerDiaSiguiente(fecha)),
+        },
+        estado: {
+          in: [EstadoPedido.CONFIRMADO, EstadoPedido.EN_PRODUCCION],
         },
       },
       orderBy: { id: "asc" },
@@ -113,7 +111,7 @@ export async function GET(request: Request) {
 
     if (pedidos.length === 0) {
       return NextResponse.json(
-        { error: "No hay pedidos para exportar en esta fecha" },
+        { error: "No hay pedidos confirmados o en producción para exportar en esta fecha" },
         { status: 404 }
       )
     }

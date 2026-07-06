@@ -24,6 +24,7 @@ type PedidoRequestBody = {
   esCena?: boolean;
   tipoCena?: string;
   observacion?: string | null;
+  isDoblePostre?: boolean; // 🔥 1. Variable agregada para el doble postre
 };
 
 function toPositiveInteger(value: unknown): number | null {
@@ -118,7 +119,7 @@ export async function GET(request: Request) {
 
   try {
     const fechaParam = searchParams.get('fecha');
-    const esCenaQuery = searchParams.get('esCena') === 'true'; // 🔥 Permitimos consultar específicamente por cena o almuerzo
+    const esCenaQuery = searchParams.get('esCena') === 'true'; 
     
     const permiteCena = await obtenerPermiteCenaUsuario(usuarioId);
 
@@ -129,12 +130,11 @@ export async function GET(request: Request) {
     const inicioDia = chileStartOfDay(fechaParam ?? undefined);
     const finDia = chileEndOfDay(fechaParam ?? undefined);
 
-    // 🔥 MODIFICADO: Buscamos un pedido en ese rango de fecha, pero que coincida con el tipo (Almuerzo o Cena)
     const pedidoExistente = await db.pedido.findFirst({
       where: {
         usuarioId,
         fecha: { gte: inicioDia, lte: finDia },
-        esCena: esCenaQuery // Buscamos almuerzo (false) o cena (true)
+        esCena: esCenaQuery 
       },
       include: {
         detalles: { include: { plato: true, guarnicion: true } }
@@ -150,6 +150,7 @@ export async function GET(request: Request) {
       cantidad: d.cantidad,
       guarnicionId: d.guarnicionId ?? null,
       guarnicionNombre: d.guarnicion?.nombre ?? null,
+      cantidad: d.cantidad // Aseguramos enviar la cantidad al frontend
     }));
 
     let tipoFinde = null;
@@ -181,11 +182,11 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json() as PedidoRequestBody;
-    const { usuarioId, entradaId, entradasIds, fondoId, postreId, postreCantidad, jugoId, guarnicionId, fecha, items, esFinDeSemana, tipoFinde, esCena, tipoCena, observacion } = body;
+    const { usuarioId, entradaId, entradasIds, fondoId, postreId, postreCantidad, jugoId, guarnicionId, fecha, items, esFinDeSemana, tipoFinde, esCena, tipoCena, observacion, isDoblePostre } = body;
 
     if (!usuarioId) return NextResponse.json({ error: 'Falta usuarioId' }, { status: 400 });
 
-    const isCenaFlow = Boolean(esCena === true); // 🔥 Determinamos si estamos guardando una cena
+    const isCenaFlow = Boolean(esCena === true); 
 
     const verificacion = await verificarTokenTrabajador(request, usuarioId);
     if ('error' in verificacion) {
@@ -202,7 +203,6 @@ export async function POST(request: Request) {
     const usingItemsFlow = Boolean(items && Array.isArray(items) && items.length > 0);
     const usingFindeFlow = Boolean(esFinDeSemana && tipoFinde);
 
-    // Permitimos que pase si es flujo clásico, items, finde, o CENA
     if (!usingClassicFlow && !usingItemsFlow && !usingFindeFlow && !isCenaFlow) {
       return NextResponse.json({ error: 'Faltan datos obligatorios' }, { status: 400 });
     }
@@ -270,21 +270,19 @@ export async function POST(request: Request) {
     const inicioDiaTarget = chileStartOfDay(targetIso);
     const finDiaTarget = chileEndOfDay(targetIso);
 
-    // 🔥 BUSCAMOS EL PEDIDO EXISTENTE, PERO SEPARANDO ALMUERZO DE CENA
     const pedidoExistente = await db.pedido.findFirst({
       where: {
         usuarioId,
         fecha: { gte: inicioDiaTarget, lte: finDiaTarget },
-        esCena: isCenaFlow // Si guardo cena, busco si ya tiene cena. Si guardo almuerzo, busco almuerzo.
+        esCena: isCenaFlow 
       },
     });
 
     let detallesData: DetallePedidoInput[] = [];
 
-    // 🔥 LÓGICA DE DETALLES PARA CENA Y FINDE (Usan los mismos platos comodín)
     if (usingFindeFlow || isCenaFlow) {
       let nombreComodin = '';
-      const tipo = isCenaFlow ? tipoCena : tipoFinde; // Usamos el tipo que corresponda
+      const tipo = isCenaFlow ? tipoCena : tipoFinde; 
       
       if (tipo === 'MENU_DIA') nombreComodin = 'Menú del Día';
       if (tipo === 'HIPOCALORICO') nombreComodin = 'Hipocalórico';
@@ -305,7 +303,6 @@ export async function POST(request: Request) {
       detallesData = items.map(it => ({ platoId: it.platoId, guarnicionId: it.guarnicionId ?? null, cantidad: it.cantidad ?? 1 }));
     }
 
-    // SI YA EXISTE, LO ACTUALIZAMOS
     if (pedidoExistente) {
       if (pedidoExistente.estado === 'EN_PRODUCCION') {
         return NextResponse.json(
@@ -323,14 +320,13 @@ export async function POST(request: Request) {
           where: { id: pedidoExistente.id },
           data: { 
             observacion: observacion?.trim() || null,
-            tipoCena: isCenaFlow ? tipoCena : null // Si actualizamos, guardamos el tipo
+            tipoCena: isCenaFlow ? tipoCena : null 
           }
         });
       });
       return NextResponse.json({ mensaje: 'Pedido actualizado', pedidoId: pedidoExistente.id });
     }
 
-    // SI NO EXISTE, LO CREAMOS
     const nuevoPedido = await db.pedido.create({
       data: {
         fecha: inicioDiaTarget,
@@ -338,8 +334,8 @@ export async function POST(request: Request) {
         empresaId: usuario.empresaId,
         estado: 'PENDIENTE',
         observacion: observacion?.trim() || null,
-        esCena: isCenaFlow, // 🔥 Guardamos el estado
-        tipoCena: isCenaFlow ? tipoCena : null, // 🔥 Guardamos el tipo de cena
+        esCena: isCenaFlow, 
+        tipoCena: isCenaFlow ? tipoCena : null, 
         detalles: { create: detallesData },
       },
       select: { id: true },
@@ -357,7 +353,7 @@ export async function DELETE(request: Request) {
     const { searchParams } = new URL(request.url);
     const usuarioId = searchParams.get('usuarioId');
     const fecha = searchParams.get('fecha');
-    const esCenaQuery = searchParams.get('esCena') === 'true'; // 🔥 Sabemos qué borrar
+    const esCenaQuery = searchParams.get('esCena') === 'true'; 
 
     if (!usuarioId) return NextResponse.json({ error: 'Falta usuarioId' }, { status: 400 });
 
@@ -370,12 +366,11 @@ export async function DELETE(request: Request) {
     const inicioDiaTarget = chileStartOfDay(targetIso);
     const finDiaTarget = chileEndOfDay(targetIso);
 
-    // 🔥 MODIFICADO: Borramos estrictamente el almuerzo O la cena
     const pedidoParaEliminar = await db.pedido.findFirst({
       where: {
         usuarioId,
         fecha: { gte: inicioDiaTarget, lte: finDiaTarget },
-        esCena: esCenaQuery // Buscamos con precisión
+        esCena: esCenaQuery 
       },
     });
 
