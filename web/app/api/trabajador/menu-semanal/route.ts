@@ -74,6 +74,7 @@ type MenuResponseMeta = {
   cacheKey: string;
   durationMs: number;
   fecha: string;
+  esCena: boolean;
 };
 
 function platoOmiteGuarnicion(plato: { nombre: string; tipo: string }) {
@@ -135,9 +136,14 @@ function formatearSeleccion(seleccion: MenuDiaSeleccion, convenio: ConvenioMenuD
 // 🔥 LA MAGIA: CACHÉ EN LA RAM DEL SERVIDOR
 const serverMenuCache = new Map<string, { data: MenuCacheData; timestamp: number }>();
 const CACHE_TTL_MS = 1000 * 60 * 60 * 14; // 14 horas de vida
+const MAX_CACHE_ENTRIES = 28;
 
-function getMenuCacheKey(fecha: string) {
-  return `menu-semanal:${fecha}:base`;
+function getTipoServicio(esCena: boolean) {
+  return esCena ? "cena" : "almuerzo";
+}
+
+function getMenuCacheKey(fecha: string, esCena: boolean) {
+  return `menu-semanal:${fecha}:base:${getTipoServicio(esCena)}`;
 }
 
 function crearHeadersDiagnosticoMenu(meta: MenuResponseMeta) {
@@ -146,6 +152,7 @@ function crearHeadersDiagnosticoMenu(meta: MenuResponseMeta) {
     "X-Menu-Cache-Key": meta.cacheKey,
     "X-Menu-Duration-Ms": String(meta.durationMs),
     "X-Menu-Fecha": meta.fecha,
+    "X-Menu-Es-Cena": meta.esCena ? "true" : "false",
   };
 }
 
@@ -167,22 +174,22 @@ export async function GET(req: NextRequest) {
   const startMs = Date.now();
 
   try {
-    // Si la caché guarda más de 7 días, la limpiamos para no acumular basura
-    if (serverMenuCache.size > 7) {
+    // Si la cache supera dos semanas completas por almuerzo/cena, la limpiamos para no acumular basura.
+    if (serverMenuCache.size > MAX_CACHE_ENTRIES) {
       serverMenuCache.clear();
     }
 
     const { searchParams } = new URL(req.url);
     const fechaParam = searchParams.get("fecha");
     const usuarioId = searchParams.get("usuarioId");
-    const esCena = searchParams.get("esCena");
+    const esCena = searchParams.get("esCena") === "true";
     const isoFecha: string = fechaParam && /^\d{4}-\d{2}-\d{2}$/.test(fechaParam) ? fechaParam : nowChile().iso;
-    const cacheKey = getMenuCacheKey(isoFecha);
+    const cacheKey = getMenuCacheKey(isoFecha, esCena);
 
     console.log("[menu-semanal] Inicio", {
       fecha: isoFecha,
-      hasUsuarioId: Boolean(usuarioId),
       esCena,
+      usuarioId: usuarioId ? "presente" : null,
       cacheKey,
     });
 
@@ -193,6 +200,7 @@ export async function GET(req: NextRequest) {
 
         console.warn("[menu-semanal] Token rechazado", {
           fecha: isoFecha,
+          esCena,
           cacheKey,
           durationMs,
           status: verificacion.status,
@@ -205,6 +213,7 @@ export async function GET(req: NextRequest) {
             cacheKey,
             durationMs,
             fecha: isoFecha,
+            esCena,
           },
           { status: verificacion.status }
         );
@@ -215,6 +224,7 @@ export async function GET(req: NextRequest) {
     if (usuarioId) {
       console.log("[menu-semanal] Consultando convenio de usuario", {
         fecha: isoFecha,
+        esCena,
         cacheKey,
       });
     }
@@ -233,8 +243,9 @@ export async function GET(req: NextRequest) {
       const inicioDia = chileStartOfDay(isoFecha);
       const finDia = chileEndOfDay(isoFecha);
 
-      console.log("[menu-semanal] CACHE MISS: consultando BD menu", {
+      console.log("[menu-semanal] CACHE MISS", {
         fecha: isoFecha,
+        esCena,
         cacheKey,
       });
 
@@ -281,6 +292,7 @@ export async function GET(req: NextRequest) {
 
         console.log("[menu-semanal] Sin menu activo; no se guarda cache", {
           fecha: isoFecha,
+          esCena,
           cacheKey,
           durationMs,
         });
@@ -301,6 +313,7 @@ export async function GET(req: NextRequest) {
             cacheKey,
             durationMs,
             fecha: isoFecha,
+            esCena,
           }
         );
       }
@@ -308,13 +321,17 @@ export async function GET(req: NextRequest) {
       // Guardamos la respuesta procesada en la RAM
       menuBaseData = { data: { menuActivo, ensaladaSurtida }, timestamp: now };
       serverMenuCache.set(cacheKey, menuBaseData);
-      console.log("[menu-semanal] Cache miss: menu guardado en RAM", {
+      console.log("[menu-semanal] Guardado en cache", {
         fecha: isoFecha,
+        esCena,
         cacheKey,
       });
-      console.log(`[Cache Miss] Menú guardado en RAM para: ${isoFecha}`);
     } else {
-      console.log(`[Cache Hit] Menú servido rapidísimo para: ${isoFecha}`);
+      console.log("[menu-semanal] CACHE HIT", {
+        fecha: isoFecha,
+        esCena,
+        cacheKey,
+      });
     }
 
     // 3. Extraemos los datos (ya sea de BD o RAM) y aplicamos reglas de convenio
@@ -352,6 +369,7 @@ export async function GET(req: NextRequest) {
       cacheKey,
       durationMs,
       fecha: isoFecha,
+      esCena,
     });
   } catch (error) {
     console.error("[menu-semanal] Error:", error);

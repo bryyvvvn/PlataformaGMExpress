@@ -96,6 +96,7 @@ const fetchMenuBackend = async ({
       cache: respuesta.headers.get("X-Menu-Cache"),
       cacheKey: respuesta.headers.get("X-Menu-Cache-Key"),
       durationMs: respuesta.headers.get("X-Menu-Duration-Ms"),
+      esCena: respuesta.headers.get("X-Menu-Es-Cena"),
       fecha: respuesta.headers.get("X-Menu-Fecha"),
     });
   }
@@ -170,38 +171,6 @@ const getOrCreateMenuRequest = ({
 
   menuRequestsInFlight.set(cacheKey, request);
   return request;
-};
-
-export const precargarMenus = async ({
-  esCena = false,
-  fechas,
-  token,
-  usuarioId,
-}: {
-  esCena?: boolean;
-  fechas: MenuDateInput[];
-  token: string | null | undefined;
-  usuarioId: string | undefined;
-}) => {
-  if (!usuarioId || !token) return;
-
-  const fechasNormalizadas = Array.from(
-    new Set(fechas.map(normalizeMenuDate).filter(Boolean))
-  );
-
-  await Promise.all(
-    fechasNormalizadas.map((fechaNormalizada) =>
-      getOrCreateMenuRequest({
-        esCena,
-        fechaNormalizada,
-        token,
-        usuarioId,
-      }).catch((error) => {
-        console.error("[useMenuAPI] Error precargando menu:", error);
-        return MENU_VACIO;
-      })
-    )
-  );
 };
 
 export const useMenuAPI = (
