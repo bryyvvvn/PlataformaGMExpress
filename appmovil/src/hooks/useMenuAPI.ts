@@ -173,7 +173,7 @@ const getOrCreateMenuRequest = ({
 };
 
 export const precargarMenus = async ({
-  esCena = false,
+  esCena, // Lo dejamos en los parámetros para que no se rompa donde sea que lo estés llamando
   fechas,
   token,
   usuarioId,
@@ -189,18 +189,31 @@ export const precargarMenus = async ({
     new Set(fechas.map(normalizeMenuDate).filter(Boolean))
   );
 
+  // 🔥 LA MAGIA: Usamos flatMap para disparar 2 peticiones (almuerzo y cena) por cada fecha
   await Promise.all(
-    fechasNormalizadas.map((fechaNormalizada) =>
+    fechasNormalizadas.flatMap((fechaNormalizada) => [
+      // 1. Pedimos y guardamos el Almuerzo en caché
       getOrCreateMenuRequest({
-        esCena,
+        esCena: false,
         fechaNormalizada,
         token,
         usuarioId,
       }).catch((error) => {
-        console.error("[useMenuAPI] Error precargando menu:", error);
+        console.error("[useMenuAPI] Error precargando almuerzo:", error);
+        return MENU_VACIO;
+      }),
+      
+      // 2. Pedimos y guardamos la Cena en caché simultáneamente
+      getOrCreateMenuRequest({
+        esCena: true,
+        fechaNormalizada,
+        token,
+        usuarioId,
+      }).catch((error) => {
+        console.error("[useMenuAPI] Error precargando cena:", error);
         return MENU_VACIO;
       })
-    )
+    ])
   );
 };
 
