@@ -84,7 +84,9 @@ function getCurrentChileWeekdays() {
   const diaSemanaChile = getChileDayOfWeek(hoyChile.weekday);
   const diasHastaLunes = 1 - diaSemanaChile;
 
-  return Array.from({ length: 5 }, (_, index) =>
+  // Precargamos 7 días (lunes → domingo) para asegurar que tanto almuerzos
+  // como cenas (especialmente fines de semana) queden en la cache del servidor.
+  return Array.from({ length: 7 }, (_, index) =>
     addDaysToChileDate(
       hoyChile.year,
       hoyChile.month,
