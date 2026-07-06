@@ -62,15 +62,22 @@ export const ResumenPedido: React.FC<ResumenPedidoProps> = ({
                 if (guarnicionObj) nombreGuarnicion = guarnicionObj.nombre;
               }
 
-              // Guardamos el nombre base del plato
               let nombrePlato = r.nombre;
 
-              // 🔥 VALIDACIÓN A PRUEBA DE BALAS PARA EL DOBLE POSTRE
-              // Buscamos si viene como número, como texto, o si el pedido trae la bandera general
+              // 🔥 VALIDACIÓN NIVEL DIOS: Lógica deductiva pura
+              const fondoItem = pedidoExistente.resumen.find((i: any) => i.categoria === 'FONDO');
+              const platoFondoObj = menuHoy?.fondos?.find((f: any) => f.id === fondoItem?.platoId);
+              const esFondoHipo = platoFondoObj?.tipo === 'HIPOCALORICO';
+              const tieneEntrada = pedidoExistente.resumen.some((i: any) => i.categoria === 'ENTRADA');
+              
+              // Si es hipocalórico y no pidió entrada, sabemos que es doble postre sí o sí.
+              const deduccionDoblePostre = esFondoHipo && !tieneEntrada;
+
               const esDoblePostre = 
-                r.cantidad == 2 || // Usamos == por si la BD lo manda como string "2"
+                r.cantidad == 2 || 
                 pedidoExistente?.isDoblePostre === true ||
-                pedidoExistente?.doblePostre === true;
+                pedidoExistente?.doblePostre === true ||
+                deduccionDoblePostre;
 
               if (r.categoria === 'POSTRE' && esDoblePostre) {
                 nombrePlato += ' x2';
