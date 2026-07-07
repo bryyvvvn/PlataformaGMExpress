@@ -66,7 +66,7 @@ const getDashboardStatsCached = unstable_cache(
       pedidosMes,
     ] = await Promise.all([
       db.pedido.count({
-        where: { fecha: { gte: inicioHoy, lte: finHoy } },
+        where: { fecha: { gte: inicioHoyChile, lt: finHoyChile } },
       }),
       db.pedido.count({
         where: { estado: EstadoPedido.PENDIENTE },
