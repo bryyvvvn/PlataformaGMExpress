@@ -14,11 +14,9 @@ export const useTrabajadores = (empresaId: number | null, fechaSeleccionada?: st
   const [cargando, setCargando] = useState(true);
   const [tokenListo, setTokenListo] = useState(false);
 
-  // Ref para usar siempre el token más reciente sin causar re-ejecuciones
   const tokenRef = useRef(token);
   tokenRef.current = token;
 
-  // tokenListo pasa a true una sola vez cuando llega el primer token válido
   useEffect(() => {
     if (token && !tokenListo) setTokenListo(true);
   }, [token]);
@@ -39,20 +37,25 @@ export const useTrabajadores = (empresaId: number | null, fechaSeleccionada?: st
       try {
         const headers: HeadersInit = { 'Authorization': `Bearer ${tokenRef.current}` };
 
-        // Obtener resumen de la empresa
+        // 🔥 PARALELO: ambos fetch al mismo tiempo en vez de secuencial
         const resumenUrl = `${API_BASE_URL}/api/representante/resumen?empresaId=${empresaId}`;
-        const resumenRes = await fetch(resumenUrl, { headers });
+        let empleadosUrl = `${API_BASE_URL}/api/representante/empleados?empresaId=${empresaId}`;
+        if (fechaSeleccionada) {
+          empleadosUrl += `&fecha=${fechaSeleccionada}`;
+        }
+
+        const [resumenRes, empleadosRes] = await Promise.all([
+          fetch(resumenUrl, { headers }),
+          fetch(empleadosUrl, { headers }),
+        ]);
+
+        // Procesar resumen
         const resumenData = resumenRes.ok ? await resumenRes.json() : null;
         if (resumenData) {
           setResumenEmpresa(resumenData);
         }
 
-        // Obtener empleados con pedidos de la semana
-        let empleadosUrl = `${API_BASE_URL}/api/representante/empleados?empresaId=${empresaId}`;
-        if (fechaSeleccionada) {
-          empleadosUrl += `&fecha=${fechaSeleccionada}`;
-        }
-        const empleadosRes = await fetch(empleadosUrl, { headers });
+        // Procesar empleados
         const empleadosData = empleadosRes.ok ? await empleadosRes.json() : [];
         const empleados = Array.isArray(empleadosData) ? empleadosData : [];
         setTrabajadores(
@@ -71,7 +74,7 @@ export const useTrabajadores = (empresaId: number | null, fechaSeleccionada?: st
     };
 
     obtenerDatos();
-  }, [empresaId, fechaSeleccionada, tokenListo]); // token fuera — usa tokenRef internamente
+  }, [empresaId, fechaSeleccionada, tokenListo]);
 
   return { resumenEmpresa, trabajadores, cargando };
 };

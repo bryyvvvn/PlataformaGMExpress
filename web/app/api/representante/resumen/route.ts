@@ -5,7 +5,7 @@ import { verificarRepresentante } from '@/lib/representante/verificar-representa
 
 // 🔥 CACHÉ EN RAM — mismo patrón que empleados/route.ts
 const resumenCache = new Map<string, { data: unknown; timestamp: number }>();
-const CACHE_TTL_MS = 1000 * 60 * 5; // 5 minutos (más corto porque el resumen cambia con cada pedido nuevo)
+const CACHE_TTL_MS = 1000 * 60 * 5; // 5 minutos
 
 function getCacheKey(empresaId: number): string {
   const hoy = new Date().toISOString().slice(0, 10);
@@ -64,6 +64,7 @@ export async function GET(request: Request) {
     });
     const permiteCena = Boolean(empresa?.ConvenioEmpresa?.permiteCena);
 
+    // 🔥 PARALELO: ambas queries al mismo tiempo
     const [totalTrabajadores, pedidosListosHoy] = await Promise.all([
       db.usuario.count({
         where: { empresaId, rol: 'TRABAJADOR' },
