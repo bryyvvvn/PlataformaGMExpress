@@ -67,6 +67,10 @@ function validarHoraLimite(horaLimite: string | null | undefined) {
   return HORA_LIMITE_DEFAULT;
 }
 
+function empresaSinHoraDespacho(horaDespacho: string | null | undefined) {
+  return !horaDespacho || horaDespacho.trim() === '';
+}
+
 function horaAMinutos(hora: string) {
   const [horas, minutos] = hora.split(':').map(Number);
   return horas * 60 + minutos;
@@ -160,6 +164,9 @@ function respuestaBase(params: {
   mensaje: string;
   fechaProcesada: string;
   horaLimiteUsada: string;
+  empresasEvaluadas?: number;
+  empresasProcesables?: number;
+  empresasOmitidas?: number;
   trabajadoresEvaluados?: number;
   pedidosAutoasignados?: number;
   omitidosYaTenianPedido?: number;
@@ -172,6 +179,9 @@ function respuestaBase(params: {
     mensaje: params.mensaje,
     fechaProcesada: params.fechaProcesada,
     horaLimiteUsada: params.horaLimiteUsada,
+    empresasEvaluadas: params.empresasEvaluadas ?? 0,
+    empresasProcesables: params.empresasProcesables ?? 0,
+    empresasOmitidas: params.empresasOmitidas ?? 0,
     trabajadoresEvaluados: params.trabajadoresEvaluados ?? 0,
     pedidosAutoasignados: params.pedidosAutoasignados ?? 0,
     omitidosYaTenianPedido: params.omitidosYaTenianPedido ?? 0,
@@ -237,6 +247,9 @@ export async function GET(request: NextRequest) {
           return {
             lockAdquirido: false,
             menuEncontrado: true,
+            empresasEvaluadas: 0,
+            empresasProcesables: 0,
+            empresasOmitidas: 0,
             trabajadoresEvaluados: 0,
             pedidosAutoasignados: 0,
             omitidosYaTenianPedido: 0,
@@ -272,6 +285,9 @@ export async function GET(request: NextRequest) {
           return {
             lockAdquirido: true,
             menuEncontrado: false,
+            empresasEvaluadas: 0,
+            empresasProcesables: 0,
+            empresasOmitidas: 0,
             trabajadoresEvaluados: 0,
             pedidosAutoasignados: 0,
             omitidosYaTenianPedido: 0,
@@ -280,33 +296,48 @@ export async function GET(request: NextRequest) {
           };
         }
 
-        const trabajadores = await tx.usuario.findMany({
+        const empresas = await tx.empresa.findMany({
           where: {
-            rol: 'TRABAJADOR',
-            empresaId: { not: null },
-            empresa: { is: { estado: 'ACTIVA' } },
+            estado: 'ACTIVA',
           },
           select: {
             id: true,
-            empresaId: true,
-            diasBloqueados: true,
-            empresa: {
+            nombre: true,
+            horaDespacho: true,
+            ConvenioEmpresa: {
               select: {
-                ConvenioEmpresa: {
-                  select: {
-                    permitePlato: true,
-                    permiteEntrada: true,
-                    permitePostre: true,
-                    permiteJugo: true,
-                    permiteBebida: true,
-                    permiteAguaSaborizada: true,
-                    trabajaFinDeSemana: true,
-                  },
-                },
+                permitePlato: true,
+                permiteEntrada: true,
+                permitePostre: true,
+                permiteJugo: true,
+                permiteBebida: true,
+                permiteAguaSaborizada: true,
+                trabajaFinDeSemana: true,
               },
             },
           },
         });
+
+        const empresasProcesables = empresas.filter((empresa) => empresaSinHoraDespacho(empresa.horaDespacho));
+        const empresaIdsProcesables = empresasProcesables.map((empresa) => empresa.id);
+        const convenioPorEmpresaId = new Map(
+          empresasProcesables.map((empresa) => [empresa.id, empresa.ConvenioEmpresa])
+        );
+        const empresasOmitidas = empresas.length - empresasProcesables.length;
+
+        const trabajadores = empresaIdsProcesables.length > 0
+          ? await tx.usuario.findMany({
+              where: {
+                rol: 'TRABAJADOR',
+                empresaId: { in: empresaIdsProcesables },
+              },
+              select: {
+                id: true,
+                empresaId: true,
+                diasBloqueados: true,
+              },
+            })
+          : [];
 
         let omitidosYaTenianPedido = 0;
         let omitidosNoCorresponden = 0;
@@ -330,13 +361,13 @@ export async function GET(request: NextRequest) {
         }> = [];
 
         for (const trabajador of trabajadores) {
-          const convenio = trabajador.empresa?.ConvenioEmpresa;
-
           if (!trabajador.empresaId) {
             omitidosNoCorresponden += 1;
             errores.push({ usuarioId: trabajador.id, motivo: 'Trabajador sin empresa asignada.' });
             continue;
           }
+
+          const convenio = convenioPorEmpresaId.get(trabajador.empresaId);
 
           if (!convenio) {
             omitidosNoCorresponden += 1;
@@ -415,6 +446,9 @@ export async function GET(request: NextRequest) {
         return {
           lockAdquirido: true,
           menuEncontrado: true,
+          empresasEvaluadas: empresas.length,
+          empresasProcesables: empresasProcesables.length,
+          empresasOmitidas,
           trabajadoresEvaluados: trabajadores.length,
           pedidosAutoasignados: pedidosCreados.length,
           omitidosYaTenianPedido,
@@ -450,6 +484,9 @@ export async function GET(request: NextRequest) {
     console.log(`${CRON_LOG_PREFIX} Fin`, {
       fechaProcesada,
       horaLimiteUsada,
+      empresasEvaluadas: resultado.empresasEvaluadas,
+      empresasProcesables: resultado.empresasProcesables,
+      empresasOmitidas: resultado.empresasOmitidas,
       trabajadoresEvaluados: resultado.trabajadoresEvaluados,
       pedidosAutoasignados: resultado.pedidosAutoasignados,
       omitidosYaTenianPedido: resultado.omitidosYaTenianPedido,
