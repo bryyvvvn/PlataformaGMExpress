@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import db from '../../../../lib/db';
-import { chileStartOfDay, chileEndOfDay } from '../../../../lib/chile-time';
+import { chileStartOfDay, chileEndOfDay, nowChile } from '../../../../lib/chile-time';
 import { verificarRepresentante } from '@/lib/representante/verificar-representante';
 
 // 🔥 CACHÉ EN RAM — mismo patrón que empleados/route.ts
@@ -8,7 +8,7 @@ const resumenCache = new Map<string, { data: unknown; timestamp: number }>();
 const CACHE_TTL_MS = 1000 * 60 * 5; // 5 minutos
 
 function getCacheKey(empresaId: number): string {
-  const hoy = new Date().toISOString().slice(0, 10);
+  const hoy = nowChile().iso;
   return `resumen:${empresaId}:${hoy}`;
 }
 
@@ -46,7 +46,9 @@ export async function GET(request: Request) {
 
     if (cached && (now - cached.timestamp < CACHE_TTL_MS)) {
       console.log(`[RESUMEN Cache Hit] empresa=${empresaId}`);
-      return NextResponse.json(cached.data);
+      return NextResponse.json(cached.data, {
+        headers: { 'X-Resumen-Cache': 'HIT' },
+      });
     }
 
     console.log(`[RESUMEN Cache Miss] empresa=${empresaId}`);
@@ -89,7 +91,9 @@ export async function GET(request: Request) {
     resumenCache.set(cacheKey, { data, timestamp: now });
     console.log(`[RESUMEN Cache Set] empresa=${empresaId} trabajadores=${totalTrabajadores} pedidosHoy=${pedidosListosHoy}`);
 
-    return NextResponse.json(data);
+    return NextResponse.json(data, {
+      headers: { 'X-Resumen-Cache': 'MISS' },
+    });
   } catch (error) {
     console.error('[API REPRESENTANTE RESUMEN] Error:', error);
     return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
