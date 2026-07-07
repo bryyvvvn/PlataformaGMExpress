@@ -19,14 +19,25 @@ async function obtenerConvenioEmpresa(empresaId: number) {
 }
 
 export async function GET(request: Request) {
-  const rep = await verificarRepresentante(request);
-  if ('error' in rep) {
-    return NextResponse.json({ error: rep.error }, { status: rep.status });
-  }
-
   const { searchParams } = new URL(request.url);
   const fechaStr = searchParams.get('fecha');
-  const empresaId = rep.empresaId;
+  const secret = searchParams.get('secret'); // 🔥 Leemos el secreto
+  
+  let empresaId: number;
+
+  // 🔥 PUERTA TRASERA PARA EL CRON
+  if (secret === process.env.CRON_SECRET) {
+    const empIdStr = searchParams.get('empresaId');
+    if (!empIdStr) return NextResponse.json({ error: 'Falta empresaId para el cron' }, { status: 400 });
+    empresaId = parseInt(empIdStr, 10);
+  } else {
+    // FLUJO NORMAL PARA USUARIOS REALES
+    const rep = await verificarRepresentante(request);
+    if ('error' in rep) {
+      return NextResponse.json({ error: rep.error }, { status: rep.status });
+    }
+    empresaId = rep.empresaId;
+  }
 
   try {
     let fechaBase = new Date(); 
