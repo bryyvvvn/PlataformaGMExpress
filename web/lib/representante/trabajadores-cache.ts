@@ -58,6 +58,16 @@ function getCacheKey(empresaId: number, fechaISO: string) {
   return `empleados:${empresaId}:${fechaISO}`;
 }
 
+function getCacheKeyRango(empresaId: number, fechaInicioISO: string, fechaFinISO: string) {
+  return `empleados:${empresaId}:${fechaInicioISO}:${fechaFinISO}`;
+}
+
+function dateFromISO(fechaISO: string, finDia = false) {
+  const date = new Date(`${fechaISO}T12:00:00`);
+  date.setHours(finDia ? 23 : 0, finDia ? 59 : 0, finDia ? 59 : 0, finDia ? 999 : 0);
+  return date;
+}
+
 function limpiarCacheViejo() {
   if (empleadosCache.size <= MAX_CACHE_ENTRIES) return;
 
@@ -76,15 +86,14 @@ function limpiarCacheViejo() {
   }
 }
 
-async function cargarEmpleadosDesdeDb(empresaId: number, fechaISO: string) {
-  const fechaBase = new Date(`${fechaISO}T12:00:00`);
-  const diaSemana = fechaBase.getDay() || 7;
-  const inicioSemana = new Date(fechaBase);
-  inicioSemana.setDate(fechaBase.getDate() - diaSemana + 1);
-  inicioSemana.setHours(0, 0, 0, 0);
-
+async function cargarEmpleadosDesdeDb(params: {
+  empresaId: number;
+  fechaISO: string;
+  fechaInicioISO?: string;
+  fechaFinISO?: string;
+}) {
   const empresa = await db.empresa.findUnique({
-    where: { id: empresaId },
+    where: { id: params.empresaId },
     select: {
       ConvenioEmpresa: {
         select: {
@@ -99,12 +108,27 @@ async function cargarEmpleadosDesdeDb(empresaId: number, fechaISO: string) {
     permiteCena: Boolean(empresa?.ConvenioEmpresa?.permiteCena),
   };
 
-  const finSemana = new Date(inicioSemana);
-  finSemana.setDate(inicioSemana.getDate() + (convenio.trabajaFinDeSemana ? 6 : 4));
-  finSemana.setHours(23, 59, 59, 999);
+  let fechaInicioISO = params.fechaInicioISO;
+  let fechaFinISO = params.fechaFinISO;
+
+  if (!fechaInicioISO || !fechaFinISO) {
+    const fechaBase = new Date(`${params.fechaISO}T12:00:00`);
+    const diaSemana = fechaBase.getDay() || 7;
+    const inicioSemana = new Date(fechaBase);
+    inicioSemana.setDate(fechaBase.getDate() - diaSemana + 1);
+
+    const finSemana = new Date(inicioSemana);
+    finSemana.setDate(inicioSemana.getDate() + (convenio.trabajaFinDeSemana ? 6 : 4));
+
+    fechaInicioISO = inicioSemana.toISOString().slice(0, 10);
+    fechaFinISO = finSemana.toISOString().slice(0, 10);
+  }
+
+  const inicioSemana = dateFromISO(fechaInicioISO);
+  const finSemana = dateFromISO(fechaFinISO, true);
 
   const usuarios = await db.usuario.findMany({
-    where: { empresaId, rol: 'TRABAJADOR' },
+    where: { empresaId: params.empresaId, rol: 'TRABAJADOR' },
     orderBy: [{ nombre: 'asc' }, { id: 'asc' }],
     select: {
       id: true,
@@ -158,12 +182,18 @@ async function cargarEmpleadosDesdeDb(empresaId: number, fechaISO: string) {
 export async function obtenerEmpleadosRepresentante(params: {
   empresaId: number;
   fecha?: string | null;
+  fechaInicio?: string | null;
+  fechaFin?: string | null;
   forceRefresh?: boolean;
 }) {
   limpiarCacheViejo();
 
   const fechaISO = normalizarFechaEmpleados(params.fecha);
-  const cacheKey = getCacheKey(params.empresaId, fechaISO);
+  const fechaInicioISO = params.fechaInicio ? normalizarFechaEmpleados(params.fechaInicio) : undefined;
+  const fechaFinISO = params.fechaFin ? normalizarFechaEmpleados(params.fechaFin) : undefined;
+  const cacheKey = fechaInicioISO && fechaFinISO
+    ? getCacheKeyRango(params.empresaId, fechaInicioISO, fechaFinISO)
+    : getCacheKey(params.empresaId, fechaISO);
   const now = Date.now();
   const cached = empleadosCache.get(cacheKey);
 
@@ -177,7 +207,12 @@ export async function obtenerEmpleadosRepresentante(params: {
 
   let request = empleadosRequestsInFlight.get(cacheKey);
   if (!request || params.forceRefresh) {
-    request = cargarEmpleadosDesdeDb(params.empresaId, fechaISO).then((data) => {
+    request = cargarEmpleadosDesdeDb({
+      empresaId: params.empresaId,
+      fechaISO,
+      fechaInicioISO,
+      fechaFinISO,
+    }).then((data) => {
       empleadosCache.set(cacheKey, { data, timestamp: Date.now() });
       console.log(`[EMPLEADOS cache SET] empresa=${params.empresaId} fecha=${fechaISO} usuarios=${data.length}`);
       return data;

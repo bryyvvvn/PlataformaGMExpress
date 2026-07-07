@@ -20,8 +20,8 @@ const trabajadoresRequestsInFlight = new Map<string, Promise<TrabajadoresCacheDa
 
 const normalizarFecha = (fecha?: string) => String(fecha || '').slice(0, 10);
 
-const getTrabajadoresCacheKey = (empresaId: number | null, fechaNormalizada: string) =>
-  `representante:${empresaId ?? 'sin-empresa'}:${fechaNormalizada || 'hoy'}`;
+const getTrabajadoresCacheKey = (empresaId: number | null, fechaInicio: string, fechaFin?: string) =>
+  `representante:${empresaId ?? 'sin-empresa'}:${fechaInicio || 'hoy'}:${fechaFin || fechaInicio || 'sin-fin'}`;
 
 const normalizarTrabajadores = (empleadosData: unknown) => {
   const empleados = Array.isArray(empleadosData) ? empleadosData : [];
@@ -36,13 +36,15 @@ const normalizarTrabajadores = (empleadosData: unknown) => {
 const fetchTrabajadoresBackend = async ({
   cacheKey,
   empresaId,
-  fechaNormalizada,
+  fechaInicio,
+  fechaFin,
   token,
   forceRefresh,
 }: {
   cacheKey: string;
   empresaId: number;
-  fechaNormalizada: string;
+  fechaInicio: string;
+  fechaFin?: string;
   token: string;
   forceRefresh: boolean;
 }) => {
@@ -51,10 +53,12 @@ const fetchTrabajadoresBackend = async ({
   }
 
   const headers: HeadersInit = { Authorization: `Bearer ${token}` };
-  const resumenUrl = `${API_BASE_URL}/api/representante/resumen?empresaId=${empresaId}`;
   const params = new URLSearchParams({ empresaId: String(empresaId) });
-  if (fechaNormalizada) params.set('fecha', fechaNormalizada);
+  if (fechaInicio) params.set('fechaInicio', fechaInicio);
+  if (fechaFin) params.set('fechaFin', fechaFin);
+  if (fechaInicio && !fechaFin) params.set('fecha', fechaInicio);
   if (forceRefresh) params.set('refresh', '1');
+  const resumenUrl = `${API_BASE_URL}/api/representante/resumen?${params.toString()}`;
   const empleadosUrl = `${API_BASE_URL}/api/representante/empleados?${params.toString()}`;
 
   const [resumenRes, empleadosRes] = await Promise.all([
@@ -90,16 +94,18 @@ const fetchTrabajadoresBackend = async ({
 
 const getOrCreateTrabajadoresRequest = ({
   empresaId,
-  fechaNormalizada,
+  fechaInicio,
+  fechaFin,
   token,
   forceRefresh = false,
 }: {
   empresaId: number;
-  fechaNormalizada: string;
+  fechaInicio: string;
+  fechaFin?: string;
   token: string;
   forceRefresh?: boolean;
 }) => {
-  const cacheKey = getTrabajadoresCacheKey(empresaId, fechaNormalizada);
+  const cacheKey = getTrabajadoresCacheKey(empresaId, fechaInicio, fechaFin);
   const cached = trabajadoresCache.get(cacheKey);
 
   if (!forceRefresh && cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
@@ -126,7 +132,8 @@ const getOrCreateTrabajadoresRequest = ({
   const requestBase = fetchTrabajadoresBackend({
     cacheKey,
     empresaId,
-    fechaNormalizada,
+    fechaInicio,
+    fechaFin,
     token,
     forceRefresh,
   });
@@ -142,9 +149,18 @@ const getOrCreateTrabajadoresRequest = ({
   return request;
 };
 
-export const useTrabajadores = (empresaId: number | null, fechaSeleccionada?: string, token?: string | null) => {
-  const fechaNormalizada = useMemo(() => normalizarFecha(fechaSeleccionada), [fechaSeleccionada]);
-  const cacheKey = useMemo(() => getTrabajadoresCacheKey(empresaId, fechaNormalizada), [empresaId, fechaNormalizada]);
+export const useTrabajadores = (
+  empresaId: number | null,
+  fechaSeleccionada?: string,
+  token?: string | null,
+  fechaFinSeleccionada?: string
+) => {
+  const fechaInicioNormalizada = useMemo(() => normalizarFecha(fechaSeleccionada), [fechaSeleccionada]);
+  const fechaFinNormalizada = useMemo(() => normalizarFecha(fechaFinSeleccionada), [fechaFinSeleccionada]);
+  const cacheKey = useMemo(
+    () => getTrabajadoresCacheKey(empresaId, fechaInicioNormalizada, fechaFinNormalizada),
+    [empresaId, fechaInicioNormalizada, fechaFinNormalizada]
+  );
   const dataEnCache = trabajadoresCache.get(cacheKey)?.data;
 
   const [resumenEmpresa, setResumenEmpresa] = useState<ResumenEmpresa | null>(dataEnCache?.resumenEmpresa ?? null);
@@ -204,7 +220,8 @@ export const useTrabajadores = (empresaId: number | null, fechaSeleccionada?: st
     try {
       const data = await getOrCreateTrabajadoresRequest({
         empresaId,
-        fechaNormalizada,
+        fechaInicio: fechaInicioNormalizada,
+        fechaFin: fechaFinNormalizada,
         token: tokenRef.current,
         forceRefresh,
       });
@@ -224,7 +241,7 @@ export const useTrabajadores = (empresaId: number | null, fechaSeleccionada?: st
     } finally {
       setCargando(false);
     }
-  }, [cacheKey, empresaId, fechaNormalizada, tokenListo]);
+  }, [cacheKey, empresaId, fechaInicioNormalizada, fechaFinNormalizada, tokenListo]);
 
   useEffect(() => {
     cargarDatos();

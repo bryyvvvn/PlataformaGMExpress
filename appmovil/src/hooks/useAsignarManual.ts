@@ -8,7 +8,7 @@ export const useAsignarManual = (token?: string | null) => {
   const tokenRef = useRef(token);
   tokenRef.current = token;
 
-  const asignarPedido = async (usuarioId: number, fecha: string, tipoMenu: string, esCena: boolean) => {
+  const asignarPedido = async (usuarioId: number | string, fecha: string, tipoMenu: string, esCena: boolean) => {
     if (!tokenRef.current) {
       console.error("No hay token de autenticación");
       return false;

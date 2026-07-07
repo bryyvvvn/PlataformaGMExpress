@@ -5,6 +5,8 @@ import { obtenerEmpleadosRepresentante } from '@/lib/representante/trabajadores-
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const fecha = searchParams.get('fecha');
+  const fechaInicio = searchParams.get('fechaInicio');
+  const fechaFin = searchParams.get('fechaFin');
   const secret = searchParams.get('secret');
   const forceRefresh = searchParams.get('refresh') === '1';
 
@@ -30,6 +32,8 @@ export async function GET(request: Request) {
     const resultado = await obtenerEmpleadosRepresentante({
       empresaId,
       fecha,
+      fechaInicio,
+      fechaFin,
       forceRefresh,
     });
 

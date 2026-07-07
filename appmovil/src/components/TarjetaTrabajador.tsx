@@ -12,12 +12,14 @@ interface Pedido {
 
 interface TarjetaTrabajadorProps {
   trabajador: {
-    id: number;
+    id: number | string;
     nombre: string;
     pedidos?: Pedido[];
   };
   permiteCena?: boolean;
   token?: string | null; 
+  diasSemana?: Array<{ iso: string }>;
+  onPedidoAsignado?: () => void | Promise<void>;
 }
 
 const getNombreDia = (fechaStr: string) => {
@@ -53,7 +55,13 @@ const getEstadoColors = (estado?: string) => {
   };
 };
 
-export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({ trabajador, permiteCena = false, token }) => {
+export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({
+  trabajador,
+  permiteCena = false,
+  token,
+  diasSemana: diasSemanaProp,
+  onPedidoAsignado,
+}) => {
   const nombreTrabajador = trabajador?.nombre?.trim() || 'Usuario sin nombre';
   const [isExpanded, setIsExpanded] = useState(false);
   const [modoComida, setModoComida] = useState<'ALMUERZO' | 'CENA'>('ALMUERZO');
@@ -70,7 +78,11 @@ export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({ trabajador
 
   const { asignarPedido, isSubmitting } = useAsignarManual(token);
 
-  const getDiasSemana = () => {
+  const getDiasSemana = useMemo(() => {
+    if (diasSemanaProp?.length) {
+      return diasSemanaProp.map((dia) => dia.iso).filter(Boolean);
+    }
+
     let refDate = new Date();
     if (pedidosVisibles.length > 0 && pedidosVisibles[0].fecha) {
       refDate = new Date(pedidosVisibles[0].fecha.split('T')[0] + 'T12:00:00');
@@ -86,8 +98,8 @@ export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({ trabajador
       semana.push(d.toISOString().split('T')[0]);
     }
     return semana;
-  };
-  const diasSemana = getDiasSemana();
+  }, [diasSemanaProp, pedidosVisibles]);
+  const diasSemana = getDiasSemana;
 
   useEffect(() => {
     if (pedidosFiltrados.length > 0) {
@@ -95,9 +107,9 @@ export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({ trabajador
       setDiaManualActivo(null);
     } else {
       setPedidoActivoId(null);
-      setDiaManualActivo(diasSemana[0]);
+      setDiaManualActivo(diasSemana[0] ?? null);
     }
-  }, [modoComida, pedidosVisibles]);
+  }, [modoComida, pedidosVisibles, diasSemana]);
 
   useEffect(() => {
     if (!permiteCena && modoComida === 'CENA') {
@@ -122,7 +134,7 @@ export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({ trabajador
     );
     
     if (exito) {
-      window.location.reload(); 
+      await onPedidoAsignado?.();
     }
   };
 

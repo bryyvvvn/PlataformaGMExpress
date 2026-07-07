@@ -29,8 +29,15 @@ const HomePageRepresentante: React.FC<HomePageRepresentanteProps> = ({ empresaId
   const trabajaFinDeSemana = Boolean(convenio?.trabajaFinDeSemana);
   const permiteCena = Boolean(convenio?.permiteCena);
 
-  const { setSemanaOffset, getSemanaTexto, fechaSeleccionadaISO, fechaTexto, semanaOffset } = useCalendario(trabajaFinDeSemana);
-  const { trabajadores, cargando, resumenEmpresa } = useTrabajadores(empresaId, fechaSeleccionadaISO, clerkToken);
+  const { setSemanaOffset, getSemanaTexto, fechaSeleccionadaISO, fechaTexto, semanaOffset, diasSemanaArray } = useCalendario(trabajaFinDeSemana);
+  const fechaInicioSemana = diasSemanaArray[0]?.iso;
+  const fechaFinSemana = diasSemanaArray[diasSemanaArray.length - 1]?.iso;
+  const { trabajadores, cargando, resumenEmpresa, refrescarTrabajadores } = useTrabajadores(
+    empresaId,
+    fechaInicioSemana,
+    clerkToken,
+    fechaFinSemana
+  );
 
   const esSemanaPasada = semanaOffset !== undefined 
     ? semanaOffset < 0 
@@ -211,6 +218,8 @@ const HomePageRepresentante: React.FC<HomePageRepresentanteProps> = ({ empresaId
                 trabajador={trabajador} 
                 permiteCena={resumenEmpresa?.permiteCena} 
                 token={clerkToken} 
+                diasSemana={diasSemanaArray}
+                onPedidoAsignado={refrescarTrabajadores}
               />
             ))}
           </div>

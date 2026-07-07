@@ -1,15 +1,15 @@
 import { NextResponse } from 'next/server';
 import db from '../../../../lib/db';
-import { chileStartOfDay, chileEndOfDay, nowChile } from '../../../../lib/chile-time';
+import { chileStartOfDay, chileEndOfDay } from '../../../../lib/chile-time';
 import { verificarRepresentante } from '@/lib/representante/verificar-representante';
+import { normalizarFechaEmpleados } from '@/lib/representante/trabajadores-cache';
 
 // 🔥 CACHÉ EN RAM — mismo patrón que empleados/route.ts
 const resumenCache = new Map<string, { data: unknown; timestamp: number }>();
 const CACHE_TTL_MS = 1000 * 60 * 5; // 5 minutos
 
-function getCacheKey(empresaId: number): string {
-  const hoy = nowChile().iso;
-  return `resumen:${empresaId}:${hoy}`;
+function getCacheKey(empresaId: number, fechaInicio: string, fechaFin: string): string {
+  return `resumen:${empresaId}:${fechaInicio}:${fechaFin}`;
 }
 
 function limpiarCacheViejo() {
@@ -21,6 +21,10 @@ function limpiarCacheViejo() {
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const secret = searchParams.get('secret');
+  const fecha = searchParams.get('fecha');
+  const fechaInicioParam = searchParams.get('fechaInicio');
+  const fechaFinParam = searchParams.get('fechaFin');
+  const forceRefresh = searchParams.get('refresh') === '1';
 
   let empresaId: number;
 
@@ -40,21 +44,24 @@ export async function GET(request: Request) {
   try {
     limpiarCacheViejo();
 
-    const cacheKey = getCacheKey(empresaId);
+    const fechaReferencia = normalizarFechaEmpleados(fecha);
+    const fechaInicio = fechaInicioParam ? normalizarFechaEmpleados(fechaInicioParam) : fechaReferencia;
+    const fechaFin = fechaFinParam ? normalizarFechaEmpleados(fechaFinParam) : fechaInicio;
+    const cacheKey = getCacheKey(empresaId, fechaInicio, fechaFin);
     const now = Date.now();
     const cached = resumenCache.get(cacheKey);
 
-    if (cached && (now - cached.timestamp < CACHE_TTL_MS)) {
+    if (!forceRefresh && cached && (now - cached.timestamp < CACHE_TTL_MS)) {
       console.log(`[RESUMEN Cache Hit] empresa=${empresaId}`);
       return NextResponse.json(cached.data, {
         headers: { 'X-Resumen-Cache': 'HIT' },
       });
     }
 
-    console.log(`[RESUMEN Cache Miss] empresa=${empresaId}`);
+    console.log(forceRefresh ? `[RESUMEN Cache Refresh] empresa=${empresaId}` : `[RESUMEN Cache Miss] empresa=${empresaId}`);
 
-    const inicioDia = chileStartOfDay();
-    const finDia = chileEndOfDay();
+    const inicioDia = chileStartOfDay(fechaInicio);
+    const finDia = chileEndOfDay(fechaFin);
 
     const empresa = await db.empresa.findUnique({
       where: { id: empresaId },
@@ -92,7 +99,7 @@ export async function GET(request: Request) {
     console.log(`[RESUMEN Cache Set] empresa=${empresaId} trabajadores=${totalTrabajadores} pedidosHoy=${pedidosListosHoy}`);
 
     return NextResponse.json(data, {
-      headers: { 'X-Resumen-Cache': 'MISS' },
+      headers: { 'X-Resumen-Cache': forceRefresh ? 'REFRESH' : 'MISS' },
     });
   } catch (error) {
     console.error('[API REPRESENTANTE RESUMEN] Error:', error);
