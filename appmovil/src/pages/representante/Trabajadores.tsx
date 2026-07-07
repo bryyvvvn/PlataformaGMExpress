@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, CalendarOff, Loader2, UserPlus, Search, X, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, CalendarOff, Loader2, UserPlus, Search, X, CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { usePerfil } from '../../hooks/usePerfil';
 import { useTrabajadores } from '../../hooks/useTrabajadores';
 import { useClerkToken } from '../../hooks/useClerkToken';
 
-// NUEVOS HOOKS
+/* NUEVOS HOOKS */
 import { useVincularTrabajador } from '../../hooks/useVincularTrabajador';
 import { useBloqueoDias } from '../../hooks/useBloqueoDias';
 
-// --- Componente TarjetaTrabajadorListado ---
+/* COMPONENTE TARJETA TRABAJADOR LISTADO */
 const normalizarDiasBloqueados = (dias: unknown) => {
   if (!Array.isArray(dias)) return [];
   return Array.from(
@@ -45,6 +45,8 @@ const TarjetaTrabajadorListado = ({
     ? [...DIAS_BASE, { num: 6, letra: 'S' }, { num: 7, letra: 'D' }]
     : DIAS_BASE;
 
+  const mostrarFlechas = DIAS.length > 5;
+
   return (
     <div className="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm flex flex-col gap-4 transition-all mb-4">
       <div className="flex items-center gap-4">
@@ -73,32 +75,52 @@ const TarjetaTrabajadorListado = ({
             <CalendarOff size={20} /> Bloqueo de días
           </span>
         </div>
-        <div className="flex gap-2">
-          {DIAS.map(dia => {
-            const isBlocked = diasBloqueados.includes(dia.num);
-            const isLoad = loadingDia === dia.num;
-            return (
-              <button
-                key={dia.num}
-                onClick={() => toggleDiaBloqueado(t.id, dia.num, setDiasBloqueados)}
-                disabled={isLoad}
-                className={`flex-1 aspect-square rounded-2xl flex items-center justify-center font-black text-sm transition-all border active:scale-95 disabled:opacity-70 ${
-                  isBlocked 
-                    ? 'bg-red-50 border-red-200 text-red-500 shadow-inner' 
-                    : 'bg-green-50 border-green-100 text-[#70a344] hover:bg-green-100'
-                }`}
-              >
-                {isLoad ? <Loader2 size={16} className="animate-spin" /> : dia.letra}
-              </button>
-            )
-          })}
+        
+        <div className="flex items-center w-full -ml-2">
+          
+          {mostrarFlechas && (
+            <div className="shrink-0 pr-1.5 pb-2 flex items-center justify-center">
+              <ChevronLeft size={18} className="text-gray-300" />
+            </div>
+          )}
+
+          <div 
+            className="flex gap-1.5 overflow-x-auto pb-2 [&::-webkit-scrollbar]:hidden w-full"
+            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+          >
+            {DIAS.map(dia => {
+              const isBlocked = diasBloqueados.includes(dia.num);
+              const isLoad = loadingDia === dia.num;
+              return (
+                <button
+                  key={dia.num}
+                  onClick={() => toggleDiaBloqueado(t.id, dia.num, setDiasBloqueados)}
+                  disabled={isLoad}
+                  className={`shrink-0 w-14 h-14 rounded-2xl flex items-center justify-center font-black text-sm transition-all border active:scale-95 disabled:opacity-70 ${
+                    isBlocked 
+                      ? 'bg-red-50 border-red-200 text-red-500 shadow-inner' 
+                      : 'bg-green-50 border-green-100 text-[#70a344] hover:bg-green-100'
+                  }`}
+                >
+                  {isLoad ? <Loader2 size={16} className="animate-spin" /> : dia.letra}
+                </button>
+              )
+            })}
+          </div>
+
+          {mostrarFlechas && (
+            <div className="shrink-0 pl-1.5 pb-2 flex items-center justify-center">
+              <ChevronRight size={18} className="text-gray-300" />
+            </div>
+          )}
+
         </div>
       </div>
     </div>
   );
 };
 
-// --- Componente Principal ---
+/* COMPONENTE PRINCIPAL */
 const Trabajadores: React.FC = () => {
   const navigate = useNavigate();
   const { token: clerkToken } = useClerkToken();
@@ -106,7 +128,7 @@ const Trabajadores: React.FC = () => {
   const trabajaFinDeSemana = Boolean(convenio?.trabajaFinDeSemana);
   const { trabajadores, cargando } = useTrabajadores(empresaId, undefined, clerkToken);
 
-  // Hook personalizado de vinculación
+  /* HOOK DE VINCULACION */
   const {
     buscando, vinculando, trabajadorEncontrado, errorBusqueda,
     buscarTrabajador, vincularTrabajador, limpiarBusqueda
@@ -115,7 +137,7 @@ const Trabajadores: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [rutBusqueda, setRutBusqueda] = useState('');
   
-  // 🔥 NUEVO ESTADO PARA EL FILTRO DE BÚSQUEDA
+  /* ESTADO PARA EL FILTRO DE BUSQUEDA */
   const [filtroBusqueda, setFiltroBusqueda] = useState('');
 
   const manejarCambioRut = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -134,20 +156,14 @@ const Trabajadores: React.FC = () => {
     limpiarBusqueda();
   };
 
-
-  // 🔥 LÓGICA DE FILTRADO (POR NOMBRE O RUT MEJORADO)
+  /* LOGICA DE FILTRADO */
   const trabajadoresFiltrados = trabajadores.filter((t: any) => {
     const terminoBusqueda = filtroBusqueda.toLowerCase().trim();
     if (!terminoBusqueda) return true;
     
-    // Búsqueda por nombre
     const coincideNombre = t.nombre?.toLowerCase().includes(terminoBusqueda);
-    
-    // Búsqueda por RUT (Limpiando puntos y guiones)
     const rutBDLimpio = t.rut?.replace(/[\.\-]/g, '').toLowerCase() || '';
     const busquedaLimpia = terminoBusqueda.replace(/[\.\-]/g, '');
-    
-    // Coincide si lo busca con formato (12.314...) o sin formato (12314...)
     const coincideRut = t.rut?.toLowerCase().includes(terminoBusqueda) || (busquedaLimpia.length > 0 && rutBDLimpio.includes(busquedaLimpia));
     
     return coincideNombre || coincideRut;
@@ -175,7 +191,8 @@ const Trabajadores: React.FC = () => {
       </header>
 
       <main className="flex-1 p-6 pb-20">
-        {(cargando || !empresaId) ? (
+        
+        {(cargando || !empresaId || clerkToken === undefined) ? (
           <div className="space-y-4 max-w-md mx-auto">
             {[1, 2, 3].map((i) => (
               <div key={i} className="h-40 bg-white rounded-[2rem] border border-gray-100 p-5 flex flex-col gap-4 animate-pulse">
@@ -196,7 +213,7 @@ const Trabajadores: React.FC = () => {
         ) : (
           <div className="space-y-4 max-w-md mx-auto">
             
-            {/* 🔥 BARRA DE BÚSQUEDA */}
+            {/* BARRA DE BUSQUEDA */}
             {trabajadores.length > 0 && (
               <div className="relative mb-6">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -220,7 +237,7 @@ const Trabajadores: React.FC = () => {
               </div>
             )}
 
-            {/* LISTA DE TRABAJADORES (FILTRADOS) */}
+            {/* LISTA DE TRABAJADORES FILTRADOS */}
             {trabajadoresFiltrados.length > 0 ? (
               trabajadoresFiltrados.map((t) => (
                 <TarjetaTrabajadorListado
@@ -246,7 +263,7 @@ const Trabajadores: React.FC = () => {
         )}
       </main>
 
-      {/* Modal Agregar Trabajador */}
+      {/* MODAL AGREGAR TRABAJADOR */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-[#1d2d50]/50 backdrop-blur-sm z-50 flex items-center justify-center p-6 animate-in fade-in duration-200">
           <div className="bg-white rounded-[2rem] p-6 w-full max-w-sm shadow-2xl relative">
