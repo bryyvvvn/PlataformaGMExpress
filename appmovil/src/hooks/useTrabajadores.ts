@@ -149,6 +149,29 @@ const getOrCreateTrabajadoresRequest = ({
   return request;
 };
 
+export const actualizarDiasBloqueadosTrabajadorEnCache = (
+  usuarioId: number | string,
+  diasBloqueados: number[]
+) => {
+  const usuarioIdNormalizado = String(usuarioId);
+
+  for (const [cacheKey, cacheValue] of trabajadoresCache.entries()) {
+    const trabajadoresActualizados = cacheValue.data.trabajadores.map((trabajador) => {
+      if (String(trabajador?.id) !== usuarioIdNormalizado) return trabajador;
+      return { ...trabajador, diasBloqueados };
+    });
+
+    trabajadoresCache.set(cacheKey, {
+      ...cacheValue,
+      data: {
+        ...cacheValue.data,
+        trabajadores: trabajadoresActualizados,
+      },
+      timestamp: Date.now(),
+    });
+  }
+};
+
 export const useTrabajadores = (
   empresaId: number | null,
   fechaSeleccionada?: string,

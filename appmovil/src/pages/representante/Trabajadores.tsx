@@ -10,18 +10,40 @@ import { useVincularTrabajador } from '../../hooks/useVincularTrabajador';
 import { useBloqueoDias } from '../../hooks/useBloqueoDias';
 
 // --- Componente TarjetaTrabajadorListado ---
-const TarjetaTrabajadorListado = ({ t, token }: { t: any; token?: string | null }) => {
-  const [diasBloqueados, setDiasBloqueados] = useState<number[]>(t.diasBloqueados || []);
+const normalizarDiasBloqueados = (dias: unknown) => {
+  if (!Array.isArray(dias)) return [];
+  return Array.from(
+    new Set(
+      dias
+        .map(Number)
+        .filter((dia) => Number.isInteger(dia) && dia >= 1 && dia <= 7)
+    )
+  ).sort((a, b) => a - b);
+};
+
+const TarjetaTrabajadorListado = ({
+  t,
+  token,
+  trabajaFinDeSemana,
+}: {
+  t: any;
+  token?: string | null;
+  trabajaFinDeSemana?: boolean;
+}) => {
+  const [diasBloqueados, setDiasBloqueados] = useState<number[]>(normalizarDiasBloqueados(t.diasBloqueados));
   const { toggleDiaBloqueado, loadingDia } = useBloqueoDias(token);
 
   useEffect(() => {
-    if (t.diasBloqueados) setDiasBloqueados(t.diasBloqueados);
+    setDiasBloqueados(normalizarDiasBloqueados(t.diasBloqueados));
   }, [t.diasBloqueados]);
 
-  const DIAS = [
+  const DIAS_BASE = [
     { num: 1, letra: 'L' }, { num: 2, letra: 'M' }, 
     { num: 3, letra: 'M' }, { num: 4, letra: 'J' }, { num: 5, letra: 'V' }
   ];
+  const DIAS = trabajaFinDeSemana
+    ? [...DIAS_BASE, { num: 6, letra: 'S' }, { num: 7, letra: 'D' }]
+    : DIAS_BASE;
 
   return (
     <div className="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm flex flex-col gap-4 transition-all mb-4">
@@ -80,7 +102,8 @@ const TarjetaTrabajadorListado = ({ t, token }: { t: any; token?: string | null 
 const Trabajadores: React.FC = () => {
   const navigate = useNavigate();
   const { token: clerkToken } = useClerkToken();
-  const { empresaId, empresaNombre } = usePerfil();
+  const { empresaId, empresaNombre, convenio } = usePerfil();
+  const trabajaFinDeSemana = Boolean(convenio?.trabajaFinDeSemana);
   const { trabajadores, cargando } = useTrabajadores(empresaId, undefined, clerkToken);
 
   // Hook personalizado de vinculación
@@ -199,7 +222,14 @@ const Trabajadores: React.FC = () => {
 
             {/* LISTA DE TRABAJADORES (FILTRADOS) */}
             {trabajadoresFiltrados.length > 0 ? (
-              trabajadoresFiltrados.map((t) => <TarjetaTrabajadorListado key={t.id} t={t} token={clerkToken} />)
+              trabajadoresFiltrados.map((t) => (
+                <TarjetaTrabajadorListado
+                  key={t.id}
+                  t={t}
+                  token={clerkToken}
+                  trabajaFinDeSemana={trabajaFinDeSemana}
+                />
+              ))
             ) : trabajadores.length > 0 ? (
               <div className="text-center bg-white p-8 rounded-3xl border border-gray-100 shadow-sm mt-4">
                 <p className="text-[#1d2d50] font-black text-lg mb-1">Sin resultados</p>

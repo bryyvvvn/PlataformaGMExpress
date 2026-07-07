@@ -16,6 +16,11 @@ interface CalendarioSemanalProps {
   cargandoHistorial?: boolean;
 }
 
+const getDiaSemanaBloqueo = (fechaISO: string) => {
+  const dia = new Date(`${fechaISO}T12:00:00`).getDay();
+  return dia === 0 ? 7 : dia;
+};
+
 export const CalendarioSemanal: React.FC<CalendarioSemanalProps> = ({
   getSemanaTexto,
   setSemanaOffset,
@@ -54,7 +59,7 @@ export const CalendarioSemanal: React.FC<CalendarioSemanalProps> = ({
       >
         {diasSemanaArray.map((dia, index) => {
           const tienePedido = fechasBloqueadas.has(dia.iso);
-          const numDiaMenu = new Date(dia.iso + 'T12:00:00').getDay();
+          const numDiaMenu = getDiaSemanaBloqueo(dia.iso);
           const esBloqueadoPerm = diasBloqueadosAdmin.includes(numDiaMenu);
           const visualmenteBloqueado = dia.bloqueado || esBloqueadoPerm;
           const esBloqueadoPorHorario = !tienePedido && !cargandoHistorial && (fechasHorarioBloqueado?.has(dia.iso) ?? false);

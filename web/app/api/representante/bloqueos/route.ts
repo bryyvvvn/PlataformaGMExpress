@@ -2,6 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import db from "@/lib/db";
 import { bloqueoSchema } from "@/lib/schemas/representante";
 import { verificarRepresentante } from "@/lib/representante/verificar-representante";
+import { invalidarEmpleadosCachePorEmpresa } from "@/lib/representante/trabajadores-cache";
+
+function normalizarDiasBloqueados(dias: number[]) {
+  return Array.from(
+    new Set(
+      dias
+        .map(Number)
+        .filter((dia) => Number.isInteger(dia) && dia >= 1 && dia <= 7)
+    )
+  ).sort((a, b) => a - b);
+}
 
 export async function PATCH(req: NextRequest) {
   const rep = await verificarRepresentante(req);
@@ -21,7 +32,7 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: result.error.issues[0].message }, { status: 400 });
   }
 
-  const { usuarioId, diaSemana } = result.data; // diaSemana: 1 (Lun) a 5 (Vie)
+  const { usuarioId, diaSemana } = result.data; // diaSemana: 1 (Lun) a 7 (Dom)
 
   try {
     const trabajador = await db.usuario.findUnique({
@@ -44,19 +55,32 @@ export async function PATCH(req: NextRequest) {
 
     if (!usuario) return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });
 
-    const yaBloqueado = usuario.diasBloqueados.includes(diaSemana);
+    const bloqueosActuales = normalizarDiasBloqueados(usuario.diasBloqueados);
+    const yaBloqueado = bloqueosActuales.includes(diaSemana);
     
     // Si estaba bloqueado, lo quitamos. Si no, lo agregamos.
-    const nuevosBloqueos = yaBloqueado 
-      ? usuario.diasBloqueados.filter(d => d !== diaSemana)
-      : [...usuario.diasBloqueados, diaSemana];
+    const nuevosBloqueos = normalizarDiasBloqueados(
+      yaBloqueado 
+        ? bloqueosActuales.filter(d => d !== diaSemana)
+        : [...bloqueosActuales, diaSemana]
+    );
 
-    await db.usuario.update({
+    const trabajadorActualizado = await db.usuario.update({
       where: { id: usuarioId },
-      data: { diasBloqueados: nuevosBloqueos }
+      data: { diasBloqueados: nuevosBloqueos },
+      select: {
+        id: true,
+        diasBloqueados: true,
+      },
     });
 
-    return NextResponse.json({ success: true, diasBloqueados: nuevosBloqueos });
+    invalidarEmpleadosCachePorEmpresa(rep.empresaId);
+
+    return NextResponse.json({
+      success: true,
+      usuarioId: trabajadorActualizado.id,
+      diasBloqueados: trabajadorActualizado.diasBloqueados,
+    });
   } catch (error) {
     console.error("Error actualizando bloqueos:", error);
     return NextResponse.json({ error: "Error interno" }, { status: 500 });

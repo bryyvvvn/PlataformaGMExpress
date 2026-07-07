@@ -238,3 +238,19 @@ export function obtenerEmpleadosCacheStats() {
     ttlMs: CACHE_TTL_MS,
   };
 }
+
+export function invalidarEmpleadosCachePorEmpresa(empresaId: number) {
+  const prefix = `empleados:${empresaId}:`;
+
+  for (const cacheKey of empleadosCache.keys()) {
+    if (cacheKey.startsWith(prefix)) {
+      empleadosCache.delete(cacheKey);
+    }
+  }
+
+  for (const cacheKey of empleadosRequestsInFlight.keys()) {
+    if (cacheKey.startsWith(prefix)) {
+      empleadosRequestsInFlight.delete(cacheKey);
+    }
+  }
+}

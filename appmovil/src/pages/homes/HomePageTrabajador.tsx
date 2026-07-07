@@ -63,6 +63,11 @@ const getPlatoEntradaMenuDia = (menuDia: any): Plato | null => {
   return { ...base, nombre: getEntradaMenuDiaDisplay(menuDia) || base.nombre };
 };
 
+const getDiaSemanaBloqueo = (fechaISO: string) => {
+  const dia = new Date(`${fechaISO}T12:00:00`).getDay();
+  return dia === 0 ? 7 : dia;
+};
+
 const obtenerIncluidosPorConvenio = (menuDia: any, convenio: any) => {
   const incluidos: string[] = [];
   if (convenio?.permitePan) incluidos.push('Pan');
@@ -277,18 +282,18 @@ const HomePageTrabajador: React.FC<HomePageTrabajadorProps> = ({ empresaNombre }
 
   const isSelectedDateToday = diasSemanaArray?.[diaSeleccionadoIdx]?.esHoy ?? false;
   const isDeadlinePassed = false;
-  const numDiaSeleccionado = new Date((fechaSeleccionadaISO || '') + 'T12:00:00').getDay();
+  const numDiaSeleccionado = getDiaSemanaBloqueo(fechaSeleccionadaISO || '');
   const esBloqueadoPermanente = (diasBloqueadosAdmin || []).includes(numDiaSeleccionado);
   const fechaBloqueada = (diasSemanaArray?.[diaSeleccionadoIdx]?.bloqueado ?? false) || esBloqueadoPermanente;
   const fechaSeleccionadaTienePedido = fechasBloqueadas.has(fechaSeleccionadaISO || '');
   const bloquearUI = (isSelectedDateToday && isDeadlinePassed) || (fechaBloqueada && !fechaSeleccionadaTienePedido) || (fechaBloqueadaPorHorario === fechaSeleccionadaISO && !fechaSeleccionadaTienePedido);
 
-  const esFinDeSemana = numDiaSeleccionado === 0 || numDiaSeleccionado === 6;
+  const esFinDeSemana = numDiaSeleccionado === 6 || numDiaSeleccionado === 7;
 
   const todosBloqueados = useMemo(() => {
     return (diasSemanaArray || []).every(dia => {
       if (!dia?.iso) return false;
-      const numDia = new Date(dia.iso + 'T12:00:00').getDay();
+      const numDia = getDiaSemanaBloqueo(dia.iso);
       const bloqueado = dia.bloqueado || (diasBloqueadosAdmin || []).includes(numDia);
       return bloqueado && !fechasBloqueadas.has(dia.iso);
     });
@@ -300,7 +305,7 @@ const HomePageTrabajador: React.FC<HomePageTrabajadorProps> = ({ empresaNombre }
     
     const primerDiaSinPedido = diasSemanaArray.findIndex(dia => {
       if (!dia?.iso) return false;
-      const numDia = new Date(dia.iso + 'T12:00:00').getDay();
+      const numDia = getDiaSemanaBloqueo(dia.iso);
       const bloqueado = dia.bloqueado || (diasBloqueadosAdmin || []).includes(numDia);
       return !bloqueado && !fechasBloqueadas.has(dia.iso);
     });

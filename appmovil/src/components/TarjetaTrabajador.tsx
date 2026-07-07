@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { ChevronDown, ChevronUp, Utensils, CheckCircle2, CalendarPlus } from 'lucide-react';
+import { ChevronDown, ChevronUp, Utensils, CheckCircle2, CalendarPlus, Lock } from 'lucide-react';
 import { useAsignarManual } from '../hooks/useAsignarManual';
 
 interface Pedido {
@@ -14,6 +14,7 @@ interface TarjetaTrabajadorProps {
   trabajador: {
     id: number | string;
     nombre: string;
+    diasBloqueados?: number[];
     pedidos?: Pedido[];
   };
   permiteCena?: boolean;
@@ -26,6 +27,11 @@ const getNombreDia = (fechaStr: string) => {
   const d = new Date(`${fechaStr}T12:00:00`);
   const dias = ['DOM', 'LUN', 'MAR', 'MIE', 'JUE', 'VIE', 'SAB'];
   return dias[d.getDay()];
+};
+
+const getDiaSemanaBloqueo = (fechaStr: string) => {
+  const dia = new Date(`${fechaStr}T12:00:00`).getDay();
+  return dia === 0 ? 7 : dia;
 };
 
 // 🔥 FUNCIÓN DE COLORES DINÁMICOS
@@ -67,6 +73,12 @@ export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({
   const [modoComida, setModoComida] = useState<'ALMUERZO' | 'CENA'>('ALMUERZO');
   
   const pedidosTotales = Array.isArray(trabajador?.pedidos) ? trabajador.pedidos : [];
+  const diasBloqueados = useMemo(
+    () => Array.isArray(trabajador?.diasBloqueados)
+      ? trabajador.diasBloqueados.map(Number).filter((dia) => Number.isInteger(dia) && dia >= 1 && dia <= 7)
+      : [],
+    [trabajador?.diasBloqueados]
+  );
   const pedidosVisibles = useMemo(
     () => (permiteCena ? pedidosTotales : pedidosTotales.filter(p => !p.esCena)),
     [permiteCena, pedidosTotales]
@@ -107,9 +119,10 @@ export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({
       setDiaManualActivo(null);
     } else {
       setPedidoActivoId(null);
-      setDiaManualActivo(diasSemana[0] ?? null);
+      const primerDiaDisponible = diasSemana.find((fecha) => !diasBloqueados.includes(getDiaSemanaBloqueo(fecha)));
+      setDiaManualActivo(primerDiaDisponible ?? null);
     }
-  }, [modoComida, pedidosVisibles, diasSemana]);
+  }, [modoComida, pedidosVisibles, diasSemana, diasBloqueados]);
 
   useEffect(() => {
     if (!permiteCena && modoComida === 'CENA') {
@@ -214,6 +227,7 @@ export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({
               const pedido = pedidosFiltrados.find(p => p.fecha?.startsWith(fechaString));
               const diaCorto = getNombreDia(fechaString);
               const numeroDia = fechaString.split('-')[2];
+              const diaBloqueado = diasBloqueados.includes(getDiaSemanaBloqueo(fechaString));
 
               if (pedido) {
                 const isActive = pedidoActivoId === pedido.id;
@@ -243,15 +257,22 @@ export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({
                 return (
                   <button
                     key={fechaString}
-                    onClick={() => { setPedidoActivoId(null); setDiaManualActivo(fechaString); }}
+                    onClick={() => {
+                      if (diaBloqueado) return;
+                      setPedidoActivoId(null);
+                      setDiaManualActivo(fechaString);
+                    }}
+                    disabled={diaBloqueado}
                     className={`h-[64px] min-w-[56px] shrink-0 rounded-2xl flex flex-col items-center justify-center gap-0.5 transition-all relative border ${
-                      isActive 
+                      diaBloqueado
+                        ? 'bg-gray-100 border-gray-200 text-gray-300 cursor-not-allowed'
+                        : isActive 
                         ? 'bg-slate-200 border-slate-300 text-[#1d2d50] shadow-inner scale-105' 
                         : 'bg-slate-50 border-transparent text-slate-400 hover:bg-slate-100'
                     }`}
                   >
                     <span className="text-[9px] font-black uppercase tracking-wider">{diaCorto}</span>
-                    <span className="text-base font-black">{numeroDia}</span>
+                    {diaBloqueado ? <Lock size={15} /> : <span className="text-base font-black">{numeroDia}</span>}
                   </button>
                 );
               }
