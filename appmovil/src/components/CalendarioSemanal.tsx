@@ -1,4 +1,3 @@
-// src/components/CalendarioSemanal.tsx
 import React from 'react';
 import { ChevronLeft, ChevronRight, Lock } from 'lucide-react';
 import type { EstadoFechas } from '../hooks/useHistorial';
@@ -16,11 +15,13 @@ interface CalendarioSemanalProps {
   cargandoHistorial?: boolean;
 }
 
+/* FUNCIONES AUXILIARES */
 const getDiaSemanaBloqueo = (fechaISO: string) => {
   const dia = new Date(`${fechaISO}T12:00:00`).getDay();
   return dia === 0 ? 7 : dia;
 };
 
+/* COMPONENTE PRINCIPAL */
 export const CalendarioSemanal: React.FC<CalendarioSemanalProps> = ({
   getSemanaTexto,
   setSemanaOffset,
@@ -35,6 +36,8 @@ export const CalendarioSemanal: React.FC<CalendarioSemanalProps> = ({
 }) => {
   return (
     <div className="mt-10 px-6 shrink-0">
+      
+      {/* CONTROLES DE NAVEGACION */}
       <div className="flex items-center justify-between mb-4">
         <button onClick={() => setSemanaOffset(-1)} className="p-2 bg-white rounded-xl shadow-sm border border-gray-50">
           <ChevronLeft size={20} />
@@ -53,26 +56,30 @@ export const CalendarioSemanal: React.FC<CalendarioSemanalProps> = ({
         }
       `}</style>
 
+      {/* LISTA DE DIAS DE LA SEMANA */}
       <div 
         className="flex items-center overflow-x-auto snap-x snap-mandatory hide-scrollbar pb-4 pt-2 -mx-2 px-2"
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', gap: 'calc(15% / 4)' }} 
       >
         {diasSemanaArray.map((dia, index) => {
+          
+          {/* LOGICA DE BLOQUEO Y SELECCION */}
           const tienePedido = fechasBloqueadas.has(dia.iso);
           const numDiaMenu = getDiaSemanaBloqueo(dia.iso);
           const esBloqueadoPerm = diasBloqueadosAdmin.includes(numDiaMenu);
           const visualmenteBloqueado = dia.bloqueado || esBloqueadoPerm;
           const esBloqueadoPorHorario = !tienePedido && !cargandoHistorial && (fechasHorarioBloqueado?.has(dia.iso) ?? false);
           const isSelectedAndValid = dia.esSeleccionado && !todosBloqueados;
+          
           const noSeleccionable = (visualmenteBloqueado && !tienePedido) || esBloqueadoPorHorario;
 
-          // 🔥 LÓGICA DE ESTADOS DE COMIDA
+          {/* LOGICA DE ESTADOS DE COMIDA */}
           const estadoComida = estadoFechas[dia.iso] || { almuerzo: false, cena: false };
           const soloAlmuerzo = estadoComida.almuerzo && !estadoComida.cena;
           const soloCena = estadoComida.cena && !estadoComida.almuerzo;
           const ambasComidas = estadoComida.almuerzo && estadoComida.cena;
 
-          // 🔥 VARIABLES DE DISEÑO DINÁMICO
+          {/* VARIABLES DE DISEÑO DINAMICO */}
           let bgClass = 'bg-white border-gray-200';
           let textClass = 'text-[#1d2d50]';
           let subTextClass = 'text-gray-400';
@@ -82,12 +89,10 @@ export const CalendarioSemanal: React.FC<CalendarioSemanalProps> = ({
             textClass = 'text-white';
             subTextClass = 'text-white/90';
           } else if (soloCena) {
-            // 🌙 SOLO CENA: Azul Oscuro Sólido
             bgClass = 'bg-[#1d2d50] border-transparent shadow-md';
             textClass = 'text-white';
             subTextClass = 'text-white/80';
           } else if (soloAlmuerzo) {
-            // ☀️ SOLO ALMUERZO: Verde Sólido
             bgClass = 'bg-[#70a344] border-transparent shadow-md';
             textClass = 'text-white';
             subTextClass = 'text-white/90';
@@ -97,11 +102,11 @@ export const CalendarioSemanal: React.FC<CalendarioSemanalProps> = ({
             subTextClass = 'text-gray-400';
           }
 
-          // Efecto de selección flotante (Outline externo)
           const selectionEffect = isSelectedAndValid 
             ? 'scale-110 shadow-md ring-2 ring-[#70a344] ring-offset-2' 
             : 'border shadow-sm';
 
+          {/* RENDERIZADO DEL BOTON DEL DIA */}
           return (
             <button
               key={index}
@@ -112,7 +117,6 @@ export const CalendarioSemanal: React.FC<CalendarioSemanalProps> = ({
                 noSeleccionable ? 'cursor-not-allowed' : 'cursor-pointer'
               ].join(' ')}
             >
-              {/* Split limpio mitad izquierda verde / mitad derecha azul */}
               {ambasComidas && (
                 <>
                   <div className="absolute inset-0 right-1/2 bg-[#70a344]" />
@@ -123,8 +127,9 @@ export const CalendarioSemanal: React.FC<CalendarioSemanalProps> = ({
               <span className={`relative z-10 text-[10px] font-black mb-1 uppercase ${subTextClass}`}>
                 {dia.letra}
               </span>
-              {esBloqueadoPorHorario ? (
-                <Lock size={16} className="relative z-10 text-gray-400" />
+              
+              {noSeleccionable ? (
+                <Lock size={16} className="relative z-10 text-gray-300" />
               ) : (
                 <span className={`relative z-10 text-lg font-black ${textClass}`}>
                   {dia.numero}
