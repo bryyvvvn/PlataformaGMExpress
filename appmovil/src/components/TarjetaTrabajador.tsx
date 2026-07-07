@@ -26,6 +26,33 @@ const getNombreDia = (fechaStr: string) => {
   return dias[d.getDay()];
 };
 
+// 🔥 FUNCIÓN DE COLORES DINÁMICOS
+const getEstadoColors = (estado?: string) => {
+  if (['EN_PRODUCCION', 'ENTREGADO'].includes(estado || '')) {
+    return {
+      activeBg: 'bg-purple-500 border-purple-500',
+      panelBg: 'bg-purple-50 border-purple-200',
+      textColor: 'text-purple-600',
+      dot: 'bg-purple-500'
+    };
+  }
+  if (estado === 'CONFIRMADO') {
+    return {
+      activeBg: 'bg-[#70a344] border-[#70a344]',
+      panelBg: 'bg-[#70a344]/10 border-[#70a344]/30',
+      textColor: 'text-[#70a344]',
+      dot: 'bg-[#70a344]'
+    };
+  }
+  // PENDIENTE O SIN ESTADO (Color Plomo)
+  return {
+    activeBg: 'bg-slate-400 border-slate-400',
+    panelBg: 'bg-slate-50 border-slate-200',
+    textColor: 'text-slate-500',
+    dot: 'bg-slate-300'
+  };
+};
+
 export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({ trabajador, permiteCena = false, token }) => {
   const nombreTrabajador = trabajador?.nombre?.trim() || 'Usuario sin nombre';
   const [isExpanded, setIsExpanded] = useState(false);
@@ -79,13 +106,11 @@ export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({ trabajador
   }, [permiteCena, modoComida]);
 
   const pedidoSeleccionado = pedidosFiltrados.find(p => p.id === pedidoActivoId);
-  const cantidadPedidos = pedidosVisibles.length;
   
-  // 🔥 AQUÍ ESTÁ EL ARREGLO PARA EL ACORDEÓN PRINCIPAL
-  const cantidadConfirmados = pedidosVisibles.filter(p => ['CONFIRMADO', 'EN_PRODUCCION', 'ENTREGADO'].includes(p.estado || '')).length;
-  const cantidadPendientes = cantidadPedidos - cantidadConfirmados;
-  const estaTotalmenteConfirmado = cantidadPedidos > 0 && cantidadPendientes === 0;
-  const tieneParciales = cantidadConfirmados > 0 && cantidadPendientes > 0;
+  const cantidadPedidos = pedidosVisibles.length;
+  const countConfirmado = pedidosVisibles.filter(p => p.estado === 'CONFIRMADO').length;
+  const countProduccion = pedidosVisibles.filter(p => ['EN_PRODUCCION', 'ENTREGADO'].includes(p.estado || '')).length;
+  const countPendiente = pedidosVisibles.filter(p => !p.estado || p.estado === 'PENDIENTE').length;
 
   const manejarAsignacionManual = async (tipo: string) => {
     if (!diaManualActivo) return;
@@ -101,49 +126,55 @@ export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({ trabajador
     }
   };
 
-  const isAlmuerzo = modoComida === 'ALMUERZO';
-  const themeActiveBg = isAlmuerzo ? 'bg-[#70a344] border-[#70a344]' : 'bg-[#1d2d50] border-[#1d2d50]';
-  const themeHoverBorder = isAlmuerzo ? 'hover:border-[#70a344]/50' : 'hover:border-[#1d2d50]/50';
-  const themeDot = isAlmuerzo ? 'bg-[#70a344]' : 'bg-[#1d2d50]';
-  const themePanelBg = isAlmuerzo ? 'bg-[#70a344]/5 border-[#70a344]/20' : 'bg-[#1d2d50]/5 border-[#1d2d50]/20';
-  const themeText = isAlmuerzo ? 'text-[#70a344]' : 'text-[#1d2d50]';
-
   return (
-    <div className={`bg-white rounded-3xl border shadow-sm overflow-hidden transition-all mb-4 ${estaTotalmenteConfirmado ? 'border-[#70a344]/30' : tieneParciales ? 'border-amber-200' : 'border-slate-200'}`}>
+    <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden transition-all mb-4">
       <button 
         onClick={() => setIsExpanded(!isExpanded)}
-        className={`w-full flex items-center justify-between p-5 active:bg-slate-50/70 transition-colors ${estaTotalmenteConfirmado ? 'bg-[#70a344]/5' : tieneParciales ? 'bg-amber-50/50' : 'bg-white'}`}
+        className="w-full flex flex-col p-5 active:bg-slate-50/70 transition-colors bg-white hover:bg-slate-50"
       >
-        <div className="flex items-center gap-4">
-          <div className={`w-12 h-12 rounded-full flex items-center justify-center font-black text-lg shadow-sm ${estaTotalmenteConfirmado ? 'bg-[#70a344] text-white' : tieneParciales ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-[#1d2d50]'}`}>
-            {nombreTrabajador.charAt(0).toUpperCase()}
-          </div>
-          
-          <div className="flex flex-col text-left">
-            <span className="font-black text-lg text-[#1d2d50] leading-tight capitalize">
+        {/* 1. FILA DE CABECERA: Foto, Nombre y Flecha perfectamente alineados al medio */}
+        <div className="flex items-center justify-between w-full">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 shrink-0 rounded-full flex items-center justify-center font-black text-lg shadow-sm bg-slate-100 text-[#1d2d50]">
+              {nombreTrabajador.charAt(0).toUpperCase()}
+            </div>
+            <span className="font-black text-lg text-[#1d2d50] leading-tight capitalize text-left">
               {nombreTrabajador.toLowerCase()}
             </span>
-            
-            {cantidadPedidos === 0 ? (
-               <span className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-1 mt-1 text-slate-400">
-                 <span className="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
-                 SIN PEDIDOS
-               </span>
-            ) : estaTotalmenteConfirmado ? (
-               <span className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-1 mt-1 text-[#70a344]">
-                 <CheckCircle2 size={12} strokeWidth={3} />
-                 {cantidadPedidos} {cantidadPedidos === 1 ? 'PEDIDO' : 'PEDIDOS'}
-               </span>
-            ) : (
-               <span className={`text-[10px] font-bold uppercase tracking-widest flex items-center gap-1 mt-1 ${tieneParciales ? 'text-amber-500' : 'text-slate-500'}`}>
-                 <span className={`w-1.5 h-1.5 rounded-full ${tieneParciales ? 'bg-amber-400' : 'bg-slate-400'}`}></span>
-                 {cantidadPendientes} {cantidadPendientes === 1 ? 'PENDIENTE' : 'PENDIENTES'}
-               </span>
-            )}
+          </div>
+          
+          <div className="text-slate-400 shrink-0 ml-4">
+            {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
           </div>
         </div>
         
-        {isExpanded ? <ChevronUp size={20} className={estaTotalmenteConfirmado ? 'text-[#70a344]' : tieneParciales ? 'text-amber-500' : 'text-slate-400'} /> : <ChevronDown size={20} className={estaTotalmenteConfirmado ? 'text-[#70a344]' : tieneParciales ? 'text-amber-500' : 'text-slate-400'} />}
+        {/* 🔥 2. FILA DE ESTADOS: Alineados a la izquierda bajo la imagen (pl-2 en vez de pl-16) */}
+        <div className="flex flex-col gap-1.5 mt-4 pl-2 w-full text-left">
+          {cantidadPedidos === 0 && (
+            <span className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5 text-slate-400">
+              <span className="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
+              SIN PEDIDOS
+            </span>
+          )}
+          {countConfirmado > 0 && (
+            <span className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5 text-[#70a344]">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#70a344]"></span>
+              {countConfirmado} {countConfirmado === 1 ? 'CONFIRMADO' : 'CONFIRMADOS'}
+            </span>
+          )}
+          {countProduccion > 0 && (
+            <span className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5 text-purple-600">
+              <span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
+              {countProduccion} {countProduccion === 1 ? 'PRODUCCIÓN' : 'PRODUCCIÓN'}
+            </span>
+          )}
+          {countPendiente > 0 && (
+            <span className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5 text-slate-500">
+              <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+              {countPendiente} {countPendiente === 1 ? 'PENDIENTE' : 'PENDIENTES'}
+            </span>
+          )}
+        </div>
       </button>
 
       {isExpanded && (
@@ -174,23 +205,24 @@ export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({ trabajador
 
               if (pedido) {
                 const isActive = pedidoActivoId === pedido.id;
-                // 🔥 CONDICIÓN PARA MOSTRAR EL PUNTITO DE VALIDADO
-                const estaValidado = ['CONFIRMADO', 'EN_PRODUCCION', 'ENTREGADO'].includes(pedido.estado || '');
+                
+                const coloresDia = getEstadoColors(pedido.estado);
+
                 return (
                   <button
                     key={fechaString}
                     onClick={() => { setPedidoActivoId(pedido.id); setDiaManualActivo(null); }}
                     className={`h-[64px] min-w-[56px] shrink-0 rounded-2xl flex flex-col items-center justify-center gap-0.5 transition-all relative border ${
                       isActive 
-                        ? `${themeActiveBg} text-white shadow-md scale-105` 
-                        : `bg-white border-slate-200 text-[#1d2d50] ${themeHoverBorder}`
+                        ? `${coloresDia.activeBg} text-white shadow-md scale-105` 
+                        : `bg-white border-slate-200 text-[#1d2d50] hover:border-slate-300`
                     }`}
                   >
                     <span className={`text-[9px] font-black uppercase tracking-wider ${isActive ? 'text-white/90' : 'text-slate-400'}`}>{diaCorto}</span>
                     <span className={`text-base font-black ${isActive ? 'text-white' : 'text-[#1d2d50]'}`}>{numeroDia}</span>
                     
-                    {estaValidado && !isActive && (
-                      <div className={`absolute bottom-1.5 w-1.5 h-1.5 rounded-full ${themeDot}`}></div>
+                    {!isActive && (
+                      <div className={`absolute bottom-1.5 w-1.5 h-1.5 rounded-full ${coloresDia.dot}`}></div>
                     )}
                   </button>
                 );
@@ -214,40 +246,46 @@ export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({ trabajador
             })}
           </div>
 
-          {pedidoSeleccionado && (
-            <div className={`p-4 rounded-2xl border animate-in fade-in duration-200 mt-2 ${themePanelBg}`}>
-              <div className="flex items-center justify-between mb-3">
-                <span className={`text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 ${themeText}`}>
-                  <Utensils size={14} /> Detalle
-                </span>
+          {pedidoSeleccionado && (() => {
+            const coloresPanel = getEstadoColors(pedidoSeleccionado.estado);
+            
+            return (
+              <div className={`p-4 rounded-2xl border animate-in fade-in duration-200 mt-2 ${coloresPanel.panelBg}`}>
+                <div className="flex items-center justify-between mb-3">
+                  <span className={`text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 ${coloresPanel.textColor}`}>
+                    <Utensils size={14} /> Detalle
+                  </span>
+                  
+                  {pedidoSeleccionado.estado === 'CONFIRMADO' ? (
+                    <span className={`flex items-center gap-1 bg-white text-[9px] font-black uppercase px-2 py-1 rounded-md tracking-widest shadow-sm text-[#70a344]`}>
+                      <CheckCircle2 size={12} strokeWidth={3} /> CONFIRMADO
+                    </span>
+                  ) : ['EN_PRODUCCION', 'ENTREGADO'].includes(pedidoSeleccionado.estado || '') ? (
+                    <span className={`flex items-center gap-1 bg-white text-[9px] font-black uppercase px-2 py-1 rounded-md tracking-widest shadow-sm text-purple-600`}>
+                      <CheckCircle2 size={12} strokeWidth={3} /> {pedidoSeleccionado.estado === 'EN_PRODUCCION' ? 'EN PRODUCCIÓN' : 'ENTREGADO'}
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 bg-white text-slate-500 text-[9px] font-black uppercase px-2 py-1 rounded-md tracking-widest shadow-sm">
+                      PENDIENTE
+                    </span>
+                  )}
+                </div>
                 
-                {/* 🔥 AQUÍ ESTÁ EL ARREGLO VISUAL DE LAS ETIQUETAS DE LA FOTO */}
-                {['CONFIRMADO', 'EN_PRODUCCION', 'ENTREGADO'].includes(pedidoSeleccionado.estado || '') ? (
-                  <span className={`flex items-center gap-1 bg-white text-[9px] font-black uppercase px-2 py-1 rounded-md tracking-widest shadow-sm ${themeText}`}>
-                    <CheckCircle2 size={12} strokeWidth={3} /> 
-                    {pedidoSeleccionado.estado === 'EN_PRODUCCION' ? 'EN PRODUCCIÓN' : pedidoSeleccionado.estado}
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-1 bg-white text-slate-500 text-[9px] font-black uppercase px-2 py-1 rounded-md tracking-widest shadow-sm">
-                    Pendiente
-                  </span>
-                )}
+                <ul className="space-y-2 mt-2">
+                  {Array.isArray(pedidoSeleccionado.listaPlatos) && pedidoSeleccionado.listaPlatos.length > 0 ? (
+                    pedidoSeleccionado.listaPlatos.map((plato, index) => (
+                      <li key={index} className="flex items-start gap-2 text-[13px] font-bold text-[#1d2d50] leading-snug">
+                        <span className={coloresPanel.textColor}>•</span>
+                        <span>{plato}</span>
+                      </li>
+                    ))
+                  ) : (
+                    <li className="text-xs font-bold text-slate-400 uppercase">Sin detalles</li>
+                  )}
+                </ul>
               </div>
-              
-              <ul className="space-y-2 mt-2">
-                {Array.isArray(pedidoSeleccionado.listaPlatos) && pedidoSeleccionado.listaPlatos.length > 0 ? (
-                  pedidoSeleccionado.listaPlatos.map((plato, index) => (
-                    <li key={index} className="flex items-start gap-2 text-[13px] font-bold text-[#1d2d50] leading-snug">
-                      <span className={themeText}>•</span>
-                      <span>{plato}</span>
-                    </li>
-                  ))
-                ) : (
-                  <li className="text-xs font-bold text-slate-400 uppercase">Sin detalles</li>
-                )}
-              </ul>
-            </div>
-          )}
+            );
+          })()}
 
           {diaManualActivo && !pedidoSeleccionado && (
             <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 animate-in fade-in duration-200 mt-2">
