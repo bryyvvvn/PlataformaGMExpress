@@ -151,25 +151,25 @@ export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({ trabajador
         {/* 🔥 2. FILA DE ESTADOS: Alineados a la izquierda bajo la imagen (pl-2 en vez de pl-16) */}
         <div className="flex flex-col gap-1.5 mt-4 pl-2 w-full text-left">
           {cantidadPedidos === 0 && (
-            <span className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5 text-slate-400">
+            <span className="text-[12px] font-bold uppercase tracking-widest flex items-center gap-1.5 text-slate-400">
               <span className="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
               SIN PEDIDOS
             </span>
           )}
           {countConfirmado > 0 && (
-            <span className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5 text-[#70a344]">
+            <span className="text-[12px] font-bold uppercase tracking-widest flex items-center gap-1.5 text-[#70a344]">
               <span className="w-1.5 h-1.5 rounded-full bg-[#70a344]"></span>
               {countConfirmado} {countConfirmado === 1 ? 'CONFIRMADO' : 'CONFIRMADOS'}
             </span>
           )}
           {countProduccion > 0 && (
-            <span className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5 text-purple-600">
+            <span className="text-[12px] font-bold uppercase tracking-widest flex items-center gap-1.5 text-purple-600">
               <span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
               {countProduccion} {countProduccion === 1 ? 'PRODUCCIÓN' : 'PRODUCCIÓN'}
             </span>
           )}
           {countPendiente > 0 && (
-            <span className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5 text-slate-500">
+            <span className="text-[12px] font-bold uppercase tracking-widest flex items-center gap-1.5 text-slate-500">
               <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
               {countPendiente} {countPendiente === 1 ? 'PENDIENTE' : 'PENDIENTES'}
             </span>
