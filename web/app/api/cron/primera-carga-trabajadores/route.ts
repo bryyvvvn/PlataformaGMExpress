@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import db from '../../../../lib/db'; // 🔥 Asegúrate de que esta ruta apunte bien a tu archivo db.ts
+import db from '../../../../lib/db';
 
 export const dynamic = "force-dynamic";
 
@@ -34,25 +34,24 @@ export async function GET(request: NextRequest) {
     const urlBase = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || "https://admin.gmexpress.cl";
     const fechaHoy = getChileDateString();
 
-    // 1. Buscamos todas las empresas en la base de datos (puedes filtrar por estado ACTIVA si lo necesitas)
+    // Solo empresas activas para no calentar cache de empresas inactivas
     const empresas = await db.empresa.findMany({
+      where: { estado: 'ACTIVA' },
       select: { id: true, nombre: true }
     });
 
-    console.log(`[CRON CACHE TRABAJADORES] Iniciando carga de planillas para ${empresas.length} empresas`, {
+    console.log(`[CRON CACHE TRABAJADORES] Iniciando carga de planillas para ${empresas.length} empresas activas`, {
       timezone: CHILE_TIMEZONE,
       fechaBase: fechaHoy
     });
 
-    // 2. Ejecutamos la llamada por cada empresa usando la puerta trasera secreta
     const resultados = await Promise.allSettled(
       empresas.map(async (empresa) => {
-        // 🔥 Le mandamos el empresaId y el secret por la URL
         const url = `${urlBase}/api/representante/empleados?fecha=${fechaHoy}&empresaId=${empresa.id}&secret=${process.env.CRON_SECRET}`;
 
         const response = await fetch(url, {
           method: "GET",
-          cache: "no-store", // Forzamos al servidor a ejecutar la consulta pesada y guardarla en su caché de Next.js/Prisma
+          cache: "no-store",
         });
 
         if (!response.ok) {
@@ -97,7 +96,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      mensaje: "Caché de trabajadores precargada correctamente para todas las empresas.",
+      mensaje: "Caché de trabajadores precargada correctamente para todas las empresas activas.",
       fechaUsada: fechaHoy,
       empresasActualizadas: exitosos.length,
     });

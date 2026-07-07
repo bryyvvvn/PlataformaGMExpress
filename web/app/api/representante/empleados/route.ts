@@ -18,10 +18,24 @@ async function obtenerConvenioEmpresa(empresaId: number) {
   };
 }
 
+// 🔥 CACHÉ EN RAM — mismo patrón que menu-semanal/route.ts
+const empleadosCache = new Map<string, { data: unknown; timestamp: number }>();
+const CACHE_TTL_MS = 1000 * 60 * 60 * 4; // 4 horas de vida (se refresca con cada cron)
+
+function getCacheKey(empresaId: number, fechaISO: string): string {
+  return `empleados:${empresaId}:${fechaISO}`;
+}
+
+function limpiarCacheViejo() {
+  if (empleadosCache.size > 50) {
+    empleadosCache.clear();
+  }
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const fechaStr = searchParams.get('fecha');
-  const secret = searchParams.get('secret'); // 🔥 Leemos el secreto
+  const secret = searchParams.get('secret');
   
   let empresaId: number;
 
@@ -40,12 +54,27 @@ export async function GET(request: Request) {
   }
 
   try {
+    limpiarCacheViejo();
+
     let fechaBase = new Date(); 
     
     if (fechaStr && !isNaN(Date.parse(fechaStr))) {
       const safeDate = fechaStr.includes('T') ? fechaStr : `${fechaStr}T12:00:00`;
       fechaBase = new Date(safeDate);
     }
+
+    const fechaISO = fechaStr || fechaBase.toISOString().slice(0, 10);
+    const cacheKey = getCacheKey(empresaId, fechaISO);
+
+    // 🔥 CACHE HIT — devolver datos de RAM inmediatamente
+    const now = Date.now();
+    const cached = empleadosCache.get(cacheKey);
+    if (cached && (now - cached.timestamp < CACHE_TTL_MS)) {
+      console.log(`[EMPLEADOS Cache Hit] empresa=${empresaId} fecha=${fechaISO}`);
+      return NextResponse.json(cached.data);
+    }
+
+    console.log(`[EMPLEADOS Cache Miss] empresa=${empresaId} fecha=${fechaISO}`);
 
     const diaSemana = fechaBase.getDay() || 7;
     const inicioSemana = new Date(fechaBase);
@@ -74,7 +103,7 @@ export async function GET(request: Request) {
             id: true,
             fecha: true,
             estado: true,
-            esCena: true, // 🔥 SE AGREGÓ: Ahora traemos la propiedad esCena desde la base de datos
+            esCena: true,
             detalles: {
               include: {
                 plato: true,
@@ -98,7 +127,7 @@ export async function GET(request: Request) {
             id: p.id,
             fecha: p.fecha.toISOString(),
             estado: p.estado,
-            esCena: p.esCena, // 🔥 SE AGREGÓ: Pasamos el valor al frontend para que la tarjeta lo pueda filtrar
+            esCena: p.esCena,
             listaPlatos: listaPlatos.length > 0 ? listaPlatos : ['Menú Seleccionado']
           };
         });
@@ -111,6 +140,10 @@ export async function GET(request: Request) {
           pedidos: pedidosFormateados
         };
       });
+
+    // 🔥 GUARDAR EN CACHE
+    empleadosCache.set(cacheKey, { data: planillaFormateada, timestamp: now });
+    console.log(`[EMPLEADOS Cache Set] empresa=${empresaId} fecha=${fechaISO} usuarios=${planillaFormateada.length}`);
 
     return NextResponse.json(planillaFormateada);
   } catch (error) {
