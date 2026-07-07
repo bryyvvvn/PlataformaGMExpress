@@ -15,7 +15,7 @@ const isPublicRoute = createRouteMatcher([
   '/api/cron/primera-carga-menu', 
   '/api/cron/auto-asignar-global',
   '/api/representante/bloqueos',
-  '/api/representante/primera-carga-trabajadores',
+  '/api/cron/primera-carga-trabajadores',
 ])
 
 export default clerkMiddleware(async (auth, request) => {
