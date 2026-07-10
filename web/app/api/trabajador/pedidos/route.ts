@@ -223,7 +223,7 @@ export async function POST(request: Request) {
         empresa: {
           select: {
             ConvenioEmpresa: {
-              select: { permiteCena: true },
+              select: { permiteCena: true, permitePostre: true },
             },
           },
         },
@@ -238,6 +238,12 @@ export async function POST(request: Request) {
         { status: 403 }
       );
     }
+
+    const permitePostre = usuario.empresa?.ConvenioEmpresa?.permitePostre ?? true;
+    const postreIdEfectivo = permitePostre ? postreIdNormalizado : null;
+    const postreCantidadEfectiva = permitePostre
+      ? postreCantidadNormalizada
+      : { cantidad: 1, hasInvalidValue: false };
 
     const hoyChile = nowChile().iso;
     const targetIso = normalizeFechaPedido(fecha, hoyChile);
@@ -268,21 +274,21 @@ export async function POST(request: Request) {
 
     if (usingClassicFlow && !isCenaFlow) {
       if (entradasNormalizadas.hasInvalidValue) return NextResponse.json({ error: 'Entradas seleccionadas no validas' }, { status: 400 });
-      if (postreId !== undefined && postreId !== null && !postreIdNormalizado) return NextResponse.json({ error: 'Postre seleccionado no valido' }, { status: 400 });
-      if (postreCantidadNormalizada.hasInvalidValue) return NextResponse.json({ error: 'Cantidad de postre no valida' }, { status: 400 });
+      if (permitePostre && postreId !== undefined && postreId !== null && !postreIdNormalizado) return NextResponse.json({ error: 'Postre seleccionado no valido' }, { status: 400 });
+      if (postreCantidadEfectiva.hasInvalidValue) return NextResponse.json({ error: 'Cantidad de postre no valida' }, { status: 400 });
       if (jugoId !== undefined && jugoId !== null && !jugoIdNormalizado) return NextResponse.json({ error: 'Bebestible seleccionado no valido' }, { status: 400 });
 
-      const idsAValidar = [...entradasNormalizadas.ids, fondoIdNormalizado, postreIdNormalizado, jugoIdNormalizado].filter((id): id is number => Boolean(id));
+      const idsAValidar = [...entradasNormalizadas.ids, fondoIdNormalizado, postreIdEfectivo, jugoIdNormalizado].filter((id): id is number => Boolean(id));
       const platos = await db.plato.findMany({ where: { id: { in: idsAValidar } }, select: { id: true, categoria: true, tipo: true } });
       const categoriasPorId = new Map(platos.map((plato) => [plato.id, plato.categoria]));
       const tiposPorId = new Map(platos.map((plato) => [plato.id, plato.tipo]));
 
       if (entradasNormalizadas.ids.some((id) => categoriasPorId.get(id) !== 'ENTRADA')) return NextResponse.json({ error: 'Entrada invalida' }, { status: 400 });
       if (categoriasPorId.get(fondoIdNormalizado!) !== 'FONDO') return NextResponse.json({ error: 'Fondo invalido' }, { status: 400 });
-      if (postreIdNormalizado && categoriasPorId.get(postreIdNormalizado) !== 'POSTRE') return NextResponse.json({ error: 'Postre invalido' }, { status: 400 });
+      if (postreIdEfectivo && categoriasPorId.get(postreIdEfectivo) !== 'POSTRE') return NextResponse.json({ error: 'Postre invalido' }, { status: 400 });
       if (jugoIdNormalizado && !['JUGO', 'BEBIDA', 'AGUA_SABORIZADA'].includes(categoriasPorId.get(jugoIdNormalizado) || '')) return NextResponse.json({ error: 'Bebestible invalido' }, { status: 400 });
-      if (postreCantidadNormalizada.cantidad === 2) {
-        if (!postreIdNormalizado) return NextResponse.json({ error: 'Doble postre requiere postre seleccionado' }, { status: 400 });
+      if (postreCantidadEfectiva.cantidad === 2) {
+        if (!postreIdEfectivo) return NextResponse.json({ error: 'Doble postre requiere postre seleccionado' }, { status: 400 });
         if (tiposPorId.get(fondoIdNormalizado!) !== 'HIPOCALORICO') return NextResponse.json({ error: 'Doble postre solo esta permitido para menu hipocalorico' }, { status: 400 });
         if (entradasNormalizadas.ids.length > 0) return NextResponse.json({ error: 'Doble postre hipocalorico no permite entrada' }, { status: 400 });
       }
@@ -318,7 +324,7 @@ export async function POST(request: Request) {
     } else if (usingClassicFlow) {
       if (entradasNormalizadas.ids.length > 0) detallesData.push(...entradasNormalizadas.ids.map((id) => ({ platoId: id })));
       if (fondoIdNormalizado) detallesData.push({ platoId: fondoIdNormalizado, guarnicionId: guarnicionId ?? null });
-      if (postreIdNormalizado) detallesData.push({ platoId: postreIdNormalizado, cantidad: postreCantidadNormalizada.cantidad });
+      if (postreIdEfectivo) detallesData.push({ platoId: postreIdEfectivo, cantidad: postreCantidadEfectiva.cantidad });
       if (jugoIdNormalizado) detallesData.push({ platoId: jugoIdNormalizado });
     } else if (usingItemsFlow && items) {
       detallesData = items.map(it => ({ platoId: it.platoId, guarnicionId: it.guarnicionId ?? null, cantidad: it.cantidad ?? 1 }));

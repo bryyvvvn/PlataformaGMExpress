@@ -120,8 +120,9 @@ async function obtenerConvenioUsuario(usuarioId: string | null): Promise<Conveni
 }
 
 function formatearSeleccion(seleccion: MenuDiaSeleccion, convenio: ConvenioMenuDia | null) {
-  const postreCantidad = seleccion.postreCantidad ?? 1;
-  const isDoblePostre = postreCantidad === 2;
+  const permitePostre = convenio?.permitePostre ?? true;
+  const postreCantidad = permitePostre ? seleccion.postreCantidad ?? 1 : 1;
+  const isDoblePostre = permitePostre && postreCantidad === 2;
   const entradas = isDoblePostre
     ? []
     : seleccion.entradasSeleccionadas.length > 0
@@ -129,7 +130,6 @@ function formatearSeleccion(seleccion: MenuDiaSeleccion, convenio: ConvenioMenuD
     : [formatearDetalle(seleccion.entradaDetalle)];
   const permiteEntrada = convenio?.permiteEntrada ?? true;
   const permitePlato = convenio?.permitePlato ?? true;
-  const permitePostre = convenio?.permitePostre ?? true;
   const entradasPermitidas = permiteEntrada ? entradas : [];
   const bebida = puedeVerBebidaPorConvenio(seleccion.bebidaPlato, convenio) ? seleccion.bebidaPlato : null;
 
