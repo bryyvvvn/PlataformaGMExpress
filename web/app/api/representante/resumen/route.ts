@@ -3,20 +3,12 @@ import db from '../../../../lib/db';
 import { chileStartOfDay, chileEndOfDay } from '../../../../lib/chile-time';
 import { verificarRepresentante } from '@/lib/representante/verificar-representante';
 import { normalizarFechaEmpleados } from '@/lib/representante/trabajadores-cache';
-
-// 🔥 CACHÉ EN RAM — mismo patrón que empleados/route.ts
-const resumenCache = new Map<string, { data: unknown; timestamp: number }>();
-const CACHE_TTL_MS = 1000 * 60 * 5; // 5 minutos
-
-function getCacheKey(empresaId: number, fechaInicio: string, fechaFin: string): string {
-  return `resumen:${empresaId}:${fechaInicio}:${fechaFin}`;
-}
-
-function limpiarCacheViejo() {
-  if (resumenCache.size > 30) {
-    resumenCache.clear();
-  }
-}
+import {
+  getResumenCache,
+  getResumenCacheKey,
+  limpiarResumenCacheViejo,
+  setResumenCache,
+} from '@/lib/representante/resumen-cache';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -42,18 +34,17 @@ export async function GET(request: Request) {
   }
 
   try {
-    limpiarCacheViejo();
+    limpiarResumenCacheViejo();
 
     const fechaReferencia = normalizarFechaEmpleados(fecha);
     const fechaInicio = fechaInicioParam ? normalizarFechaEmpleados(fechaInicioParam) : fechaReferencia;
     const fechaFin = fechaFinParam ? normalizarFechaEmpleados(fechaFinParam) : fechaInicio;
-    const cacheKey = getCacheKey(empresaId, fechaInicio, fechaFin);
-    const now = Date.now();
-    const cached = resumenCache.get(cacheKey);
+    const cacheKey = getResumenCacheKey(empresaId, fechaInicio, fechaFin);
+    const cached = getResumenCache(cacheKey);
 
-    if (!forceRefresh && cached && (now - cached.timestamp < CACHE_TTL_MS)) {
+    if (!forceRefresh && cached) {
       console.log(`[RESUMEN Cache Hit] empresa=${empresaId}`);
-      return NextResponse.json(cached.data, {
+      return NextResponse.json(cached, {
         headers: { 'X-Resumen-Cache': 'HIT' },
       });
     }
@@ -95,7 +86,7 @@ export async function GET(request: Request) {
     };
 
     // 🔥 GUARDAR EN CACHE
-    resumenCache.set(cacheKey, { data, timestamp: now });
+    setResumenCache(cacheKey, data);
     console.log(`[RESUMEN Cache Set] empresa=${empresaId} trabajadores=${totalTrabajadores} pedidosHoy=${pedidosListosHoy}`);
 
     return NextResponse.json(data, {

@@ -3,6 +3,8 @@ import { Rol } from '@prisma/client';
 import db from '../../../../lib/db'; // Ajusta la ruta a tu lib/db
 import { vincularTrabajadorSchema } from '@/lib/schemas/representante';
 import { verificarRepresentante } from '@/lib/representante/verificar-representante';
+import { invalidarEmpleadosCachePorEmpresa } from '@/lib/representante/trabajadores-cache';
+import { invalidarResumenCachePorEmpresa } from '@/lib/representante/resumen-cache';
 
 export async function POST(req: Request) {
   const rep = await verificarRepresentante(req);
@@ -51,12 +53,19 @@ export async function POST(req: Request) {
     }
 
     // Actualizamos el usuario para asignarle la empresa
-    await db.usuario.update({
+    const trabajadorActualizado = await db.usuario.update({
       where: { id: usuarioId },
       data: {
-        empresaId,
+        empresaId: rep.empresaId,
         rol: Rol.TRABAJADOR,
       },
+    });
+
+    invalidarEmpleadosCachePorEmpresa(rep.empresaId);
+    invalidarResumenCachePorEmpresa(rep.empresaId);
+    console.info('[representante-cache] caches invalidados por vinculacion', {
+      empresaId: rep.empresaId,
+      trabajadorId: trabajadorActualizado.id,
     });
 
     return NextResponse.json({ success: true, message: 'Trabajador vinculado exitosamente' }, { status: 200 });

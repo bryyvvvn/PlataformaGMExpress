@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ArrowLeft, CalendarOff, Loader2, UserPlus, Search, X, CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { usePerfil } from '../../hooks/usePerfil';
-import { useTrabajadores } from '../../hooks/useTrabajadores';
+import { invalidarTrabajadoresCachePorEmpresa, useTrabajadores } from '../../hooks/useTrabajadores';
 import { useClerkToken } from '../../hooks/useClerkToken';
 
 /* NUEVOS HOOKS */
@@ -126,7 +126,7 @@ const Trabajadores: React.FC = () => {
   const { token: clerkToken } = useClerkToken();
   const { empresaId, empresaNombre, convenio } = usePerfil();
   const trabajaFinDeSemana = Boolean(convenio?.trabajaFinDeSemana);
-  const { trabajadores, cargando } = useTrabajadores(empresaId, undefined, clerkToken);
+  const { trabajadores, cargando, refrescarTrabajadores } = useTrabajadores(empresaId, undefined, clerkToken);
 
   /* HOOK DE VINCULACION */
   const {
@@ -314,9 +314,10 @@ const Trabajadores: React.FC = () => {
                 </div>
                 
                 <button 
-                  onClick={() => vincularTrabajador(trabajadorEncontrado.id, empresaId!, () => {
+                  onClick={() => vincularTrabajador(trabajadorEncontrado.id, empresaId!, async () => {
+                    invalidarTrabajadoresCachePorEmpresa(empresaId);
+                    await refrescarTrabajadores();
                     cerrarModal();
-                    window.location.reload();
                   })}
                   disabled={vinculando}
                   className="w-full py-3 bg-[#70a344] text-white rounded-xl font-black text-sm active:scale-95 transition-transform flex items-center justify-center gap-2"

@@ -172,6 +172,22 @@ export const actualizarDiasBloqueadosTrabajadorEnCache = (
   }
 };
 
+export const invalidarTrabajadoresCachePorEmpresa = (empresaId: number | null) => {
+  const prefix = `representante:${empresaId ?? 'sin-empresa'}:`;
+
+  for (const cacheKey of trabajadoresCache.keys()) {
+    if (cacheKey.startsWith(prefix)) {
+      trabajadoresCache.delete(cacheKey);
+    }
+  }
+
+  for (const cacheKey of trabajadoresRequestsInFlight.keys()) {
+    if (cacheKey.startsWith(prefix)) {
+      trabajadoresRequestsInFlight.delete(cacheKey);
+    }
+  }
+};
+
 export const useTrabajadores = (
   empresaId: number | null,
   fechaSeleccionada?: string,
