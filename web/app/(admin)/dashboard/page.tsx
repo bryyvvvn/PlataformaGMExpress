@@ -34,16 +34,13 @@ export default async function DashboardPage() {
 
       <div className="p-6 space-y-6 max-w-[1600px] mx-auto w-full">
 
-        {/* SECCIONES 1 y 2: KPIs + Monitor de Áreas con toggle Día/Semana */}
+        {/* KPIs con toggle Día/Semana */}
         <DashboardVista
           statsDia={{
             pedidosDelDia: stats.pedidosDelDia,
             pedidosPendientes: stats.pedidosPendientes,
             totalPorciones: stats.totalPorciones,
             totalEmpresas: stats.totalEmpresas,
-            zonaFriaCount: stats.zonaFriaCount,
-            zonaCalienteCount: stats.zonaCalienteCount,
-            empaqueCount: stats.empaqueCount,
             empresaTop: stats.empresaTop,
           }}
         />

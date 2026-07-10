@@ -14,12 +14,12 @@ type DocConAutoTable = jsPDF & {
 const COLOR_SECUNDARIO: [number, number, number] = [27, 44, 86] // #1b2c56
 const COLOR_PRIMARIO: [number, number, number] = [117, 170, 70] // #75aa46
 
-function formatearEmpaquetado(tipo: string | null | undefined): string {
+function formatearEmpaquetado(tipo: string | null | undefined, fallback = "Sin definir"): string {
   switch (tipo) {
     case "BOWL_CRAFT": return "Bowl Craft"
     case "C10_ALUMINIO": return "C10 Aluminio"
     case "SERVICIO_TRADICIONAL_PLATO": return "Servicio Tradicional"
-    default: return "Sin definir"
+    default: return fallback
   }
 }
 
@@ -193,7 +193,11 @@ export default function ExportarConsolidados() {
         doc.setFontSize(11)
         doc.setFont("helvetica", "bold")
         doc.setTextColor(...COLOR_SECUNDARIO)
-        doc.text(`${empresa.empresa} — ${empresa.totalRaciones} raciones`, 14, currentY)
+        const tipoEmpaquetado = formatearEmpaquetado(empresa.tipoEmpaquetado, "")
+        const encabezadoEmpresa = tipoEmpaquetado
+          ? `${empresa.empresa} ${empresa.totalRaciones} raciones · ${tipoEmpaquetado}`
+          : `${empresa.empresa} ${empresa.totalRaciones} raciones`
+        doc.text(encabezadoEmpresa, 14, currentY)
         currentY += 6
 
         const detallesOrdenados = [...empresa.detalles].sort((a, b) => {

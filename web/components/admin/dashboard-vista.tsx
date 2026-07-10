@@ -3,13 +3,10 @@
 import { useState } from "react"
 import {
   Building2,
-  CheckCircle2,
   ChevronDown,
   Clock,
-  Flame,
   Loader2,
   ShoppingCart,
-  Snowflake,
   Utensils,
 } from "lucide-react"
 import { StatsCard } from "@/components/admin/stats-card"
@@ -21,9 +18,6 @@ type DashboardVistaProps = {
     pedidosPendientes: number
     totalPorciones: number
     totalEmpresas: number
-    zonaFriaCount: number
-    zonaCalienteCount: number
-    empaqueCount: number
     empresaTop: string | null
   }
 }
@@ -59,27 +53,13 @@ export default function DashboardVista({ statsDia }: DashboardVistaProps) {
       ? statsDia.pedidosDelDia
       : dataSemana?.resumenGeneral.totalPedidos ?? 0
 
-  const zonaFriaCount =
-    vista === "dia"
-      ? statsDia.zonaFriaCount
-      : dataSemana?.zonaFria.reduce((s, i) => s + i.cantidad, 0) ?? 0
-
-  const zonaCalienteCount =
-    vista === "dia"
-      ? statsDia.zonaCalienteCount
-      : dataSemana?.zonaCaliente.reduce((s, i) => s + i.cantidad, 0) ?? 0
-
   const empresaTop =
     vista === "dia"
       ? statsDia.empresaTop
       : dataSemana?.resumenGeneral.empresaTopNombre ?? null
 
-  const empaqueLabel = vista === "dia" ? "Empaque / Despacho" : "Raciones Semana"
-  const empaqueUnidad = vista === "dia" ? "Pedidos" : "Raciones"
-  const empaqueCount =
-    vista === "dia"
-      ? statsDia.empaqueCount
-      : dataSemana?.resumenGeneral.totalRacionesGlobal ?? 0
+  const zonaFriaSemana = dataSemana?.zonaFria.reduce((s, i) => s + i.cantidad, 0) ?? 0
+  const zonaCalienteSemana = dataSemana?.zonaCaliente.reduce((s, i) => s + i.cantidad, 0) ?? 0
 
   const totalPorciones =
     vista === "dia"
@@ -179,72 +159,6 @@ export default function DashboardVista({ statsDia }: DashboardVistaProps) {
         </div>
       </div>
 
-      {/* Monitor de Áreas */}
-      <div>
-        <h2 className="text-sm font-bold text-[#1B2C56] uppercase tracking-wider mb-3 flex items-center gap-2">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-[#75AA46]"></span>
-          </span>
-          Monitor de Áreas
-        </h2>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white p-4 rounded-md border border-slate-200 shadow-sm flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-red-50 rounded text-red-600">
-                <Flame className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-xs text-slate-500 font-medium">Zona Caliente</p>
-                {mostrarSkeleton ? (
-                  <div className="h-6 w-16 bg-slate-200 rounded animate-pulse mt-1" />
-                ) : (
-                  <p className="text-lg font-bold text-slate-800">{zonaCalienteCount} Items</p>
-                )}
-              </div>
-            </div>
-            <span className="text-xs font-semibold bg-red-100 text-red-700 px-2 py-1 rounded">En fuego</span>
-          </div>
-
-          <div className="bg-white p-4 rounded-md border border-slate-200 shadow-sm flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-50 rounded text-blue-600">
-                <Snowflake className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-xs text-slate-500 font-medium">Zona Fría</p>
-                {mostrarSkeleton ? (
-                  <div className="h-6 w-16 bg-slate-200 rounded animate-pulse mt-1" />
-                ) : (
-                  <p className="text-lg font-bold text-slate-800">{zonaFriaCount} Items</p>
-                )}
-              </div>
-            </div>
-            <span className="text-xs font-semibold bg-blue-100 text-blue-700 px-2 py-1 rounded">Preparando</span>
-          </div>
-
-          <div className="bg-white p-4 rounded-md border border-slate-200 shadow-sm flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-50 rounded text-green-600">
-                <CheckCircle2 className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-xs text-slate-500 font-medium">{empaqueLabel}</p>
-                {mostrarSkeleton ? (
-                  <div className="h-6 w-16 bg-slate-200 rounded animate-pulse mt-1" />
-                ) : (
-                  <p className="text-lg font-bold text-slate-800">
-                    {empaqueCount} {empaqueUnidad}
-                  </p>
-                )}
-              </div>
-            </div>
-            <span className="text-xs font-semibold bg-green-100 text-green-700 px-2 py-1 rounded">Despachando</span>
-          </div>
-        </div>
-      </div>
-
       {/* Desglose día a día (solo modo semana) */}
       {vista === "semana" && (
         <div>
@@ -294,8 +208,8 @@ export default function DashboardVista({ statsDia }: DashboardVistaProps) {
                   <tfoot>
                     <tr className="border-t-2 border-border">
                       <td className="py-2 font-bold text-[#1b2c56]">Total Semana</td>
-                      <td className="py-2 text-right font-bold tabular-nums text-blue-500">{zonaFriaCount}</td>
-                      <td className="py-2 text-right font-bold tabular-nums text-orange-500">{zonaCalienteCount}</td>
+                      <td className="py-2 text-right font-bold tabular-nums text-blue-500">{zonaFriaSemana}</td>
+                      <td className="py-2 text-right font-bold tabular-nums text-orange-500">{zonaCalienteSemana}</td>
                       <td className="py-2 text-right font-bold tabular-nums">
                         {dataSemana?.resumenGeneral.totalPedidos ?? 0}
                       </td>
