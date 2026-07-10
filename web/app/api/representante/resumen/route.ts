@@ -8,7 +8,6 @@ import {
   getResumenCacheKey,
   limpiarResumenCacheViejo,
   setResumenCache,
-  invalidarResumenCachePorEmpresa,
 } from "@/lib/representante/resumen-cache";
 
 export async function GET(request: Request) {
