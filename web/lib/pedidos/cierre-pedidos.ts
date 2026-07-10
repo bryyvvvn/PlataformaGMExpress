@@ -120,11 +120,7 @@ export function esFechaISOValida(fechaISO: string): boolean {
 }
 
 export function esDiaLaboral(fechaISO: string): boolean {
-  const fecha = parseFechaISO(fechaISO)
-  if (!fecha) return false
-
-  const diaSemana = fecha.getUTCDay()
-  return diaSemana >= 1 && diaSemana <= 5
+  return esFechaISOValida(fechaISO)
 }
 
 export function obtenerDisponibilidadDespuesCierre(
