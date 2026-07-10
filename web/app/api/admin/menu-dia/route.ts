@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import db from "@/lib/db";
+import { invalidateMenuCacheForDate } from "@/lib/menu-cache/server-menu-cache";
 import { esPlatoUnicoPorLegumbre } from "@/lib/menu/es-plato-unico";
 import { validarAdministrador } from "@/lib/usuarios/admin";
 import { CategoriaPlato } from "@prisma/client";
@@ -418,6 +419,9 @@ export async function PATCH(req: NextRequest) {
     if (!seleccionCompleta) {
       throw new Error("No se pudo leer la selección guardada");
     }
+
+    invalidateMenuCacheForDate(fecha);
+    console.info("[menu-cache] invalidated", { fecha });
 
     return NextResponse.json({ seleccion: formatearSeleccion(seleccionCompleta) });
   } catch (error) {

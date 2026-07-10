@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { invalidateMenuCacheForDates } from "@/lib/menu-cache/server-menu-cache";
 import { buscarMenuSemanalExistente, guardarMinuta } from "@/lib/minuta/guardarMinuta";
 import { parsearMinutaExcel } from "@/lib/minuta/parsearMinutaExcel";
 import { validarAdministrador } from "@/lib/usuarios/admin";
@@ -7,6 +8,10 @@ export const dynamic = "force-dynamic";
 
 function getErrorDetalle(error: unknown) {
   return error instanceof Error ? error.message : undefined;
+}
+
+function formatIsoDate(date: Date) {
+  return date.toISOString().split("T")[0];
 }
 
 export async function POST(req: NextRequest) {
@@ -54,12 +59,16 @@ export async function POST(req: NextRequest) {
 
     await guardarMinuta(parseResult.minuta);
 
+    const fechasInvalidar = parseResult.minuta.dias.map((dia) => formatIsoDate(dia.fecha));
+    invalidateMenuCacheForDates(fechasInvalidar);
+    console.info("[menu-cache] invalidated upload-minuta", { fechas: fechasInvalidar });
+
     return NextResponse.json(
       {
         message: "Minuta cargada correctamente",
         periodo: {
-          inicio: fechaInicio.toISOString().split("T")[0],
-          fin: fechaFin.toISOString().split("T")[0],
+          inicio: formatIsoDate(fechaInicio),
+          fin: formatIsoDate(fechaFin),
         },
       },
       { status: 200 }

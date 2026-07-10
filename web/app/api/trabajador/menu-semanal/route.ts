@@ -6,6 +6,13 @@ import {
   chileEndOfDay,
   getChileDayName,
 } from "@/lib/chile-time";
+import {
+  cleanupMenuCacheIfNeeded,
+  getMenuCache,
+  getMenuCacheKey,
+  invalidateMenuCacheForDate,
+  setMenuCache,
+} from "@/lib/menu-cache/server-menu-cache";
 import { esPlatoUnicoPorLegumbre } from "@/lib/menu/es-plato-unico";
 import { verificarTokenTrabajador } from "@/lib/trabajador/verificar-token";
 
@@ -132,14 +139,6 @@ function formatearSeleccion(seleccion: MenuDiaSeleccion, convenio: ConvenioMenuD
   };
 }
 
-// 🔥 LA MAGIA: CACHÉ EN LA RAM DEL SERVIDOR
-const serverMenuCache = new Map<string, { data: MenuCacheData; timestamp: number }>();
-const CACHE_TTL_MS = 1000 * 60 * 60 * 14; // 14 horas de vida
-
-function getMenuCacheKey(fecha: string) {
-  return `menu-semanal:${fecha}:base`;
-}
-
 function crearHeadersDiagnosticoMenu(meta: MenuResponseMeta) {
   return {
     "X-Menu-Cache": meta.cacheStatus,
@@ -167,10 +166,8 @@ export async function GET(req: NextRequest) {
   const startMs = Date.now();
 
   try {
-    // Si la caché guarda más de 7 días, la limpiamos para no acumular basura
-    if (serverMenuCache.size > 7) {
-      serverMenuCache.clear();
-    }
+    // Si la caché guarda más de 7 días, la limpiamos para no acumular basura.
+    cleanupMenuCacheIfNeeded();
 
     const { searchParams } = new URL(req.url);
     const fechaParam = searchParams.get("fecha");
@@ -222,12 +219,11 @@ export async function GET(req: NextRequest) {
     const convenio = await obtenerConvenioUsuario(usuarioId);
 
     // 2. Revisamos si ya tenemos el menú en la RAM
-    const now = Date.now();
-    let menuBaseData = serverMenuCache.get(cacheKey);
+    let menuBaseData = getMenuCache<MenuCacheData>(isoFecha);
     let cacheStatus: MenuCacheStatus = "HIT";
 
     // Si NO lo tenemos o pasaron las 14 horas, hacemos la consulta pesada
-    if (!menuBaseData || (now - menuBaseData.timestamp > CACHE_TTL_MS)) {
+    if (!menuBaseData) {
       cacheStatus = "MISS";
       const diaNombre = getChileDayName(isoFecha);
       const inicioDia = chileStartOfDay(isoFecha);
@@ -276,7 +272,7 @@ export async function GET(req: NextRequest) {
 
       // 🔥 EL SALVAVIDAS: Si el admin no subió la minuta, no guardamos basura en caché
       if (!menuActivo || menuActivo.detalles.length === 0) {
-        serverMenuCache.delete(cacheKey);
+        invalidateMenuCacheForDate(isoFecha);
         const durationMs = Date.now() - startMs;
 
         console.log("[menu-semanal] Sin menu activo; no se guarda cache", {
@@ -306,8 +302,8 @@ export async function GET(req: NextRequest) {
       }
 
       // Guardamos la respuesta procesada en la RAM
-      menuBaseData = { data: { menuActivo, ensaladaSurtida }, timestamp: now };
-      serverMenuCache.set(cacheKey, menuBaseData);
+      menuBaseData = { data: { menuActivo, ensaladaSurtida }, timestamp: Date.now() };
+      setMenuCache(isoFecha, menuBaseData.data);
       console.log("[menu-semanal] Cache miss: menu guardado en RAM", {
         fecha: isoFecha,
         cacheKey,

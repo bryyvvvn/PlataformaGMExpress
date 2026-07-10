@@ -140,6 +140,7 @@ const HomePageTrabajador: React.FC<HomePageTrabajadorProps> = ({ empresaNombre }
   const [modoEdicion, setModoEdicion] = useState(false);
   const [preloadingSemana, setPreloadingSemana] = useState(false);
   const precargasSemanaRef = useRef(new Set<string>());
+  const menuNullRefreshRef = useRef(new Set<string>());
   const precargasActivasRef = useRef(0);
   const cargaDiaActualLogRef = useRef<string | null>(null);
   const componenteMontadoRef = useRef(true);
@@ -158,9 +159,50 @@ const HomePageTrabajador: React.FC<HomePageTrabajadorProps> = ({ empresaNombre }
     [diasSemanaArray]
   );
   const fechasSemanaVisiblesKey = useMemo(() => fechasSemanaVisibles.join('|'), [fechasSemanaVisibles]);
-  const { menuHoy, cargando: cargandoMenu } = useMenuAPI(fechaSeleccionadaNormalizada, user?.id, clerkToken, esCenaSeleccionada);
+  const { menuHoy, cargando: cargandoMenu, refrescarMenu } = useMenuAPI(fechaSeleccionadaNormalizada, user?.id, clerkToken, esCenaSeleccionada);
   const { pedidoExistente, cargandoVerificacion, enviarPedido, enviarItems, enviando, refrescarVerificacion, eliminarPedido, eliminando } = usePedidos(user?.id, fechaSeleccionadaNormalizada, clerkToken, esCenaSeleccionada);
   const loadingDiaActual = cargandoMenu || cargandoVerificacion;
+  const menuActualRefreshKey = `${user?.id ?? 'sin-usuario'}:${fechaSeleccionadaNormalizada}:${esCenaSeleccionada ? 'cena' : 'almuerzo'}`;
+
+  useEffect(() => {
+    if (!fechaSeleccionadaNormalizada || cargandoMenu) return;
+
+    if (menuHoy?.menuDia) {
+      menuNullRefreshRef.current.delete(menuActualRefreshKey);
+      return;
+    }
+
+    if (menuNullRefreshRef.current.has(menuActualRefreshKey)) return;
+
+    menuNullRefreshRef.current.add(menuActualRefreshKey);
+    const timer = window.setTimeout(() => {
+      void refrescarMenu();
+    }, 800);
+
+    return () => window.clearTimeout(timer);
+  }, [cargandoMenu, fechaSeleccionadaNormalizada, menuActualRefreshKey, menuHoy?.menuDia, refrescarMenu]);
+
+  useEffect(() => {
+    const refrescarSiSigueVacio = () => {
+      if (!cargandoMenu && !menuHoy?.menuDia) {
+        void refrescarMenu();
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refrescarSiSigueVacio();
+      }
+    };
+
+    window.addEventListener('focus', refrescarSiSigueVacio);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('focus', refrescarSiSigueVacio);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [cargandoMenu, menuHoy?.menuDia, refrescarMenu]);
 
   useEffect(() => {
     if (!user?.id || !clerkToken || !fechasSemanaVisiblesKey) return;

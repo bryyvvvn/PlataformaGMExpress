@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { API_BASE_URL } from "../constants/api";
 
 export interface Guarnicion { id: number; nombre: string; }
@@ -313,12 +313,45 @@ export const useMenuAPI = (
       });
 
     return () => { cancelado = true; };
-  }, [cacheKey, fechaNormalizada, usuarioId, token]);
+  }, [cacheKey, esCena, fechaNormalizada, usuarioId, token]);
 
   const menuEnCache = cacheKey ? menuCache.get(cacheKey) : undefined;
 
+  const refrescarMenu = useCallback(async () => {
+    if (!cacheKey || !usuarioId || !fechaNormalizada || !token) {
+      return MENU_VACIO;
+    }
+
+    bumpMenuCacheVersion(cacheKey);
+    menuCache.delete(cacheKey);
+    menuRequestsInFlight.delete(cacheKey);
+    setCargando(true);
+
+    const requestVersion = getMenuCacheVersion(cacheKey);
+
+    try {
+      const datos = await fetchMenuBackend({
+        cacheKey,
+        esCena,
+        fechaNormalizada,
+        requestVersion,
+        token,
+        usuarioId,
+      });
+      setMenuFetch(datos);
+      return datos;
+    } catch (error) {
+      console.error("[useMenuAPI] Error al refrescar menu:", error);
+      setMenuFetch(MENU_VACIO);
+      return MENU_VACIO;
+    } finally {
+      setCargando(false);
+    }
+  }, [cacheKey, esCena, fechaNormalizada, token, usuarioId]);
+
   return {
     menuHoy: menuEnCache ?? menuFetch,
-    cargando: menuEnCache ? false : cargando
+    cargando: menuEnCache ? false : cargando,
+    refrescarMenu
   };
 };
