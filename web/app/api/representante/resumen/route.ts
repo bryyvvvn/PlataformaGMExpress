@@ -18,6 +18,16 @@ function limpiarCacheViejo() {
   }
 }
 
+export function invalidarCacheResumen(empresaId: number): void {
+  const prefix = `resumen:${empresaId}:`;
+  for (const cacheKey of resumenCache.keys()) {
+    if (cacheKey.startsWith(prefix)) {
+      resumenCache.delete(cacheKey);
+      console.log(`[RESUMEN Cache Invalidado] empresa=${empresaId} key=${cacheKey}`);
+    }
+  }
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const secret = searchParams.get('secret');
