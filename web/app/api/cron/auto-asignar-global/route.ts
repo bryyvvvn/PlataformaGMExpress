@@ -9,7 +9,6 @@ export const dynamic = 'force-dynamic';
 const HORA_LIMITE_DEFAULT = '10:00';
 const HORA_REGEX = /^([01]\d|2[0-3]):[0-5]\d$/;
 const CRON_LOG_PREFIX = '[CRON AUTO-ASIGNAR-GLOBAL]';
-const CREATE_MANY_BATCH_SIZE = 1000;
 
 type MenuDiaSeleccionConDetalles = Prisma.MenuDiaSeleccionGetPayload<{
   include: {
@@ -49,14 +48,6 @@ type ErrorAutoAsignacion = {
 type LockResult = {
   locked: boolean;
 };
-
-function chunkArray<T>(items: T[], size: number) {
-  const chunks: T[][] = [];
-  for (let index = 0; index < items.length; index += size) {
-    chunks.push(items.slice(index, index + size));
-  }
-  return chunks;
-}
 
 function validarHoraLimite(horaLimite: string | null | undefined) {
   if (horaLimite && HORA_REGEX.test(horaLimite)) return horaLimite;
@@ -169,6 +160,7 @@ function respuestaBase(params: {
   empresasOmitidas?: number;
   trabajadoresEvaluados?: number;
   pedidosAutoasignados?: number;
+  pedidosFallidos?: number;
   omitidosYaTenianPedido?: number;
   omitidosNoCorresponden?: number;
   errores?: ErrorAutoAsignacion[];
@@ -184,6 +176,7 @@ function respuestaBase(params: {
     empresasOmitidas: params.empresasOmitidas ?? 0,
     trabajadoresEvaluados: params.trabajadoresEvaluados ?? 0,
     pedidosAutoasignados: params.pedidosAutoasignados ?? 0,
+    pedidosFallidos: params.pedidosFallidos ?? 0,
     omitidosYaTenianPedido: params.omitidosYaTenianPedido ?? 0,
     omitidosNoCorresponden: params.omitidosNoCorresponden ?? 0,
     errores: params.errores ?? [],
@@ -252,6 +245,7 @@ export async function GET(request: NextRequest) {
             empresasOmitidas: 0,
             trabajadoresEvaluados: 0,
             pedidosAutoasignados: 0,
+            pedidosFallidos: 0,
             omitidosYaTenianPedido: 0,
             omitidosNoCorresponden: 0,
             errores: [],
@@ -290,6 +284,7 @@ export async function GET(request: NextRequest) {
             empresasOmitidas: 0,
             trabajadoresEvaluados: 0,
             pedidosAutoasignados: 0,
+            pedidosFallidos: 0,
             omitidosYaTenianPedido: 0,
             omitidosNoCorresponden: 0,
             errores: [],
@@ -409,38 +404,40 @@ export async function GET(request: NextRequest) {
           });
         }
 
-        const detallesPorUsuarioId = new Map(
-          asignaciones.map((asignacion) => [asignacion.usuarioId, asignacion.detallesData])
-        );
-        const pedidosData: Prisma.PedidoCreateManyInput[] = asignaciones.map((asignacion) => ({
-          fecha: inicioDia,
-          usuarioId: asignacion.usuarioId,
-          empresaId: asignacion.empresaId,
-          estado: 'CONFIRMADO',
-          esCena: false,
-        }));
         const pedidosCreados: Array<{ id: number; usuarioId: string }> = [];
+        let pedidosFallidos = 0;
 
-        for (const lote of chunkArray(pedidosData, CREATE_MANY_BATCH_SIZE)) {
-          const creados = await tx.pedido.createManyAndReturn({
-            data: lote,
-            select: { id: true, usuarioId: true },
-          });
-          pedidosCreados.push(...creados);
-        }
-
-        const detallesCrear: Prisma.DetallePedidoCreateManyInput[] = pedidosCreados.flatMap((pedido) => {
-          const detallesData = detallesPorUsuarioId.get(pedido.usuarioId) ?? [];
-          return detallesData.map((detalle) => ({
-            pedidoId: pedido.id,
-            platoId: detalle.platoId,
-            guarnicionId: detalle.guarnicionId ?? null,
-            cantidad: detalle.cantidad,
-          }));
-        });
-
-        for (const lote of chunkArray(detallesCrear, CREATE_MANY_BATCH_SIZE)) {
-          await tx.detallePedido.createMany({ data: lote });
+        for (const asignacion of asignaciones) {
+          await tx.$executeRaw`SAVEPOINT sp_pedido`;
+          try {
+            const pedido = await tx.pedido.create({
+              data: {
+                fecha: inicioDia,
+                usuarioId: asignacion.usuarioId,
+                empresaId: asignacion.empresaId,
+                estado: 'CONFIRMADO',
+                esCena: false,
+                detalles: {
+                  create: asignacion.detallesData.map((detalle) => ({
+                    platoId: detalle.platoId,
+                    guarnicionId: detalle.guarnicionId ?? null,
+                    cantidad: detalle.cantidad,
+                  })),
+                },
+              },
+              select: { id: true, usuarioId: true },
+            });
+            await tx.$executeRaw`RELEASE SAVEPOINT sp_pedido`;
+            pedidosCreados.push(pedido);
+          } catch (error) {
+            await tx.$executeRaw`ROLLBACK TO SAVEPOINT sp_pedido`;
+            pedidosFallidos += 1;
+            errores.push({ usuarioId: asignacion.usuarioId, motivo: 'Error al crear el pedido.' });
+            console.error(
+              `${CRON_LOG_PREFIX} Fallo create pedido usuario=${asignacion.usuarioId} empresa=${asignacion.empresaId}:`,
+              error instanceof Error ? error.message : error
+            );
+          }
         }
 
         return {
@@ -451,6 +448,7 @@ export async function GET(request: NextRequest) {
           empresasOmitidas,
           trabajadoresEvaluados: trabajadores.length,
           pedidosAutoasignados: pedidosCreados.length,
+          pedidosFallidos,
           omitidosYaTenianPedido,
           omitidosNoCorresponden,
           errores,
@@ -489,6 +487,7 @@ export async function GET(request: NextRequest) {
       empresasOmitidas: resultado.empresasOmitidas,
       trabajadoresEvaluados: resultado.trabajadoresEvaluados,
       pedidosAutoasignados: resultado.pedidosAutoasignados,
+      pedidosFallidos: resultado.pedidosFallidos,
       omitidosYaTenianPedido: resultado.omitidosYaTenianPedido,
       omitidosNoCorresponden: resultado.omitidosNoCorresponden,
       errores: resultado.errores.length,
@@ -497,7 +496,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       respuestaBase({
         ok: true,
-        mensaje: `Autoasignacion global completada. Se asignaron ${resultado.pedidosAutoasignados} pedidos.`,
+        mensaje: `Autoasignacion global completada. Se asignaron ${resultado.pedidosAutoasignados} pedidos${resultado.pedidosFallidos > 0 ? `, ${resultado.pedidosFallidos} fallaron` : ''}.`,
         fechaProcesada,
         horaLimiteUsada,
         ...resultado,
