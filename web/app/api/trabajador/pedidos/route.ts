@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import db from '../../../../lib/db';
-import { chileStartOfDay, chileEndOfDay } from '../../../../lib/chile-time';
+import { chileStartOfDay, chileEndOfDay, nowChile } from '../../../../lib/chile-time';
 import { getHorarioEmpresa } from '../../../../lib/horario-pedidos-server';
 import { verificarTokenTrabajador } from '../../../../lib/trabajador/verificar-token';
 
@@ -69,6 +69,14 @@ function normalizeEntradasIds(entradasIds: unknown, entradaId: unknown) {
   if (entradaId !== undefined && entradaId !== null) addEntrada(entradaId);
 
   return { ids: normalized, hasInvalidValue };
+}
+
+function normalizeFechaPedido(fecha: string | null | undefined, fallbackIso: string): string {
+  const trimmed = typeof fecha === 'string' ? fecha.trim() : '';
+  if (!trimmed) return fallbackIso;
+
+  const isoDate = trimmed.slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(isoDate) ? isoDate : trimmed;
 }
 
 async function obtenerPermiteCenaUsuario(usuarioId: string) {
@@ -231,7 +239,22 @@ export async function POST(request: Request) {
       );
     }
 
-    if (usuario.rol === 'TRABAJADOR') {
+    const hoyChile = nowChile().iso;
+    const targetIso = normalizeFechaPedido(fecha, hoyChile);
+
+    if (targetIso < hoyChile) {
+      return NextResponse.json(
+        {
+          error: 'FECHA_PASADA',
+          mensaje: 'No puedes realizar pedidos para dias anteriores.',
+        },
+        { status: 403 }
+      );
+    }
+
+    const esPedidoParaHoy = targetIso === hoyChile;
+
+    if (usuario.rol === 'TRABAJADOR' && esPedidoParaHoy) {
       const estadoHorario = await getHorarioEmpresa(usuario.empresaId);
       if (!estadoHorario.permitido) {
         return NextResponse.json({
@@ -265,7 +288,6 @@ export async function POST(request: Request) {
       }
     }
 
-    const targetIso = fecha && typeof fecha === 'string' ? fecha : undefined;
     const inicioDiaTarget = chileStartOfDay(targetIso);
     const finDiaTarget = chileEndOfDay(targetIso);
 
