@@ -155,6 +155,7 @@ model Pedido {
   tipoCena              String?          @db.VarChar(50) 
 
   @@index([empresaId, fecha])
+  @@unique([usuarioId, fecha, esCena])
 }
 
 model PedidoManual {

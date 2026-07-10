@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import db from '../../../../lib/db';
 import { chileStartOfDay, chileEndOfDay, nowChile } from '../../../../lib/chile-time';
 import { esPlatoUnicoPorLegumbre } from '../../../../lib/menu/es-plato-unico';
@@ -161,6 +161,7 @@ function respuestaBase(params: {
   trabajadoresEvaluados?: number;
   pedidosAutoasignados?: number;
   pedidosFallidos?: number;
+  pedidosOmitidos?: number;
   omitidosYaTenianPedido?: number;
   omitidosNoCorresponden?: number;
   errores?: ErrorAutoAsignacion[];
@@ -177,6 +178,7 @@ function respuestaBase(params: {
     trabajadoresEvaluados: params.trabajadoresEvaluados ?? 0,
     pedidosAutoasignados: params.pedidosAutoasignados ?? 0,
     pedidosFallidos: params.pedidosFallidos ?? 0,
+    pedidosOmitidos: params.pedidosOmitidos ?? 0,
     omitidosYaTenianPedido: params.omitidosYaTenianPedido ?? 0,
     omitidosNoCorresponden: params.omitidosNoCorresponden ?? 0,
     errores: params.errores ?? [],
@@ -246,6 +248,7 @@ export async function GET(request: NextRequest) {
             trabajadoresEvaluados: 0,
             pedidosAutoasignados: 0,
             pedidosFallidos: 0,
+            pedidosOmitidos: 0,
             omitidosYaTenianPedido: 0,
             omitidosNoCorresponden: 0,
             errores: [],
@@ -285,6 +288,7 @@ export async function GET(request: NextRequest) {
             trabajadoresEvaluados: 0,
             pedidosAutoasignados: 0,
             pedidosFallidos: 0,
+            pedidosOmitidos: 0,
             omitidosYaTenianPedido: 0,
             omitidosNoCorresponden: 0,
             errores: [],
@@ -406,6 +410,7 @@ export async function GET(request: NextRequest) {
 
         const pedidosCreados: Array<{ id: number; usuarioId: string }> = [];
         let pedidosFallidos = 0;
+        let pedidosOmitidos = 0;
 
         for (const asignacion of asignaciones) {
           await tx.$executeRaw`SAVEPOINT sp_pedido`;
@@ -431,12 +436,23 @@ export async function GET(request: NextRequest) {
             pedidosCreados.push(pedido);
           } catch (error) {
             await tx.$executeRaw`ROLLBACK TO SAVEPOINT sp_pedido`;
-            pedidosFallidos += 1;
-            errores.push({ usuarioId: asignacion.usuarioId, motivo: 'Error al crear el pedido.' });
-            console.error(
-              `${CRON_LOG_PREFIX} Fallo create pedido usuario=${asignacion.usuarioId} empresa=${asignacion.empresaId}:`,
-              error instanceof Error ? error.message : error
-            );
+
+            const esDuplicado =
+              error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
+
+            if (esDuplicado) {
+              pedidosOmitidos += 1;
+              console.log(
+                `${CRON_LOG_PREFIX} Pedido omitido (ya existe) usuario=${asignacion.usuarioId} empresa=${asignacion.empresaId} fecha=${inicioDia.toISOString()}`
+              );
+            } else {
+              pedidosFallidos += 1;
+              errores.push({ usuarioId: asignacion.usuarioId, motivo: 'Error al crear el pedido.' });
+              console.error(
+                `${CRON_LOG_PREFIX} Fallo create pedido usuario=${asignacion.usuarioId} empresa=${asignacion.empresaId}:`,
+                error instanceof Error ? error.message : error
+              );
+            }
           }
         }
 
@@ -449,6 +465,7 @@ export async function GET(request: NextRequest) {
           trabajadoresEvaluados: trabajadores.length,
           pedidosAutoasignados: pedidosCreados.length,
           pedidosFallidos,
+          pedidosOmitidos,
           omitidosYaTenianPedido,
           omitidosNoCorresponden,
           errores,
@@ -488,6 +505,7 @@ export async function GET(request: NextRequest) {
       trabajadoresEvaluados: resultado.trabajadoresEvaluados,
       pedidosAutoasignados: resultado.pedidosAutoasignados,
       pedidosFallidos: resultado.pedidosFallidos,
+      pedidosOmitidos: resultado.pedidosOmitidos,
       omitidosYaTenianPedido: resultado.omitidosYaTenianPedido,
       omitidosNoCorresponden: resultado.omitidosNoCorresponden,
       errores: resultado.errores.length,
@@ -496,7 +514,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       respuestaBase({
         ok: true,
-        mensaje: `Autoasignacion global completada. Se asignaron ${resultado.pedidosAutoasignados} pedidos${resultado.pedidosFallidos > 0 ? `, ${resultado.pedidosFallidos} fallaron` : ''}.`,
+        mensaje: `Autoasignacion global completada. Se asignaron ${resultado.pedidosAutoasignados} pedidos${resultado.pedidosFallidos > 0 ? `, ${resultado.pedidosFallidos} fallaron` : ''}${resultado.pedidosOmitidos > 0 ? `, ${resultado.pedidosOmitidos} omitidos (ya existian)` : ''}.`,
         fechaProcesada,
         horaLimiteUsada,
         ...resultado,
