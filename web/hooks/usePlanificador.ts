@@ -30,9 +30,11 @@ export type PlatoMenuDia = {
 
 export type SeleccionMenuDia = {
   id: number;
-  entrada: PlatoMenuDia;
+  entrada: PlatoMenuDia | null;
   fondo: PlatoMenuDia;
   postre: PlatoMenuDia;
+  postreCantidad: number;
+  isDoblePostre: boolean;
   guarnicion: Guarnicion | null;
   entradasSeleccionadas?: PlatoMenuDia[];
   entradaDisplay?: string | null;
@@ -176,21 +178,24 @@ export function crearDrafts(data: MenuDiaResponse): Record<string, DraftMenuDia>
             : [];
         const entradasIds = dia.seleccion?.entradasSeleccionadas?.length
           ? dia.seleccion.entradasSeleccionadas.map((entrada) => entrada.detalleId)
-          : dia.seleccion?.entrada.detalleId
+          : dia.seleccion?.entrada?.detalleId
             ? [dia.seleccion.entrada.detalleId]
             : [];
         const modalidadHipocalorica =
           esFondoHipocalorico(dia.seleccion?.fondo) &&
-          entradasSeleccionadas.length === 1 &&
-          esEntradaSopa(entradasSeleccionadas[0])
-            ? "SOPA_CREMA"
-            : null;
+          dia.seleccion?.isDoblePostre
+            ? "DOBLE_POSTRE"
+            : esFondoHipocalorico(dia.seleccion?.fondo) &&
+                entradasSeleccionadas.length === 1 &&
+                esEntradaSopa(entradasSeleccionadas[0])
+              ? "SOPA_CREMA"
+              : null;
 
         return [
           dia.fecha!,
           {
-            entradaId: entradasIds[0] ?? null,
-            entradasIds,
+            entradaId: dia.seleccion?.isDoblePostre ? null : entradasIds[0] ?? null,
+            entradasIds: dia.seleccion?.isDoblePostre ? [] : entradasIds,
             fondoId: dia.seleccion?.fondo.detalleId ?? null,
             postreId: dia.seleccion?.postre.detalleId ?? null,
             guarnicionId: dia.seleccion?.guarnicion?.id ?? null,
@@ -375,15 +380,9 @@ export function usePlanificador() {
         setMensaje({ tipo: "error", texto: "Para menu hipocalorico con doble postre, no se debe seleccionar entrada." });
         return;
       }
-
-      setMensaje({
-        tipo: "error",
-        texto: "El contrato actual de Menu del Dia no permite persistir doble postre. Se requiere soporte futuro para cantidad de postre o modalidad hipocalorica.",
-      });
-      return;
     }
 
-    if (entradasIds.length === 0) {
+    if (modalidadHipocalorica !== "DOBLE_POSTRE" && entradasIds.length === 0) {
       setMensaje({ tipo: "error", texto: `Debes seleccionar entrada, fondo y postre para ${dia.dia}` });
       return;
     }
@@ -441,6 +440,7 @@ export function usePlanificador() {
           postreId: draft.postreId,
           guarnicionId: fondoSinGuarnicion ? null : draft.guarnicionId,
           bebidaPlatoId: draft.bebidaPlatoId,
+          postreCantidad: modalidadHipocalorica === "DOBLE_POSTRE" ? 2 : 1,
         }),
       });
 

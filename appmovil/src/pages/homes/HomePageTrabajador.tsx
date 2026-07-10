@@ -63,6 +63,11 @@ const getPlatoEntradaMenuDia = (menuDia: any): Plato | null => {
   return { ...base, nombre: getEntradaMenuDiaDisplay(menuDia) || base.nombre };
 };
 
+const getPostreCantidadMenuDia = (menuDia: any): number => {
+  const cantidad = Number(menuDia?.postreCantidad ?? 1);
+  return menuDia?.isDoblePostre === true || cantidad === 2 ? 2 : 1;
+};
+
 const getDiaSemanaBloqueo = (fechaISO: string) => {
   const dia = new Date(`${fechaISO}T12:00:00`).getDay();
   return dia === 0 ? 7 : dia;
@@ -513,16 +518,17 @@ const HomePageTrabajador: React.FC<HomePageTrabajadorProps> = ({ empresaNombre }
 
     if (activeTab === 'MENU_DIA' && !menuDiaSeleccionado) { alert('No hay menú disponible para este día.'); return; }
     if (activeTab === 'PERSONALIZADO' || activeTab === 'MENU_DIA') {
+      const postreCantidadMenuDia = menuHoy?.menuDia?.postre ? getPostreCantidadMenuDia(menuHoy.menuDia) : 1;
       const pedidoAEnviar = activeTab === 'MENU_DIA' && menuHoy?.menuDia
         ? {
             ...pedido,
             entradasIds: getEntradasMenuDia(menuHoy.menuDia).map((entrada) => entrada.id),
             fondoId: menuHoy.menuDia.fondo?.id ?? null,
             postreId: menuHoy.menuDia.postre?.id ?? null,
-            postreCantidad: 1,
+            postreCantidad: postreCantidadMenuDia,
             guarnicionId: menuHoy.menuDia.guarnicion?.id ?? null,
             jugoId: menuHoy.menuDia.bebida?.id ?? null,
-            isDoblePostre: false,
+            isDoblePostre: postreCantidadMenuDia === 2,
             observacion,
           }
         : { ...pedido, postreCantidad: pedido.isDoblePostre ? 2 : 1, observacion };
@@ -767,7 +773,7 @@ const HomePageTrabajador: React.FC<HomePageTrabajadorProps> = ({ empresaNombre }
                           {[
                             { label: 'Entrada', plato: entradaMenuDiaPlato, categoriaKey: 'entradaId' as const },
                             { label: 'Fondo', plato: menuHoy.menuDia.fondo, categoriaKey: 'fondoId' as const },
-                            { label: 'Postre', plato: menuHoy.menuDia.postre, categoriaKey: 'postreId' as const },
+                            { label: getPostreCantidadMenuDia(menuHoy.menuDia) === 2 ? 'Postre x2' : 'Postre', plato: menuHoy.menuDia.postre, categoriaKey: 'postreId' as const },
                           ].filter(({ plato }) => Boolean(plato)).map(({ label, plato, categoriaKey }) => (
                             <div key={label} className="space-y-3">
                               <div className="border-b border-gray-200 pb-3 mb-4"><span className="text-xl font-black text-[#1d2d50] uppercase tracking-widest">{label}</span></div>

@@ -214,18 +214,23 @@ export function DiaMenuCard({
 function MenuDiaResumen({ dia }: { dia: DiaMenu }) {
   if (!dia.seleccion) return null;
 
+  const entradaDisplay = dia.seleccion.entradaDisplay ?? dia.seleccion.entrada?.plato.nombre ?? "Sin entrada";
+  const postreDisplay = dia.seleccion.isDoblePostre
+    ? `${dia.seleccion.postre.plato.nombre} x2`
+    : dia.seleccion.postre.plato.nombre;
+
   return (
     <div className="mb-5 rounded border border-[#75AA46]/30 bg-white p-3 text-xs shadow-sm flex items-start gap-3">
       <CheckCircle2 className="h-4 w-4 text-[#75AA46] shrink-0 mt-0.5" />
       <div>
         <p className="font-bold text-[#1B2C56] uppercase tracking-wide mb-1">Menú Establecido</p>
         <p className="text-slate-600 font-medium">
-          {dia.seleccion.entradaDisplay ?? dia.seleccion.entrada.plato.nombre}{" "}
+          {entradaDisplay}{" "}
           <span className="text-slate-300 mx-1">|</span>
           {dia.seleccion.fondo.plato.nombre}
           {dia.seleccion.guarnicion ? ` + ${dia.seleccion.guarnicion.nombre}` : ""}{" "}
           <span className="text-slate-300 mx-1">|</span>
-          {dia.seleccion.postre.plato.nombre}
+          {postreDisplay}
           {dia.seleccion.bebida ? (
             <>
               <span className="text-slate-300 mx-1">|</span> {dia.seleccion.bebida.nombre}

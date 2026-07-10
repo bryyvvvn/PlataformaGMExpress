@@ -123,6 +123,7 @@ model MenuDiaSeleccion {
   entradaDetalleId      Int
   fondoDetalleId        Int
   postreDetalleId       Int
+  postreCantidad        Int                       @default(1)
   guarnicionId          Int?
   bebidaPlatoId         Int?
   entradasSeleccionadas MenuDiaEntradaSeleccion[]

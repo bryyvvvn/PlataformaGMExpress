@@ -56,6 +56,7 @@ type EntradaSeleccionada = {
 };
 
 type MenuDiaSeleccion = {
+  postreCantidad: number;
   entradasSeleccionadas: EntradaSeleccionada[];
   entradaDetalle: MenuDetalleConPlato;
   fondoDetalle: MenuDetalleConPlato;
@@ -119,7 +120,11 @@ async function obtenerConvenioUsuario(usuarioId: string | null): Promise<Conveni
 }
 
 function formatearSeleccion(seleccion: MenuDiaSeleccion, convenio: ConvenioMenuDia | null) {
-  const entradas = seleccion.entradasSeleccionadas.length > 0
+  const postreCantidad = seleccion.postreCantidad ?? 1;
+  const isDoblePostre = postreCantidad === 2;
+  const entradas = isDoblePostre
+    ? []
+    : seleccion.entradasSeleccionadas.length > 0
     ? seleccion.entradasSeleccionadas.sort((a, b) => a.orden - b.orden).map((item) => formatearDetalle(item.menuDetalle))
     : [formatearDetalle(seleccion.entradaDetalle)];
   const permiteEntrada = convenio?.permiteEntrada ?? true;
@@ -132,6 +137,8 @@ function formatearSeleccion(seleccion: MenuDiaSeleccion, convenio: ConvenioMenuD
     entrada: entradasPermitidas[0] ?? null,
     fondo: permitePlato ? formatearDetalle(seleccion.fondoDetalle) : null,
     postre: permitePostre ? formatearDetalle(seleccion.postreDetalle) : null,
+    postreCantidad,
+    isDoblePostre,
     guarnicion: permitePlato && !platoOmiteGuarnicion(seleccion.fondoDetalle.plato) ? seleccion.guarnicion : null,
     entradasSeleccionadas: entradasPermitidas,
     entradaDisplay: permiteEntrada ? construirEntradaDisplay(entradasPermitidas) : null,

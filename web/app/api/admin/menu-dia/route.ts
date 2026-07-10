@@ -102,8 +102,20 @@ function construirEntradaDisplay(entradas: ReturnType<typeof formatearDetalle>[]
   return entradas.map((entrada) => entrada.plato.nombre).join(" + ");
 }
 
+function normalizarTextoBusqueda(value: string | null | undefined) {
+  return (value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase();
+}
+
+function esEntradaSopa(detalle: MenuDetalleConPlato) {
+  return /\b(SOPA|CREMA)\b/.test(normalizarTextoBusqueda(detalle.plato.nombre));
+}
+
 function formatearSeleccion(seleccion: {
   id: number;
+  postreCantidad: number;
   entradaDetalle: MenuDetalleConPlato;
   fondoDetalle: MenuDetalleConPlato;
   postreDetalle: MenuDetalleConPlato;
@@ -116,16 +128,21 @@ function formatearSeleccion(seleccion: {
         .sort((a, b) => a.orden - b.orden)
         .map((item) => formatearDetalle(item.menuDetalle))
     : [formatearDetalle(seleccion.entradaDetalle)];
+  const postreCantidad = seleccion.postreCantidad ?? 1;
+  const isDoblePostre = postreCantidad === 2;
+  const entradasVisibles = isDoblePostre ? [] : entradas;
 
   return {
     id: seleccion.id,
-    entrada: entradas[0] ?? formatearDetalle(seleccion.entradaDetalle),
+    entrada: entradasVisibles[0] ?? null,
     fondo: formatearDetalle(seleccion.fondoDetalle),
     postre: formatearDetalle(seleccion.postreDetalle),
+    postreCantidad,
+    isDoblePostre,
     guarnicion: platoOmiteGuarnicion(seleccion.fondoDetalle.plato) ? null : seleccion.guarnicion,
     bebida: seleccion.bebidaPlato,
-    entradasSeleccionadas: entradas,
-    entradaDisplay: construirEntradaDisplay(entradas),
+    entradasSeleccionadas: entradasVisibles,
+    entradaDisplay: construirEntradaDisplay(entradasVisibles),
   };
 }
 
@@ -149,8 +166,9 @@ function validarDetalle(
   }
 }
 
-function normalizarEntradasIds(entradasIdsRaw: unknown, entradaId: number): number[] {
+function normalizarEntradasIds(entradasIdsRaw: unknown, entradaId: number, permiteSinEntradas = false): number[] {
   if (entradasIdsRaw === undefined) {
+    if (permiteSinEntradas && !isPositiveInteger(entradaId)) return [];
     if (!isPositiveInteger(entradaId)) {
       crearErrorValidacion("Debes seleccionar entrada, fondo y postre");
     }
@@ -161,7 +179,7 @@ function normalizarEntradasIds(entradasIdsRaw: unknown, entradaId: number): numb
     crearErrorValidacion("entradasIds debe ser un arreglo");
   }
 
-  if (entradasIdsRaw.length < 1 || entradasIdsRaw.length > 3) {
+  if ((!permiteSinEntradas && entradasIdsRaw.length < 1) || entradasIdsRaw.length > 3) {
     crearErrorValidacion("Debes seleccionar entre 1 y 3 entradas");
   }
 
@@ -175,6 +193,15 @@ function normalizarEntradasIds(entradasIdsRaw: unknown, entradaId: number): numb
   }
 
   return entradasIds;
+}
+
+function normalizarPostreCantidad(value: unknown): number {
+  if (value === undefined || value === null || value === "") return 1;
+  const postreCantidad = Number(value);
+  if (postreCantidad !== 1 && postreCantidad !== 2) {
+    crearErrorValidacion("postreCantidad invÃ¡lido");
+  }
+  return postreCantidad;
 }
 
 function normalizarBebidaPlatoId(value: unknown): number | null {
@@ -283,8 +310,9 @@ export async function PATCH(req: NextRequest) {
     const entradaId = Number(body.entradaId);
     const fondoId = Number(body.fondoId);
     const postreId = Number(body.postreId);
-    const entradasIds = normalizarEntradasIds(body.entradasIds, entradaId);
-    const entradaPrincipalId = entradasIds[0];
+    const postreCantidad = normalizarPostreCantidad(body.postreCantidad);
+    const esDoblePostre = postreCantidad === 2;
+    const entradasIds = normalizarEntradasIds(body.entradasIds, entradaId, esDoblePostre);
     const bebidaPlatoId = normalizarBebidaPlatoId(body.bebidaPlatoId);
     const guarnicionId = body.guarnicionId === null || body.guarnicionId === undefined
       ? null
@@ -316,12 +344,27 @@ export async function PATCH(req: NextRequest) {
     const entradas = entradasIds.map((id) => detalles.find((detalle) => detalle.id === id));
     const fondo = detalles.find((detalle) => detalle.id === fondoId);
     const postre = detalles.find((detalle) => detalle.id === postreId);
+    const fondoEsHipocalorico = fondo?.plato.tipo === "HIPOCALORICO";
 
     entradas.forEach((entrada, index) => {
       validarDetalle(entrada, "ENTRADA", menuSemanalId, fecha, `La entrada ${index + 1}`);
     });
     validarDetalle(fondo, "FONDO", menuSemanalId, fecha, "El fondo");
     validarDetalle(postre, "POSTRE", menuSemanalId, fecha, "El postre");
+
+    if (esDoblePostre && !fondoEsHipocalorico) {
+      crearErrorValidacion("Doble postre solo estÃ¡ permitido para menÃº hipocalÃ³rico");
+    }
+
+    if (esDoblePostre && entradasIds.length > 0) {
+      crearErrorValidacion("Para menÃº hipocalÃ³rico con doble postre no se debe seleccionar entrada");
+    }
+
+    if (fondoEsHipocalorico && !esDoblePostre) {
+      if (entradas.length !== 1 || !entradas[0] || !esEntradaSopa(entradas[0])) {
+        crearErrorValidacion("Para menÃº hipocalÃ³rico con sopa/crema, selecciona una Ãºnica sopa o crema");
+      }
+    }
 
     const bebida = bebidaPlatoId
       ? await db.plato.findUnique({ where: { id: bebidaPlatoId } })
@@ -355,6 +398,8 @@ export async function PATCH(req: NextRequest) {
       crearErrorValidacion("El fondo seleccionado no tiene fecha asociada");
     }
 
+    const entradaPrincipalId = entradasIds[0] ?? fondoId;
+
     const seleccion = await db.$transaction(async (tx) => {
       const seleccionGuardada = await tx.menuDiaSeleccion.upsert({
         where: {
@@ -367,6 +412,7 @@ export async function PATCH(req: NextRequest) {
           entradaDetalleId: entradaPrincipalId,
           fondoDetalleId: fondoId,
           postreDetalleId: postreId,
+          postreCantidad,
           guarnicionId: guarnicionIdNormalizada,
           bebidaPlatoId,
         },
@@ -376,6 +422,7 @@ export async function PATCH(req: NextRequest) {
           entradaDetalleId: entradaPrincipalId,
           fondoDetalleId: fondoId,
           postreDetalleId: postreId,
+          postreCantidad,
           guarnicionId: guarnicionIdNormalizada,
           bebidaPlatoId,
         },
@@ -385,13 +432,15 @@ export async function PATCH(req: NextRequest) {
         where: { menuDiaSeleccionId: seleccionGuardada.id },
       });
 
-      await tx.menuDiaEntradaSeleccion.createMany({
-        data: entradasIds.map((menuDetalleId, index) => ({
-          menuDiaSeleccionId: seleccionGuardada.id,
-          menuDetalleId,
-          orden: index + 1,
-        })),
-      });
+      if (entradasIds.length > 0) {
+        await tx.menuDiaEntradaSeleccion.createMany({
+          data: entradasIds.map((menuDetalleId, index) => ({
+            menuDiaSeleccionId: seleccionGuardada.id,
+            menuDetalleId,
+            orden: index + 1,
+          })),
+        });
+      }
 
       return seleccionGuardada;
     }, {
