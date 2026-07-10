@@ -10,8 +10,6 @@ import {
 } from "@/lib/pedidos/cierre-pedidos";
 import { generarExcelProduccion } from "@/lib/pedidos/excel";
 import { validarAdministrador } from "@/lib/usuarios/admin";
-import { invalidarEmpleadosCachePorEmpresa } from "@/lib/representante/trabajadores-cache";
-import { invalidarResumenCachePorEmpresa } from "@/lib/representante/resumen-cache";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -187,24 +185,6 @@ export async function POST(request: Request) {
         throw new CarreraExportacionError();
       }
     });
-
-    try {
-      const empresaIdsActualizados = new Set(pedidoIdsIncluidos);
-      const empresasAfectadas = new Set(
-        pedidosNormalizados
-          .filter((pedido) => empresaIdsActualizados.has(pedido.id))
-          .map((pedido) => pedido.empresa.id),
-      );
-      for (const empresaId of empresasAfectadas) {
-        invalidarEmpleadosCachePorEmpresa(empresaId);
-        invalidarResumenCachePorEmpresa(empresaId);
-      }
-    } catch (error) {
-      console.error(
-        "[EXPORTAR-PRODUCCION] Error al invalidar caches, continuando con el flujo:",
-        error,
-      );
-    }
 
     await db.exportacionProduccion.create({
       data: {

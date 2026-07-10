@@ -2,8 +2,6 @@ import { NextResponse } from 'next/server';
 import db from '../../../../lib/db';
 import { planillaSchema } from '@/lib/schemas/representante';
 import { verificarRepresentante } from '@/lib/representante/verificar-representante';
-import { invalidarEmpleadosCachePorEmpresa } from '@/lib/representante/trabajadores-cache';
-import { invalidarResumenCachePorEmpresa } from '@/lib/representante/resumen-cache';
 
 async function obtenerConvenioEmpresa(empresaId: number) {
   const empresa = await db.empresa.findUnique({
@@ -73,16 +71,6 @@ export async function POST(request: Request) {
         estado: 'CONFIRMADO',
       },
     });
-
-    try {
-      invalidarEmpleadosCachePorEmpresa(empresaIdSeguro);
-      invalidarResumenCachePorEmpresa(empresaIdSeguro);
-    } catch (error) {
-      console.error(
-        '[REPRESENTANTE/PLANILLA] Error al invalidar caches, continuando con el flujo:',
-        error,
-      );
-    }
 
     return NextResponse.json({ success: true, pedidosConfirmados: actualizados.count });
   } catch (error) {

@@ -3,12 +3,6 @@ import db from "../../../../lib/db";
 import { chileStartOfDay, chileEndOfDay } from "../../../../lib/chile-time";
 import { verificarRepresentante } from "@/lib/representante/verificar-representante";
 import { normalizarFechaEmpleados } from "@/lib/representante/trabajadores-cache";
-import {
-  getResumenCache,
-  getResumenCacheKey,
-  limpiarResumenCacheViejo,
-  setResumenCache,
-} from "@/lib/representante/resumen-cache";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -16,7 +10,6 @@ export async function GET(request: Request) {
   const fecha = searchParams.get("fecha");
   const fechaInicioParam = searchParams.get("fechaInicio");
   const fechaFinParam = searchParams.get("fechaFin");
-  const forceRefresh = searchParams.get("refresh") === "1";
 
   let empresaId: number;
 
@@ -38,8 +31,6 @@ export async function GET(request: Request) {
   }
 
   try {
-    limpiarResumenCacheViejo();
-
     const fechaReferencia = normalizarFechaEmpleados(fecha);
     const fechaInicio = fechaInicioParam
       ? normalizarFechaEmpleados(fechaInicioParam)
@@ -47,21 +38,6 @@ export async function GET(request: Request) {
     const fechaFin = fechaFinParam
       ? normalizarFechaEmpleados(fechaFinParam)
       : fechaInicio;
-    const cacheKey = getResumenCacheKey(empresaId, fechaInicio, fechaFin);
-    const cached = getResumenCache(cacheKey);
-
-    if (!forceRefresh && cached) {
-      console.log(`[RESUMEN Cache Hit] empresa=${empresaId}`);
-      return NextResponse.json(cached, {
-        headers: { "X-Resumen-Cache": "HIT" },
-      });
-    }
-
-    console.log(
-      forceRefresh
-        ? `[RESUMEN Cache Refresh] empresa=${empresaId}`
-        : `[RESUMEN Cache Miss] empresa=${empresaId}`,
-    );
 
     const inicioDia = chileStartOfDay(fechaInicio);
     const finDia = chileEndOfDay(fechaFin);
@@ -97,15 +73,7 @@ export async function GET(request: Request) {
       permiteCena,
     };
 
-    // 🔥 GUARDAR EN CACHE
-    setResumenCache(cacheKey, data);
-    console.log(
-      `[RESUMEN Cache Set] empresa=${empresaId} trabajadores=${totalTrabajadores} pedidosHoy=${pedidosListosHoy}`,
-    );
-
-    return NextResponse.json(data, {
-      headers: { "X-Resumen-Cache": forceRefresh ? "REFRESH" : "MISS" },
-    });
+    return NextResponse.json(data);
   } catch (error) {
     console.error("[API REPRESENTANTE RESUMEN] Error:", error);
     return NextResponse.json(
