@@ -75,7 +75,8 @@ const HomePageRepresentante: React.FC<HomePageRepresentanteProps> = ({ empresaId
     const { ok, data } = await enviarPlanilla(empresaId, fechaSeleccionadaISO);
     if (ok) {
       alert(`¡Planilla enviada a GM Express con éxito! Se confirmaron ${data?.pedidosConfirmados ?? 0} pedidos.`);
-      window.location.reload();
+      // 🔥 CORRECCIÓN: Se usa refrescarTrabajadores() en vez de window.location.reload()
+      await refrescarTrabajadores();
     } else {
       alert('Hubo un problema al intentar enviar la planilla. Intenta de nuevo.');
     }
@@ -86,7 +87,6 @@ const HomePageRepresentante: React.FC<HomePageRepresentanteProps> = ({ empresaId
 
   const totalPedidos = trabajadores.reduce((acc, t) => acc + pedidosVisibles(t.pedidos).length, 0);
   
-  // 🔥 AQUÍ ESTÁ EL ARREGLO: AHORA CONTAMOS CUALQUIER ESTADO QUE SEA SUPERIOR A PENDIENTE
   const pedidosConfirmados = trabajadores.reduce((acc, t) => 
     acc + pedidosVisibles(t.pedidos).filter((p: any) => 
       ['CONFIRMADO', 'EN_PRODUCCION', 'ENTREGADO'].includes(p.estado)

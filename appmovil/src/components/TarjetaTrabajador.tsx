@@ -34,7 +34,6 @@ const getDiaSemanaBloqueo = (fechaStr: string) => {
   return dia === 0 ? 7 : dia;
 };
 
-// 🔥 FUNCIÓN DE COLORES DINÁMICOS
 const getEstadoColors = (estado?: string) => {
   if (['EN_PRODUCCION', 'ENTREGADO'].includes(estado || '')) {
     return {
@@ -52,7 +51,6 @@ const getEstadoColors = (estado?: string) => {
       dot: 'bg-[#70a344]'
     };
   }
-  // PENDIENTE O SIN ESTADO (Color Plomo)
   return {
     activeBg: 'bg-slate-400 border-slate-400',
     panelBg: 'bg-slate-50 border-slate-200',
@@ -157,7 +155,6 @@ export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({
         onClick={() => setIsExpanded(!isExpanded)}
         className="w-full flex flex-col p-5 active:bg-slate-50/70 transition-colors bg-white hover:bg-slate-50"
       >
-        {/* 1. FILA DE CABECERA: Foto, Nombre y Flecha perfectamente alineados al medio */}
         <div className="flex items-center justify-between w-full">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 shrink-0 rounded-full flex items-center justify-center font-black text-lg shadow-sm bg-slate-100 text-[#1d2d50]">
@@ -173,7 +170,6 @@ export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({
           </div>
         </div>
         
-        {/* 🔥 2. FILA DE ESTADOS: Alineados a la izquierda bajo la imagen (pl-2 en vez de pl-16) */}
         <div className="flex flex-col gap-1.5 mt-4 pl-2 w-full text-left">
           {cantidadPedidos === 0 && (
             <span className="text-[12px] font-bold uppercase tracking-widest flex items-center gap-1.5 text-slate-400">
