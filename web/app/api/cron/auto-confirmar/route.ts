@@ -1,14 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import db from '../../../../lib/db';
 import { getHoraLimiteEfectiva } from '../../../../lib/horario-pedidos';
+import { chileStartOfDay, chileEndOfDay } from '../../../../lib/chile-time';
 
 export const dynamic = 'force-dynamic';
 
 const VENTANA_MIN_MINUTOS = 5;
 const VENTANA_MAX_MINUTOS = 10;
 
+/*
+ * Endpoint para ejecución de Cron
+ * Valida credenciales, calcula ventana de tiempo por empresa
+ * y confirma los pedidos pendientes del día en curso.
+ */
 export async function GET(request: NextRequest) {
-  // 1. SEGURIDAD: Acepta Header O Parámetro en la URL
   const authHeader = request.headers.get('authorization');
   const querySecret = request.nextUrl.searchParams.get('secret');
 
@@ -17,7 +22,6 @@ export async function GET(request: NextRequest) {
   }
 // pelao puro wn
   try {
-    // 2. HORA ACTUAL EN CHILE, en minutos desde medianoche
     const ahora = new Date();
     const formatter = new Intl.DateTimeFormat('es-CL', {
       timeZone: 'America/Santiago',
@@ -30,14 +34,15 @@ export async function GET(request: NextRequest) {
 
     console.log(`[CRON CONFIRMAR-PLANILLA] Ejecutando a las ${horaStr}:${minutoStr} (Chile)`);
 
-    // 3. CONFIGURACIÓN GLOBAL (hora límite por defecto si la empresa no tiene horaDespacho)
+    const hoyInicio = chileStartOfDay();
+    const hoyFin = chileEndOfDay();
+
     const configuracion = await db.configuracionSistema.findUnique({
       where: { id: 1 },
       select: { horaLimite: true },
     });
     const horaGlobal = configuracion?.horaLimite ?? '17:00';
 
-    // 4. TRAER TODAS LAS EMPRESAS ACTIVAS CON SU horaDespacho Y CONVENIO
     const empresas = await db.empresa.findMany({
       where: { estado: 'ACTIVA' },
       select: {
@@ -50,7 +55,9 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // 5. FILTRAR EMPRESAS CUYA HORA LÍMITE EFECTIVA CAE EN LA VENTANA [5, 10] MIN
+    /*
+     * Filtrado de empresas dentro de la ventana de cierre
+     */
     const empresasEnVentana = empresas.filter((empresa) => {
       const { horaLimite } = getHoraLimiteEfectiva(empresa.horaDespacho, horaGlobal);
       const [hLimite, mLimite] = horaLimite.split(':').map(Number);
@@ -73,9 +80,12 @@ export async function GET(request: NextRequest) {
       empresasEnVentana.map((e) => e.nombre)
     );
 
-    // 6. CONFIRMAR PEDIDOS PENDIENTES PARA CADA EMPRESA EN VENTANA
     const resultados: { empresa: string; confirmados: number }[] = [];
 
+    /*
+     * Confirmación masiva de pedidos por empresa
+     * Limitado estrictamente al rango de horas del día actual
+     */
     for (const empresa of empresasEnVentana) {
       const permiteCena = Boolean(empresa.ConvenioEmpresa?.permiteCena);
 
@@ -83,6 +93,10 @@ export async function GET(request: NextRequest) {
         where: {
           empresaId: empresa.id,
           estado: 'PENDIENTE',
+          fecha: {
+            gte: hoyInicio,
+            lte: hoyFin,
+          },
           ...(permiteCena ? {} : { esCena: false }),
         },
         data: { estado: 'CONFIRMADO' },
@@ -91,7 +105,7 @@ export async function GET(request: NextRequest) {
       if (actualizados.count > 0) {
         resultados.push({ empresa: empresa.nombre, confirmados: actualizados.count });
         console.log(
-          `[CRON CONFIRMAR-PLANILLA] ${empresa.nombre}: ${actualizados.count} pedidos confirmados automáticamente.`
+          `[CRON CONFIRMAR-PLANILLA] ${empresa.nombre}: ${actualizados.count} pedidos confirmados automáticamente (Día de hoy).`
         );
       }
     }
