@@ -11,7 +11,7 @@ const VENTANA_MAX_MINUTOS = 10;
 /*
  * Endpoint para ejecución de Cron
  * Valida credenciales, calcula ventana de tiempo por empresa
- * y confirma los pedidos pendientes del día en curso.
+ * y confirma los pedidos pendientes de la semana actual (Lunes a Domingo).
  */
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get('authorization');
@@ -34,8 +34,27 @@ export async function GET(request: NextRequest) {
 
     console.log(`[CRON CONFIRMAR-PLANILLA] Ejecutando a las ${horaStr}:${minutoStr} (Chile)`);
 
-    const hoyInicio = chileStartOfDay();
-    const hoyFin = chileEndOfDay();
+    /*
+     * Calcular inicio (Lunes) y fin (Domingo) de la semana en curso en Chile
+     */
+    const hoyChile = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Santiago" }));
+    const diaSemana = hoyChile.getDay() || 7; 
+    
+    const lunes = new Date(hoyChile);
+    lunes.setDate(hoyChile.getDate() - diaSemana + 1);
+    
+    const domingo = new Date(hoyChile);
+    domingo.setDate(hoyChile.getDate() - diaSemana + 7);
+
+    const formatIso = (d: Date) => {
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    };
+
+    const inicioSemana = chileStartOfDay(formatIso(lunes));
+    const finSemana = chileEndOfDay(formatIso(domingo));
 
     const configuracion = await db.configuracionSistema.findUnique({
       where: { id: 1 },
@@ -84,7 +103,7 @@ export async function GET(request: NextRequest) {
 
     /*
      * Confirmación masiva de pedidos por empresa
-     * Limitado estrictamente al rango de horas del día actual
+     * Limitado estrictamente al rango de la semana actual
      */
     for (const empresa of empresasEnVentana) {
       const permiteCena = Boolean(empresa.ConvenioEmpresa?.permiteCena);
@@ -94,8 +113,8 @@ export async function GET(request: NextRequest) {
           empresaId: empresa.id,
           estado: 'PENDIENTE',
           fecha: {
-            gte: hoyInicio,
-            lte: hoyFin,
+            gte: inicioSemana,
+            lte: finSemana,
           },
           ...(permiteCena ? {} : { esCena: false }),
         },
@@ -105,7 +124,7 @@ export async function GET(request: NextRequest) {
       if (actualizados.count > 0) {
         resultados.push({ empresa: empresa.nombre, confirmados: actualizados.count });
         console.log(
-          `[CRON CONFIRMAR-PLANILLA] ${empresa.nombre}: ${actualizados.count} pedidos confirmados automáticamente (Día de hoy).`
+          `[CRON CONFIRMAR-PLANILLA] ${empresa.nombre}: ${actualizados.count} pedidos confirmados automáticamente (Semana actual).`
         );
       }
     }
