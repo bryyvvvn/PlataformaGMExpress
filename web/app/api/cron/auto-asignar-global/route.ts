@@ -9,6 +9,8 @@ export const dynamic = 'force-dynamic';
 const HORA_LIMITE_DEFAULT = '10:00';
 const HORA_REGEX = /^([01]\d|2[0-3]):[0-5]\d$/;
 const CRON_LOG_PREFIX = '[CRON AUTO-ASIGNAR-GLOBAL]';
+const VENTANA_MIN_MINUTOS = 1;
+const VENTANA_MAX_MINUTOS = 15;
 
 type MenuDiaSeleccionConDetalles = Prisma.MenuDiaSeleccionGetPayload<{
   include: {
@@ -206,20 +208,22 @@ export async function GET(request: NextRequest) {
 
     horaLimiteUsada = validarHoraLimite(configuracion?.horaLimite);
     const horaActual = formatearHora(contextoChile.hour, contextoChile.minute);
-    const limiteAlcanzado = horaAMinutos(horaActual) >= horaAMinutos(horaLimiteUsada);
+    const minutosRestantes = horaAMinutos(horaLimiteUsada) - horaAMinutos(horaActual);
+    const dentroDeVentana = minutosRestantes >= VENTANA_MIN_MINUTOS && minutosRestantes <= VENTANA_MAX_MINUTOS;
 
     console.log(`${CRON_LOG_PREFIX} Inicio`, {
       fechaProcesada,
       horaActual,
       horaLimiteUsada,
-      limiteAlcanzado,
+      minutosRestantes,
+      dentroDeVentana,
     });
 
-    if (!limiteAlcanzado) {
+    if (!dentroDeVentana) {
       return NextResponse.json(
         respuestaBase({
           ok: true,
-          mensaje: 'La hora limite global aun no se cumple. No se autoasignaron pedidos.',
+          mensaje: 'La empresa no esta dentro de la ventana de cierre (1-15 min). No se autoasignaron pedidos.',
           fechaProcesada,
           horaLimiteUsada,
         })

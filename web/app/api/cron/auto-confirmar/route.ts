@@ -5,8 +5,8 @@ import { chileStartOfDay, chileEndOfDay } from '../../../../lib/chile-time';
 
 export const dynamic = 'force-dynamic';
 
-const VENTANA_MIN_MINUTOS = 5;
-const VENTANA_MAX_MINUTOS = 10;
+const VENTANA_MIN_MINUTOS = 1;
+const VENTANA_MAX_MINUTOS = 15;
 
 /*
  * Endpoint para ejecución de Cron
@@ -90,7 +90,7 @@ export async function GET(request: NextRequest) {
     if (empresasEnVentana.length === 0) {
       return NextResponse.json({
         success: true,
-        mensaje: 'Ninguna empresa está dentro de la ventana de cierre (5-10 min) en este momento.',
+        mensaje: 'Ninguna empresa está dentro de la ventana de cierre (1-15 min) en este momento.',
       });
     }
 

@@ -3,13 +3,13 @@ import { Prisma } from '@prisma/client';
 import db from '../../../../lib/db';
 import { chileStartOfDay, chileEndOfDay, nowChile } from '../../../../lib/chile-time';
 import { esPlatoUnicoPorLegumbre } from '../../../../lib/menu/es-plato-unico';
+import { getHoraLimiteEfectiva } from '../../../../lib/horario-pedidos';
 
 export const dynamic = 'force-dynamic';
 
 const HORA_REGEX = /^([01]\d|2[0-3]):[0-5]\d$/;
-const HORAS_ANTES_DESPACHO = 3;
-const MINUTOS_ANTES_DESPACHO = HORAS_ANTES_DESPACHO * 60;
-const MINUTOS_DIA = 24 * 60;
+const VENTANA_MIN_MINUTOS = 1;
+const VENTANA_MAX_MINUTOS = 15;
 const CRON_LOG_PREFIX = '[CRON AUTO-ASIGNAR]';
 
 type MenuDiaSeleccionConDetalles = Prisma.MenuDiaSeleccionGetPayload<{
@@ -63,31 +63,8 @@ function horaAMinutos(hora: string) {
   return horas * 60 + minutos;
 }
 
-function minutosAHora(minutos: number) {
-  const minutosNormalizados = ((minutos % MINUTOS_DIA) + MINUTOS_DIA) % MINUTOS_DIA;
-  const horas = Math.floor(minutosNormalizados / 60);
-  const mins = minutosNormalizados % 60;
-  return `${String(horas).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
-}
-
 function formatearHora(hour: number, minute: number) {
   return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
-}
-
-function horaCierrePorDespacho(horaDespacho: string) {
-  return minutosAHora(horaAMinutos(horaDespacho) - MINUTOS_ANTES_DESPACHO);
-}
-
-function estaDentroDeVentanaAutoasignacion(horaActual: string, horaDespacho: string) {
-  const minutosActual = horaAMinutos(horaActual);
-  const minutosDespacho = horaAMinutos(horaDespacho);
-  const minutosCierre = horaAMinutos(horaCierrePorDespacho(horaDespacho));
-
-  if (minutosCierre <= minutosDespacho) {
-    return minutosActual >= minutosCierre && minutosActual < minutosDespacho;
-  }
-
-  return minutosActual >= minutosCierre || minutosActual < minutosDespacho;
 }
 
 function bebidaPermitida(
@@ -278,9 +255,11 @@ export async function GET(request: NextRequest) {
           }))
           .filter((empresa) => empresa.horaDespachoNormalizada !== null);
 
-        const empresasEnVentanaAutoasignacion = empresasConHoraDespachoValida.filter((empresa) =>
-          estaDentroDeVentanaAutoasignacion(horaActual, empresa.horaDespachoNormalizada!)
-        );
+        const empresasEnVentanaAutoasignacion = empresasConHoraDespachoValida.filter((empresa) => {
+          const { horaLimite } = getHoraLimiteEfectiva(empresa.horaDespachoNormalizada, '00:00');
+          const minutosRestantes = horaAMinutos(horaLimite) - horaAMinutos(horaActual);
+          return minutosRestantes >= VENTANA_MIN_MINUTOS && minutosRestantes <= VENTANA_MAX_MINUTOS;
+        });
         const errores: ErrorAutoAsignacion[] = [];
         const empresasProcesables = empresasEnVentanaAutoasignacion.filter((empresa) => {
           if (empresa.ConvenioEmpresa) return true;
