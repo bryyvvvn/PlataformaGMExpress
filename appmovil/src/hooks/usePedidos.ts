@@ -311,7 +311,7 @@ export const usePedidos = (
       }
 
       let errorData: any = null;
-      try { errorData = await respuesta.json(); } catch (e) { /* ignore */ }
+      try { errorData = await respuesta.json(); } catch { }
 
       if (respuesta.status === 403) { alert('El horario de pedidos ha cerrado.'); return false; }
       if (respuesta.status === 409) { setYaPedioHoy(true); return false; }
@@ -378,7 +378,7 @@ export const usePedidos = (
       }
 
       let errorData: any = null;
-      try { errorData = await respuesta.json(); } catch (e) { /* ignore */ }
+      try { errorData = await respuesta.json(); } catch { }
 
       if (respuesta.status === 403) { alert('El horario de pedidos ha cerrado.'); return false; }
       if (respuesta.status === 409) { setYaPedioHoy(true); return false; }

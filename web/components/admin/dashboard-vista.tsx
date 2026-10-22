@@ -29,7 +29,7 @@ export default function DashboardVista({ statsDia }: DashboardVistaProps) {
   const [desgloseVisible, setDesgloseVisible] = useState(false)
 
   async function cargarSemana() {
-    if (dataSemana) return // ya cargado, no re-fetchear
+    if (dataSemana) return
     setLoadingSemana(true)
     try {
       const res = await fetch("/api/admin/consolidado?modo=semana")
@@ -39,7 +39,7 @@ export default function DashboardVista({ statsDia }: DashboardVistaProps) {
     } catch (err) {
       console.error(err)
       alert("No se pudieron cargar las métricas semanales.")
-      setVista("dia") // revertir toggle si falla
+      setVista("dia")
     } finally {
       setLoadingSemana(false)
     }
@@ -68,7 +68,6 @@ export default function DashboardVista({ statsDia }: DashboardVistaProps) {
 
   return (
     <div className="space-y-6">
-      {/* Header + Toggle global */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-sm font-bold text-[#1B2C56] uppercase tracking-wider mb-1">
@@ -114,7 +113,6 @@ export default function DashboardVista({ statsDia }: DashboardVistaProps) {
         </div>
       </div>
 
-      {/* KPIs principales */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
         <div className="bg-white rounded-md border border-slate-200 shadow-sm overflow-hidden">
           <div className="h-1 w-full bg-[#1B2C56]"></div>
@@ -159,7 +157,6 @@ export default function DashboardVista({ statsDia }: DashboardVistaProps) {
         </div>
       </div>
 
-      {/* Desglose día a día (solo modo semana) */}
       {vista === "semana" && (
         <div>
           <button

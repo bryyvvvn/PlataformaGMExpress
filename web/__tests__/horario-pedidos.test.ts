@@ -109,7 +109,7 @@ describe('getEstadoHorario — viernes', () => {
   it('horaReapertura dice mañana cuando es viernes y trabajaFinDeSemana', () => {
     const result = getEstadoHorario(null, '10:00', true, contextoViernesTarde)
     expect(result.horaReapertura).toBe('mañana a las 10:00')
-    expect(result.permitido).toBe(false) // bloqueado por hora, no por día
+    expect(result.permitido).toBe(false)
   })
 })
 

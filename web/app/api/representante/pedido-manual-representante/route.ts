@@ -35,8 +35,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // 1. Mapeo de los botones al nombre exacto del plato en tu Base de Datos
-    // ⚠️ REVISA ESTOS NOMBRES: Deben ser iguales a los que tienes en tu BD
     const mapaPlatos: Record<string, string> = {
       'MENU_DIA': 'Menú del Día',
       'HIPOCALORICO': 'Hipocalórico',
@@ -45,8 +43,7 @@ export async function POST(request: Request) {
     };
 
     const nombrePlato = mapaPlatos[tipoMenu];
-    
-    // Buscamos el plato comodín en la base de datos
+
     const plato = await db.plato.findUnique({ 
       where: { nombre: nombrePlato } 
     });
@@ -55,11 +52,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: `Plato '${nombrePlato}' no encontrado en la base de datos` }, { status: 404 });
     }
 
-    // 2. Definir rango de la fecha usando tus helpers de hora chilena
     const inicioDia = chileStartOfDay(fecha);
     const finDia = chileEndOfDay(fecha);
 
-    // 3. Revisar si el trabajador ya tiene un pedido para ese día en ese turno (Almuerzo/Cena)
     const pedidoExistente = await db.pedido.findFirst({
       where: { 
         usuarioId, 
@@ -68,25 +63,21 @@ export async function POST(request: Request) {
       }
     });
 
-    // 4. Crear o Sobrescribir
     if (pedidoExistente) {
-      // Si ya existía, borramos los platos viejos y metemos el nuevo (Sobrescribir)
       await db.detallePedido.deleteMany({ where: { pedidoId: pedidoExistente.id } });
       await db.detallePedido.create({ 
         data: { pedidoId: pedidoExistente.id, platoId: plato.id, cantidad: 1 } 
       });
       
-      // Asegurarnos de que el pedido esté CONFIRMADO
       await db.pedido.update({
         where: { id: pedidoExistente.id },
         data: { estado: 'CONFIRMADO' }
       });
       
     } else {
-      // Si no existe, creamos el pedido desde cero
       await db.pedido.create({
         data: {
-          fecha: inicioDia, // Usamos la fecha a las 00:00 hora Chile
+          fecha: inicioDia,
           usuarioId,
           empresaId: usuario.empresaId,
           estado: 'CONFIRMADO',

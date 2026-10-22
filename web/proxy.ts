@@ -19,7 +19,6 @@ const isPublicRoute = createRouteMatcher([
 ])
 
 export default clerkMiddleware(async (auth, request) => {
-  // 🔥 ESTO ES LO QUE ARREGLA LA APP MÓVIL: Deja pasar el OPTIONS sin chistar
   if (request.method === 'OPTIONS') {
     return new NextResponse(null, {
       status: 200,

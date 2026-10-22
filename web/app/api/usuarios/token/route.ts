@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { verifyToken } from '@clerk/nextjs/server';
-import db from '../../../../lib/db'; // Tu ruta a Prisma
+import db from '../../../../lib/db';
 import { guardarTokenSchema } from '@/lib/schemas/usuarios';
 
 export async function POST(request: Request) {
@@ -41,7 +41,6 @@ export async function POST(request: Request) {
     );
   }
 
-  // Verificar que el usuarioId del body coincide con el token
   if (result.data.usuarioId !== tokenUserId) {
     return NextResponse.json(
       { error: 'No autorizado para modificar este usuario' },
@@ -50,7 +49,6 @@ export async function POST(request: Request) {
   }
 
   try {
-    // Guardamos el token en el perfil del usuario
     await db.usuario.update({
       where: { id: result.data.usuarioId },
       data: { fcmToken: result.data.fcmToken },

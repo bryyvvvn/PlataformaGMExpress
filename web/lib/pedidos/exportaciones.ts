@@ -11,7 +11,6 @@ export async function obtenerMensajeError(response: Response): Promise<string> {
       return data.error
     }
   } catch {
-    // La respuesta no contenía JSON válido.
   }
 
   return "No se pudo descargar el histórico"

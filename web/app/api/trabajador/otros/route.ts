@@ -3,10 +3,6 @@ import db from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
-/**
- * GET /api/trabajador/otros
- * Devuelve los platos que pertenecen a categorías "otros" (CANJE, SANDWICH, BEBIDA, SNACK, JUGO, AGUA_SABORIZADA)
- */
 export async function GET() {
   try {
     const platos = await db.plato.findMany({

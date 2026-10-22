@@ -173,7 +173,6 @@ export async function GET(req: NextRequest) {
   const startMs = Date.now();
 
   try {
-    // Si la caché guarda más de 7 días, la limpiamos para no acumular basura.
     cleanupMenuCacheIfNeeded();
 
     const { searchParams } = new URL(req.url);
@@ -215,7 +214,6 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // 1. Buscamos el convenio del usuario (ligero, no se cachea porque cambia por usuario)
     if (usuarioId) {
       console.log("[menu-semanal] Consultando convenio de usuario", {
         fecha: isoFecha,
@@ -225,11 +223,9 @@ export async function GET(req: NextRequest) {
 
     const convenio = await obtenerConvenioUsuario(usuarioId);
 
-    // 2. Revisamos si ya tenemos el menú en la RAM
     let menuBaseData = getMenuCache<MenuCacheData>(isoFecha);
     let cacheStatus: MenuCacheStatus = "HIT";
 
-    // Si NO lo tenemos o pasaron las 14 horas, hacemos la consulta pesada
     if (!menuBaseData) {
       cacheStatus = "MISS";
       const diaNombre = getChileDayName(isoFecha);
@@ -277,7 +273,6 @@ export async function GET(req: NextRequest) {
         })
       ]);
 
-      // 🔥 EL SALVAVIDAS: Si el admin no subió la minuta, no guardamos basura en caché
       if (!menuActivo || menuActivo.detalles.length === 0) {
         invalidateMenuCacheForDate(isoFecha);
         const durationMs = Date.now() - startMs;
@@ -308,7 +303,6 @@ export async function GET(req: NextRequest) {
         );
       }
 
-      // Guardamos la respuesta procesada en la RAM
       menuBaseData = { data: { menuActivo, ensaladaSurtida }, timestamp: Date.now() };
       setMenuCache(isoFecha, menuBaseData.data);
       console.log("[menu-semanal] Cache miss: menu guardado en RAM", {
@@ -320,7 +314,6 @@ export async function GET(req: NextRequest) {
       console.log(`[Cache Hit] Menú servido rapidísimo para: ${isoFecha}`);
     }
 
-    // 3. Extraemos los datos (ya sea de BD o RAM) y aplicamos reglas de convenio
     const { menuActivo, ensaladaSurtida } = menuBaseData.data;
     const seleccion = menuActivo.menuDiaSelecciones[0];
     const entradas = menuActivo.detalles.filter((d) => d.plato.categoria === "ENTRADA").map(formatearDetalle);

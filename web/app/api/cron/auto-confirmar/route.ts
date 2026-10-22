@@ -8,11 +8,6 @@ export const dynamic = 'force-dynamic';
 const VENTANA_MIN_MINUTOS = 1;
 const VENTANA_MAX_MINUTOS = 15;
 
-/*
- * Endpoint para ejecución de Cron
- * Valida credenciales, calcula ventana de tiempo por empresa
- * y confirma los pedidos pendientes de la semana actual (Lunes a Domingo).
- */
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get('authorization');
   const querySecret = request.nextUrl.searchParams.get('secret');
@@ -20,7 +15,7 @@ export async function GET(request: NextRequest) {
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}` && querySecret !== process.env.CRON_SECRET) {
     return new NextResponse('Acceso denegado', { status: 401 });
   }
-// pelao puro wn
+
   try {
     const ahora = new Date();
     const formatter = new Intl.DateTimeFormat('es-CL', {
@@ -34,9 +29,6 @@ export async function GET(request: NextRequest) {
 
     console.log(`[CRON CONFIRMAR-PLANILLA] Ejecutando a las ${horaStr}:${minutoStr} (Chile)`);
 
-    /*
-     * Calcular inicio (Lunes) y fin (Domingo) de la semana en curso en Chile
-     */
     const hoyChile = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Santiago" }));
     const diaSemana = hoyChile.getDay() || 7; 
     
@@ -74,9 +66,6 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    /*
-     * Filtrado de empresas dentro de la ventana de cierre
-     */
     const empresasEnVentana = empresas.filter((empresa) => {
       const { horaLimite } = getHoraLimiteEfectiva(empresa.horaDespacho, horaGlobal);
       const [hLimite, mLimite] = horaLimite.split(':').map(Number);
@@ -101,10 +90,6 @@ export async function GET(request: NextRequest) {
 
     const resultados: { empresa: string; confirmados: number }[] = [];
 
-    /*
-     * Confirmación masiva de pedidos por empresa
-     * Limitado estrictamente al rango de la semana actual
-     */
     for (const empresa of empresasEnVentana) {
       const permiteCena = Boolean(empresa.ConvenioEmpresa?.permiteCena);
 

@@ -1,8 +1,7 @@
-/** Theme and color palette for GM Express application */
 export const THEME = {
   colors: {
-    primary: '#75AA46',      // Green - Primary brand color
-    secondary: '#1B2C56',    // Dark blue - Secondary brand color
+    primary: '#75AA46',
+    secondary: '#1B2C56',
     white: '#FFFFFF',
     background: '#F3F4F6',
     error: '#EF4444',
@@ -17,6 +16,6 @@ export const THEME = {
   },
 } as const;
 
-export const DEADLINE_HOUR = 26; // Daily order cutoff at 10:00 AM
+export const DEADLINE_HOUR = 26;
 export const APP_NAME = 'GM Express';
 export const APP_VERSION = '1.0.0';

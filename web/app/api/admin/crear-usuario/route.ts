@@ -27,8 +27,6 @@ type CrearUsuarioPayload = {
   rol: RolCreable
 }
 
-//clerk
-
 type ClerkErrorItem = {
   code?: string
   message?: string

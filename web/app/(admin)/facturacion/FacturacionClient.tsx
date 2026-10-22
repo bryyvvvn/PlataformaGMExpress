@@ -197,7 +197,6 @@ export function FacturacionClient({ empresas }: { empresas: EmpresaOption[] }) {
 
   return (
     <div className="mx-auto max-w-[1600px] space-y-6 p-6 bg-slate-50 min-h-screen">
-      {/* Header Corporativo */}
       <header className="border-b border-slate-200 pb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2 mb-1">
@@ -231,11 +230,9 @@ export function FacturacionClient({ empresas }: { empresas: EmpresaOption[] }) {
         </Button>
       </header>
 
-      {/* Tarjeta de Filtros */}
       <Card className="rounded-md border-slate-200 bg-white shadow-sm overflow-visible relative z-10">
         <CardContent className="p-5">
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            {/* Selector de Empresa */}
             <div className="space-y-1.5">
               <Label
                 htmlFor="select-empresa"
@@ -279,7 +276,6 @@ export function FacturacionClient({ empresas }: { empresas: EmpresaOption[] }) {
               </Select>
             </div>
 
-            {/* Selector de Rango */}
             <div className="space-y-1.5">
               <Label
                 htmlFor="select-rango"
@@ -323,7 +319,6 @@ export function FacturacionClient({ empresas }: { empresas: EmpresaOption[] }) {
               </Select>
             </div>
 
-            {/* Inputs de Rango Personalizado */}
             {rango === "custom" && (
               <>
                 <div className="space-y-1.5 animate-in fade-in zoom-in duration-200">
@@ -354,7 +349,6 @@ export function FacturacionClient({ empresas }: { empresas: EmpresaOption[] }) {
         </CardContent>
       </Card>
 
-      {/* Mensaje si no hay empresa seleccionada */}
       {!empresaId ? (
         <Card className="rounded-md border border-dashed border-slate-300 bg-slate-50 shadow-sm mt-6">
           <CardContent className="p-12 text-center flex flex-col items-center justify-center">
@@ -370,7 +364,6 @@ export function FacturacionClient({ empresas }: { empresas: EmpresaOption[] }) {
         </Card>
       ) : (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          {/* Tarjeta de Resumen KPI */}
           <Card className="rounded-md border-slate-200 bg-white shadow-sm overflow-hidden flex flex-col sm:max-w-xs">
             <div className="h-1 w-full bg-[#1B2C56]"></div>
             <CardContent className="flex-1 p-5 flex items-center justify-between">
@@ -388,7 +381,6 @@ export function FacturacionClient({ empresas }: { empresas: EmpresaOption[] }) {
             </CardContent>
           </Card>
 
-          {/* Tabla de Detalle */}
           <Card className="overflow-hidden rounded-md border-slate-200 bg-white shadow-sm">
             <div className="bg-slate-50 border-b border-slate-200 px-5 py-3">
               <p className="text-xs font-bold text-[#1B2C56] uppercase tracking-wider">
@@ -444,7 +436,6 @@ export function FacturacionClient({ empresas }: { empresas: EmpresaOption[] }) {
                           </TableCell>
                         </TableRow>
                       ))}
-                      {/* Fila de Totales */}
                       <TableRow className="bg-slate-50 hover:bg-slate-50">
                         <TableCell className="font-bold text-slate-800 text-xs py-3 uppercase tracking-wide">
                           Total Consolidado

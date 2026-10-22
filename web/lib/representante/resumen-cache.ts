@@ -6,8 +6,6 @@ type ResumenCacheEntry = {
   timestamp: number;
 };
 
-// Cache en memoria por proceso. Si Railway escala a multiples instancias,
-// se requiere cache externa o invalidacion distribuida.
 const resumenCache = new Map<string, ResumenCacheEntry>();
 
 export function getResumenCacheKey(empresaId: number, fechaInicio: string, fechaFin: string): string {

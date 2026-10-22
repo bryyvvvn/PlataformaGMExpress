@@ -7,7 +7,7 @@ const nextConfig: NextConfig = {
   },
   allowedDevOrigins: [
     '192.168.1.25',
-    '192.168.1.83',
+    '192.168.1.86',
     'collide-imaginary-thermos.ngrok-free.dev' 
   ],
   images: {
@@ -18,7 +18,6 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  // 🔥 ESTO ES LO QUE ABRE LAS PUERTAS A LA APP MÓVIL
   async headers() {
     return [
       {

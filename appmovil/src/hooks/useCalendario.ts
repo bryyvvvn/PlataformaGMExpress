@@ -1,4 +1,3 @@
-// useCalendario.ts
 import { useState, useMemo, useEffect } from 'react';
 
 export interface DiaSemana {
@@ -13,11 +12,7 @@ export interface DiaSemana {
 const diasSemanaLaboral = ['L', 'M', 'M', 'J', 'V'];
 const diasSemanaCompleta = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 
-// 🔥 Lo hacemos dinámico según si tiene o no fin de semana
-// Obtener la fecha 'hoy' en la zona horaria de Chile para evitar cambios de día prematuros
 function hoyChile(): Date {
-  // Construimos una Date usando la representación local en America/Santiago
-  // Esto evita que dispositivos en otras zonas horarias vean un día diferente
   const nowChileStr = new Date().toLocaleString('en-US', { timeZone: 'America/Santiago' });
   return new Date(nowChileStr);
 }
@@ -25,15 +20,11 @@ function hoyChile(): Date {
 function getIndiceHoy(incluyeFines: boolean): number {
   const d = hoyChile().getDay();
   if (!incluyeFines) {
-    // Lunes(1)-Viernes(5) => índices 0-4
     if (d >= 1 && d <= 5) return d - 1;
-    // Sábado: mantener en el último índice laboral (Viernes) para que la semana
-    // no avance hasta el domingo. Domingo: considerar como inicio de semana (0)
-    if (d === 6) return 4; // Sábado -> índice Viernes
-    return 0; // Domingo -> índice 0 (lunes del siguiente ciclo visual)
+    if (d === 6) return 4;
+    return 0;
   } else {
-    // Cuando incluye fines de semana, mapeamos Domingo(0) a índice 6
-    if (d === 0) return 6; // Domingo es el índice 6 en una semana de 7 días
+    if (d === 0) return 6;
     return d - 1;
   }
 }
@@ -42,7 +33,6 @@ export const useCalendario = (incluyeFinesDeSemana: boolean = false) => {
   const [semanaOffset, setSemanaOffset] = useState(0);
   const [diaSeleccionadoIdx, setDiaSeleccionadoIdx] = useState<number>(() => getIndiceHoy(incluyeFinesDeSemana));
 
-  // 🔥 Si le quitan el convenio y estaba en domingo, lo devolvemos al viernes
   useEffect(() => {
     if (!incluyeFinesDeSemana && diaSeleccionadoIdx > 4) {
       setDiaSeleccionadoIdx(0);
@@ -59,12 +49,9 @@ export const useCalendario = (incluyeFinesDeSemana: boolean = false) => {
 
     const lunesReferencia = new Date(hoySoloFecha);
     const diaActual = lunesReferencia.getDay() === 0 ? 7 : lunesReferencia.getDay();
-    // Si no incluye fines y hoy es sábado, queremos que la semana referenciada
-    // siga siendo la semana actual (no avanzar hasta el domingo).
     const ajusteDia = (!incluyeFinesDeSemana && diaActual === 6) ? 5 : diaActual;
     lunesReferencia.setDate(lunesReferencia.getDate() - (ajusteDia - 1) + semanaOffset * 7);
 
-    // 🔥 GENERADOR DINÁMICO: 5 o 7 Días
     const letras = incluyeFinesDeSemana ? diasSemanaCompleta : diasSemanaLaboral;
 
     const array: DiaSemana[] = letras.map((letra, index) => {

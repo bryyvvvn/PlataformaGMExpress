@@ -82,10 +82,8 @@ export async function POST(request: Request) {
       }
     }
 
-    // 🔥 LA MAGIA ANTI-ZONAS HORARIAS: Usamos Date.UTC puro
     let fechaString = fecha;
     if (!fechaString) {
-      // Si no viene fecha, calculamos la actual forzada a Chile (UTC-4 aprox)
       const now = new Date();
       now.setUTCHours(now.getUTCHours() - 4);
       fechaString = now.toISOString().split('T')[0];
@@ -95,21 +93,18 @@ export async function POST(request: Request) {
 
     const [year, month, day] = fechaString.split('-').map(Number);
     
-    // Usamos el mediodía UTC para evitar que cualquier servidor salte de día
     const fechaBase = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
-    
-    // getUTCDay: 1 es Lunes, 0 es Domingo. Lo convertimos para que Domingo sea 7.
     const diaSemana = fechaBase.getUTCDay() || 7; 
     
     const inicioSemana = new Date(fechaBase);
     inicioSemana.setUTCDate(fechaBase.getUTCDate() - diaSemana + 1);
-    inicioSemana.setUTCHours(0, 0, 0, 0); // Lunes a las 00:00:00 UTC absoluto
+    inicioSemana.setUTCHours(0, 0, 0, 0);
 
     const convenio = await obtenerConvenioEmpresa(empresaIdSeguro, usuarioId);
     
     const finSemana = new Date(inicioSemana);
     finSemana.setUTCDate(inicioSemana.getUTCDate() + (convenio.trabajaFinDeSemana ? 6 : 4));
-    finSemana.setUTCHours(23, 59, 59, 999); // Viernes o Domingo a las 23:59:59 UTC absoluto
+    finSemana.setUTCHours(23, 59, 59, 999);
 
     const whereClause: Prisma.PedidoWhereInput = {
       estado: 'PENDIENTE',
@@ -123,13 +118,11 @@ export async function POST(request: Request) {
     if (usuarioId) whereClause.usuarioId = usuarioId;
     else whereClause.empresaId = empresaIdSeguro;
 
-    // 1. ACTUALIZAMOS LA BASE DE DATOS
     const actualizados = await db.pedido.updateMany({
       where: whereClause,
       data: { estado: 'CONFIRMADO' },
     });
 
-    // 2. SI SE CONFIRMARON PEDIDOS, MANDAMOS EL CORREO EN SEGUNDO PLANO
     if (actualizados.count > 0) {
       try {
         const empresaData = await db.empresa.findUnique({

@@ -6,8 +6,6 @@ export type MenuCacheEntry<TData> = {
 const CACHE_TTL_MS = 1000 * 60 * 60 * 14;
 const MAX_CACHE_DAYS = 7;
 
-// Cache en memoria por proceso. Si Railway escala a multiples instancias,
-// se requiere cache externa o invalidacion distribuida.
 const serverMenuCache = new Map<string, MenuCacheEntry<unknown>>();
 
 export function getMenuCacheKey(fecha: string): string {

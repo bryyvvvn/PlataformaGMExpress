@@ -24,7 +24,6 @@ export const Historial: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col animate-in fade-in duration-500">
       
-      {/* CABECERA */}
       <header className="bg-white border-b border-gray-100 sticky top-0 z-10 px-6 py-5 flex items-center gap-4">
         <button 
           onClick={() => navigate(-1)} 
@@ -35,7 +34,6 @@ export const Historial: React.FC = () => {
         <h1 className="text-xl font-black text-[#1d2d50]">Mi Historial</h1>
       </header>
 
-      {/* CONTENIDO PRINCIPAL */}
       <main className="flex-1 p-6 pb-20">
         {(cargando || clerkToken === undefined) ? (
           <LoadingView message="Cargando historial..." />
@@ -59,7 +57,6 @@ export const Historial: React.FC = () => {
               return (
                 <div key={ped.id} className="bg-white p-5 rounded-[2.5rem] border border-gray-100 shadow-sm">
                   
-                  {/* SECCION DE FECHA */}
                   <div className="flex items-center mb-4 pb-3 border-b border-gray-50">
                     <span className="text-xl font-bold text-gray-700 capitalize">
                       {new Intl.DateTimeFormat('es-CL', { 
@@ -68,7 +65,6 @@ export const Historial: React.FC = () => {
                     </span>
                   </div>
 
-                  {/* LISTA DE PLATOS CATEGORIZADOS */}
                   <div className="flex flex-col gap-4 mt-2">
                     {(() => {
                       const entradas = ped.detalles.filter((d: any) => d.plato?.categoria === 'ENTRADA');

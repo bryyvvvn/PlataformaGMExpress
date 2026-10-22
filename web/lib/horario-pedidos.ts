@@ -1,9 +1,9 @@
 import { nowChile } from '@/lib/chile-time'
 
 export type HorarioConfig = {
-  horaLimite: string        // "HH:MM" — hora límite efectiva calculada
-  horaDespacho: string | null // "HH:MM" — hora de despacho de la empresa
-  fuenteHora: 'empresa' | 'global' // indica de dónde vino el límite
+  horaLimite: string
+  horaDespacho: string | null
+  fuenteHora: 'empresa' | 'global'
 }
 
 export type EstadoHorario = {
@@ -11,8 +11,8 @@ export type EstadoHorario = {
   horaLimite: string
   fuenteHora: 'empresa' | 'global'
   mensaje: string
-  horaReapertura: string  // "mañana a las HH:MM" o "el lunes a las HH:MM"
-  fechaBloqueada: string | null  // ISO "YYYY-MM-DD" del día bloqueado, null si permitido
+  horaReapertura: string
+  fechaBloqueada: string | null
 }
 
 const DIAS_FIN_DE_SEMANA = ['Sábado', 'Domingo']
@@ -52,7 +52,7 @@ export function getEstadoHorario(
   horaDespacho: string | null,
   horaGlobal: string,
   trabajaFinDeSemana: boolean,
-  _contexto?: ContextoTiempo // opcional: para testing
+  _contexto?: ContextoTiempo
 ): EstadoHorario {
   const { horaLimite, fuenteHora } = getHoraLimiteEfectiva(horaDespacho, horaGlobal)
   const { hour, minute, dayName, iso } = _contexto ?? nowChile()

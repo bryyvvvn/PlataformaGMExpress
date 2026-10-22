@@ -5,11 +5,9 @@ import { usePerfil } from '../../hooks/usePerfil';
 import { invalidarTrabajadoresCachePorEmpresa, useTrabajadores } from '../../hooks/useTrabajadores';
 import { useClerkToken } from '../../hooks/useClerkToken';
 
-/* NUEVOS HOOKS */
 import { useVincularTrabajador } from '../../hooks/useVincularTrabajador';
 import { useBloqueoDias } from '../../hooks/useBloqueoDias';
 
-/* COMPONENTE TARJETA TRABAJADOR LISTADO */
 const normalizarDiasBloqueados = (dias: unknown) => {
   if (!Array.isArray(dias)) return [];
   return Array.from(
@@ -120,7 +118,6 @@ const TarjetaTrabajadorListado = ({
   );
 };
 
-/* COMPONENTE PRINCIPAL */
 const Trabajadores: React.FC = () => {
   const navigate = useNavigate();
   const { token: clerkToken } = useClerkToken();
@@ -128,7 +125,6 @@ const Trabajadores: React.FC = () => {
   const trabajaFinDeSemana = Boolean(convenio?.trabajaFinDeSemana);
   const { trabajadores, cargando, refrescarTrabajadores } = useTrabajadores(empresaId, undefined, clerkToken);
 
-  /* HOOK DE VINCULACION */
   const {
     buscando, vinculando, trabajadorEncontrado, errorBusqueda,
     buscarTrabajador, vincularTrabajador, limpiarBusqueda
@@ -137,7 +133,6 @@ const Trabajadores: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [rutBusqueda, setRutBusqueda] = useState('');
   
-  /* ESTADO PARA EL FILTRO DE BUSQUEDA */
   const [filtroBusqueda, setFiltroBusqueda] = useState('');
 
   const manejarCambioRut = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -156,7 +151,6 @@ const Trabajadores: React.FC = () => {
     limpiarBusqueda();
   };
 
-  /* LOGICA DE FILTRADO */
   const trabajadoresFiltrados = trabajadores.filter((t: any) => {
     const terminoBusqueda = filtroBusqueda.toLowerCase().trim();
     if (!terminoBusqueda) return true;
@@ -213,7 +207,6 @@ const Trabajadores: React.FC = () => {
         ) : (
           <div className="space-y-4 max-w-md mx-auto">
             
-            {/* BARRA DE BUSQUEDA */}
             {trabajadores.length > 0 && (
               <div className="relative mb-6">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -237,7 +230,6 @@ const Trabajadores: React.FC = () => {
               </div>
             )}
 
-            {/* LISTA DE TRABAJADORES FILTRADOS */}
             {trabajadoresFiltrados.length > 0 ? (
               trabajadoresFiltrados.map((t) => (
                 <TarjetaTrabajadorListado
@@ -263,7 +255,6 @@ const Trabajadores: React.FC = () => {
         )}
       </main>
 
-      {/* MODAL AGREGAR TRABAJADOR */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-[#1d2d50]/50 backdrop-blur-sm z-50 flex items-center justify-center p-6 animate-in fade-in duration-200">
           <div className="bg-white rounded-[2rem] p-6 w-full max-w-sm shadow-2xl relative">

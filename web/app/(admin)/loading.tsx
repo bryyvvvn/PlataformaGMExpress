@@ -46,7 +46,6 @@ export default function DashboardLoading() {
         </div>
       </div>
 
-      {/* Overlay */}
       <div className="absolute inset-0 flex items-center justify-center bg-slate-50/60 backdrop-blur-sm">
         <div className="flex flex-col items-center gap-4">
           <img src="/logo-gm-verde-azul.png" alt="GM Express" className="w-48 drop-shadow-lg" />

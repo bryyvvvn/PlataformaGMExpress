@@ -38,7 +38,7 @@ export async function POST(request: Request) {
   }
 
   const { fecha } = result.data;
-  const empresaIdSeguro = rep.empresaId; // ignorar body.empresaId
+  const empresaIdSeguro = rep.empresaId;
 
   try {
     let fechaBase = new Date();

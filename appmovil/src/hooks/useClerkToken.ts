@@ -20,7 +20,6 @@ export function useClerkToken() {
 
     refrescarToken();
 
-    // Refrescar el token cada 50 segundos para evitar que expire (los tokens de Clerk duran ~60 segundos)
     const interval = setInterval(refrescarToken, 50000);
 
     return () => {

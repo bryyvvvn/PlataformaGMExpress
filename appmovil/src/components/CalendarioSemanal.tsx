@@ -15,13 +15,11 @@ interface CalendarioSemanalProps {
   cargandoHistorial?: boolean;
 }
 
-/* FUNCIONES AUXILIARES */
 const getDiaSemanaBloqueo = (fechaISO: string) => {
   const dia = new Date(`${fechaISO}T12:00:00`).getDay();
   return dia === 0 ? 7 : dia;
 };
 
-/* COMPONENTE PRINCIPAL */
 export const CalendarioSemanal: React.FC<CalendarioSemanalProps> = ({
   getSemanaTexto,
   setSemanaOffset,
@@ -37,7 +35,6 @@ export const CalendarioSemanal: React.FC<CalendarioSemanalProps> = ({
   return (
     <div className="mt-10 px-6 shrink-0">
       
-      {/* CONTROLES DE NAVEGACION */}
       <div className="flex items-center justify-between mb-4">
         <button onClick={() => setSemanaOffset(-1)} className="p-2 bg-white rounded-xl shadow-sm border border-gray-50">
           <ChevronLeft size={20} />
@@ -56,14 +53,12 @@ export const CalendarioSemanal: React.FC<CalendarioSemanalProps> = ({
         }
       `}</style>
 
-      {/* LISTA DE DIAS DE LA SEMANA */}
       <div 
         className="flex items-center overflow-x-auto snap-x snap-mandatory hide-scrollbar pb-4 pt-2 -mx-2 px-2"
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', gap: 'calc(15% / 4)' }} 
       >
         {diasSemanaArray.map((dia, index) => {
           
-          {/* LOGICA DE BLOQUEO Y SELECCION */}
           const tienePedido = fechasBloqueadas.has(dia.iso);
           const numDiaMenu = getDiaSemanaBloqueo(dia.iso);
           const esBloqueadoPerm = diasBloqueadosAdmin.includes(numDiaMenu);
@@ -73,13 +68,11 @@ export const CalendarioSemanal: React.FC<CalendarioSemanalProps> = ({
           
           const noSeleccionable = (visualmenteBloqueado && !tienePedido) || esBloqueadoPorHorario;
 
-          {/* LOGICA DE ESTADOS DE COMIDA */}
           const estadoComida = estadoFechas[dia.iso] || { almuerzo: false, cena: false };
           const soloAlmuerzo = estadoComida.almuerzo && !estadoComida.cena;
           const soloCena = estadoComida.cena && !estadoComida.almuerzo;
           const ambasComidas = estadoComida.almuerzo && estadoComida.cena;
 
-          {/* VARIABLES DE DISEÑO DINAMICO */}
           let bgClass = 'bg-white border-gray-200';
           let textClass = 'text-[#1d2d50]';
           let subTextClass = 'text-gray-400';
@@ -106,7 +99,6 @@ export const CalendarioSemanal: React.FC<CalendarioSemanalProps> = ({
             ? 'scale-110 shadow-md ring-2 ring-[#70a344] ring-offset-2' 
             : 'border shadow-sm';
 
-          {/* RENDERIZADO DEL BOTON DEL DIA */}
           return (
             <button
               key={index}

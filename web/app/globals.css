@@ -6,14 +6,12 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* --- COLORES CORPORATIVOS GM EXPRESS --- */
   --primary: #75aa46;
   --primary-foreground: #ffffff;
 
   --secondary: #1b2c56;
   --secondary-foreground: #ffffff;
 
-  /* --- COLORES DE INTERFAZ (UI) --- */
   --background: #ffffff;
   --foreground: #000000;
   
@@ -31,7 +29,6 @@
 
   --radius: 0.75rem;
 
-  /* Colores de Sidebar (Adaptados a GM Express) */
   --sidebar: #1b2c56;
   --sidebar-foreground: #ffffff;
   --sidebar-primary: #75aa46;

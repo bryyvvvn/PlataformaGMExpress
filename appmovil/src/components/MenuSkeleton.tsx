@@ -1,4 +1,3 @@
-// src/components/MenuSkeleton.tsx
 import React from 'react';
 
 export const MenuSkeleton: React.FC = () => {

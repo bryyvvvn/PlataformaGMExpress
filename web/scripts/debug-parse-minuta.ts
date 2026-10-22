@@ -1,4 +1,3 @@
-// Import dinámico de `xlsx` para ser compatible con entornos ESM/CJS usados por ts-node
 let xlsx: any;
 
 function normalizarFecha(d: Date): Date {
@@ -51,7 +50,6 @@ async function main() {
     process.exit(1);
   }
   const path = args[0];
-  // Cargar xlsx dinámicamente y soportar tanto export default como named
   if (!xlsx) {
     const mod = await import('xlsx');
     xlsx = (mod && (mod.default ?? mod));
@@ -62,7 +60,6 @@ async function main() {
   const worksheet = workbook.Sheets[sheetName];
   const data: any[][] = xlsx.utils.sheet_to_json(worksheet, { header: 1 });
 
-  // detect fecha row
   let filaFechas: any[] | undefined; let filaIndexFechas = -1;
   const maxRowToScan = Math.min(12, data.length);
   for (let r=0;r<maxRowToScan;r++){
@@ -97,7 +94,6 @@ async function main() {
   }
   console.log('fechasPorColumna filled=', Object.fromEntries(Object.entries(fechasPorColumna).map(([k,v])=>[k, v? (v as Date).toISOString().split('T')[0]:null])));
 
-  // find startRow
   let startRow = Math.max(4, filaIndexFechas + 1);
   for (let r = startRow; r < Math.min(data.length, startRow + 6); r++) {
     const maybeLabel = data[r]?.[1];
@@ -105,12 +101,10 @@ async function main() {
   }
   console.log('startRow=', startRow);
 
-  // print sampleLabels
   const sampleLabels: any[] = [];
   for (let r = startRow; r < Math.min(data.length, startRow + 10); r++) sampleLabels.push({ row: r, label: data[r]?.[1] ?? null });
   console.log('sampleLabels=', sampleLabels);
 
-  // For each col, list first 12 non-empty entries with categoria
   for (let col=2; col<=6; col++){
     console.log('\n--- Column', col, 'date=', fechasPorColumna[col] ? (fechasPorColumna[col] as Date).toISOString().split('T')[0] : 'null');
     let printed = 0;

@@ -13,7 +13,6 @@ export async function GET(request: Request) {
 
   let empresaId: number;
 
-  // 🔥 PUERTA TRASERA PARA EL CRON
   if (secret === process.env.CRON_SECRET) {
     const empIdStr = searchParams.get("empresaId");
     if (!empIdStr)
@@ -52,7 +51,6 @@ export async function GET(request: Request) {
     });
     const permiteCena = Boolean(empresa?.ConvenioEmpresa?.permiteCena);
 
-    // 🔥 PARALELO: ambas queries al mismo tiempo
     const [totalTrabajadores, pedidosListosHoy] = await Promise.all([
       db.usuario.count({
         where: { empresaId, rol: "TRABAJADOR" },

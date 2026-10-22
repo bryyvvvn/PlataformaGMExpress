@@ -16,7 +16,7 @@ export type FilaPacking = {
 }
 
 export type ConsolidadoDia = {
-  fecha: string // DD/MM/YYYY hora Santiago
+  fecha: string
   zonaFria: ItemConsolidado[]
   zonaCaliente: ItemConsolidado[]
   packing: FilaPacking[]

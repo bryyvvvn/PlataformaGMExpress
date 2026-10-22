@@ -47,10 +47,7 @@ export function UploadMinuta() {
       }
 
       setMensaje({ tipo: "exito", texto: "¡Minuta semanal cargada exitosamente!" });
-      setFile(null); // Limpiar el input
-      
-      // Aquí opcionalmente podrías agregar un router.refresh() si quieres que la página 
-      // se recargue para mostrar datos nuevos, pero de momento con el éxito basta.
+      setFile(null);
       
     } catch (error) {
       setMensaje({ tipo: "error", texto: getErrorMessage(error) });

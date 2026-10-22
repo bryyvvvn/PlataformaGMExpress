@@ -10,7 +10,6 @@ export const useCountdown = (deadlineHour: number) => {
       const deadline = new Date();
       deadline.setHours(deadlineHour, 0, 0, 0);
 
-      // Pateamos el límite al día siguiente si ya pasó la hora
       if (now.getHours() >= deadlineHour) {
         deadline.setDate(deadline.getDate() + 1);
       }

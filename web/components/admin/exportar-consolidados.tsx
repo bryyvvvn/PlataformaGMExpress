@@ -11,8 +11,8 @@ type DocConAutoTable = jsPDF & {
   lastAutoTable: { finalY: number }
 }
 
-const COLOR_SECUNDARIO: [number, number, number] = [27, 44, 86] // #1b2c56
-const COLOR_PRIMARIO: [number, number, number] = [117, 170, 70] // #75aa46
+const COLOR_SECUNDARIO: [number, number, number] = [27, 44, 86]
+const COLOR_PRIMARIO: [number, number, number] = [117, 170, 70]
 
 function formatearEmpaquetado(tipo: string | null | undefined, fallback = "Sin definir"): string {
   switch (tipo) {

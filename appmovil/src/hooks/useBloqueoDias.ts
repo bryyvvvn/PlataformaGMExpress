@@ -1,4 +1,3 @@
-// src/hooks/useBloqueoDias.ts
 import { useState, useRef } from 'react';
 import { API_BASE_URL } from '../constants/api';
 import { actualizarDiasBloqueadosTrabajadorEnCache } from './useTrabajadores';

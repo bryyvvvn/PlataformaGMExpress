@@ -7,7 +7,6 @@ export const useHorario = (usuarioId: string | undefined, token: string | null |
   const [cargandoHorario, setCargandoHorario] = useState(true);
 
   useEffect(() => {
-    // Esperamos a tener usuarioId Y que el token haya resuelto (undefined = todavía cargando)
     if (!usuarioId || token === undefined) return;
 
     let cancelado = false;

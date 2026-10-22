@@ -4,15 +4,6 @@ type VerificacionResult =
   | { userId: string }
   | { error: string; status: 401 | 403 }
 
-/**
- * Verifica que:
- * 1. El header Authorization contiene un Bearer token válido de Clerk
- * 2. El sub del token (userId de Clerk) coincide con el usuarioId
- *    recibido como parámetro
- *
- * Esto previene BOLA: un trabajador no puede operar con el
- * usuarioId de otro trabajador.
- */
 export async function verificarTokenTrabajador(
   request: Request,
   usuarioId: string

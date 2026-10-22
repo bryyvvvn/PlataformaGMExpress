@@ -40,10 +40,7 @@ export async function POST(req: Request) {
   const eventType = evt.type;
 
   if (eventType === 'user.created' || eventType === 'user.updated') {
-    // 🔥 Separamos los datos exactos que vienen de Clerk
     const { id, first_name, last_name, username } = evt.data;
-    
-    // Si el usuario no tiene 'username' en Clerk, usamos su primer nombre como respaldo
     const nick = username || first_name || 'Nuevo Usuario';
 
     try {
@@ -52,7 +49,7 @@ export async function POST(req: Request) {
         update: { 
           nombre: first_name || null,
           apellido: last_name || null,
-          nombreUsuario: nick // Actualizamos el nick si cambia
+          nombreUsuario: nick
         },
         create: {
           id: id,

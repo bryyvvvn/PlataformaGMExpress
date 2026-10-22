@@ -1,4 +1,3 @@
-// HomePageTrabajador.tsx
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Clock, Menu, ChevronDown, ChevronUp, X, CalendarOff, Lock, Check } from 'lucide-react';
 import { THEME, DEADLINE_HOUR } from '../../constants/theme';
@@ -9,7 +8,6 @@ import { BottomSheet } from '../../components/BottomSheet';
 import LoadingView from '../../components/LoadingView';
 import { Sidebar } from '../../components/Sidebar';
 
-// Hooks
 import { useCountdown } from '../../hooks/useCountdown';
 import { precargarMenus, useMenuAPI } from '../../hooks/useMenuAPI';
 import { precargarPedidos, usePedidos } from '../../hooks/usePedidos';
@@ -19,7 +17,6 @@ import { usePerfilTrabajador } from '../../hooks/usePerfilTrabajador';
 import { useOtrosPlatos } from '../../hooks/useOtrosPlatos';
 import { useConfigurarNotificaciones } from '../../hooks/useConfigurarNotificaciones';
 import { useClerkToken } from '../../hooks/useClerkToken';
-// Nuevos Componentes
 import { MenuSkeleton } from '../../components/MenuSkeleton';
 import { CalendarioSemanal } from '../../components/CalendarioSemanal';
 import { ResumenPedido } from '../../components/ResumenPedido';
@@ -298,7 +295,6 @@ const HomePageTrabajador: React.FC<HomePageTrabajadorProps> = ({ empresaNombre }
     }
   }, [preloadingSemana]);
 
-  // 🔥 EXTRAEMOS estadoFechas DEL HISTORIAL
   const { historial, estadoFechas, cargando: cargandoHistorial, cargarHistorial } = useHistorial(user?.id, clerkToken);
 
   const estadoFechasVisibles = useMemo(() => {
@@ -323,7 +319,6 @@ const HomePageTrabajador: React.FC<HomePageTrabajadorProps> = ({ empresaNombre }
 
   const fechasBloqueadas = useMemo(() => new Set((Array.isArray(historial) ? historial : []).map((p: any) => String(p?.fecha || '').split('T')[0])), [historial]);
 
-// ELIMINA líneas 166-176 completas y reemplaza por esto:
   const fechaBloqueadaPorHorario = null;
   const fechasVisualmenteBloqueadas = useMemo(() => new Set<string>(), []);
 

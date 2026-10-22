@@ -1,4 +1,3 @@
-// src/components/ResumenPedido.tsx
 import React from 'react';
 import { CheckCircle2, Trash2 } from 'lucide-react';
 
@@ -43,7 +42,6 @@ export const ResumenPedido: React.FC<ResumenPedidoProps> = ({
       
       <div className="space-y-4 mb-6 relative z-10 grow">
         
-        {/* Lógica de agrupación de platos por categoría */}
         {(() => {
           const resumenAgrupado = pedidoExistente.resumen.reduce((acc: any, item: any) => {
             const cat = item.categoria === 'JUGO' ? 'BEBESTIBLE' : item.categoria;
