@@ -477,7 +477,7 @@ export async function GET(request: NextRequest) {
           errores,
         };
       },
-      { maxWait: 5000, timeout: 30000 }
+      { maxWait: 5000, timeout: 10 * 60 * 1000 }
     );
 
     if (!resultado.lockAdquirido) {
