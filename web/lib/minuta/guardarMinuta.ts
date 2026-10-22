@@ -80,6 +80,6 @@ export async function guardarMinuta(minuta: MinutaExcelParseada) {
         }
       }
     },
-    { maxWait: 15000, timeout: 60000 }
+    { maxWait: 15000, timeout: 180000 }
   );
 }
