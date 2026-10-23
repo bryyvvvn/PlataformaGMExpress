@@ -1,4 +1,3 @@
-// HomePageTrabajador.tsx
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Clock, Menu, ChevronDown, ChevronUp, X, CalendarOff, Lock, Check } from 'lucide-react';
 import { THEME, DEADLINE_HOUR } from '../../constants/theme';
@@ -9,7 +8,6 @@ import { BottomSheet } from '../../components/BottomSheet';
 import LoadingView from '../../components/LoadingView';
 import { Sidebar } from '../../components/Sidebar';
 
-// Hooks
 import { useCountdown } from '../../hooks/useCountdown';
 import { precargarMenus, useMenuAPI } from '../../hooks/useMenuAPI';
 import { precargarPedidos, usePedidos } from '../../hooks/usePedidos';
@@ -19,7 +17,6 @@ import { usePerfilTrabajador } from '../../hooks/usePerfilTrabajador';
 import { useOtrosPlatos } from '../../hooks/useOtrosPlatos';
 import { useConfigurarNotificaciones } from '../../hooks/useConfigurarNotificaciones';
 import { useClerkToken } from '../../hooks/useClerkToken';
-// Nuevos Componentes
 import { MenuSkeleton } from '../../components/MenuSkeleton';
 import { CalendarioSemanal } from '../../components/CalendarioSemanal';
 import { ResumenPedido } from '../../components/ResumenPedido';
@@ -61,6 +58,16 @@ const getPlatoEntradaMenuDia = (menuDia: any): Plato | null => {
   const base = entradas[0] ?? menuDia?.entrada ?? null;
   if (!base) return null;
   return { ...base, nombre: getEntradaMenuDiaDisplay(menuDia) || base.nombre };
+};
+
+const getPostreCantidadMenuDia = (menuDia: any): number => {
+  const cantidad = Number(menuDia?.postreCantidad ?? 1);
+  return menuDia?.isDoblePostre === true || cantidad === 2 ? 2 : 1;
+};
+
+const getDiaSemanaBloqueo = (fechaISO: string) => {
+  const dia = new Date(`${fechaISO}T12:00:00`).getDay();
+  return dia === 0 ? 7 : dia;
 };
 
 const obtenerIncluidosPorConvenio = (menuDia: any, convenio: any) => {
@@ -135,6 +142,7 @@ const HomePageTrabajador: React.FC<HomePageTrabajadorProps> = ({ empresaNombre }
   const [modoEdicion, setModoEdicion] = useState(false);
   const [preloadingSemana, setPreloadingSemana] = useState(false);
   const precargasSemanaRef = useRef(new Set<string>());
+  const menuNullRefreshRef = useRef(new Set<string>());
   const precargasActivasRef = useRef(0);
   const cargaDiaActualLogRef = useRef<string | null>(null);
   const componenteMontadoRef = useRef(true);
@@ -153,9 +161,50 @@ const HomePageTrabajador: React.FC<HomePageTrabajadorProps> = ({ empresaNombre }
     [diasSemanaArray]
   );
   const fechasSemanaVisiblesKey = useMemo(() => fechasSemanaVisibles.join('|'), [fechasSemanaVisibles]);
-  const { menuHoy, cargando: cargandoMenu } = useMenuAPI(fechaSeleccionadaNormalizada, user?.id, clerkToken, esCenaSeleccionada);
+  const { menuHoy, cargando: cargandoMenu, refrescarMenu } = useMenuAPI(fechaSeleccionadaNormalizada, user?.id, clerkToken, esCenaSeleccionada);
   const { pedidoExistente, cargandoVerificacion, enviarPedido, enviarItems, enviando, refrescarVerificacion, eliminarPedido, eliminando } = usePedidos(user?.id, fechaSeleccionadaNormalizada, clerkToken, esCenaSeleccionada);
   const loadingDiaActual = cargandoMenu || cargandoVerificacion;
+  const menuActualRefreshKey = `${user?.id ?? 'sin-usuario'}:${fechaSeleccionadaNormalizada}:${esCenaSeleccionada ? 'cena' : 'almuerzo'}`;
+
+  useEffect(() => {
+    if (!fechaSeleccionadaNormalizada || cargandoMenu) return;
+
+    if (menuHoy?.menuDia) {
+      menuNullRefreshRef.current.delete(menuActualRefreshKey);
+      return;
+    }
+
+    if (menuNullRefreshRef.current.has(menuActualRefreshKey)) return;
+
+    menuNullRefreshRef.current.add(menuActualRefreshKey);
+    const timer = window.setTimeout(() => {
+      void refrescarMenu();
+    }, 800);
+
+    return () => window.clearTimeout(timer);
+  }, [cargandoMenu, fechaSeleccionadaNormalizada, menuActualRefreshKey, menuHoy?.menuDia, refrescarMenu]);
+
+  useEffect(() => {
+    const refrescarSiSigueVacio = () => {
+      if (!cargandoMenu && !menuHoy?.menuDia) {
+        void refrescarMenu();
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refrescarSiSigueVacio();
+      }
+    };
+
+    window.addEventListener('focus', refrescarSiSigueVacio);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('focus', refrescarSiSigueVacio);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [cargandoMenu, menuHoy?.menuDia, refrescarMenu]);
 
   useEffect(() => {
     if (!user?.id || !clerkToken || !fechasSemanaVisiblesKey) return;
@@ -246,7 +295,6 @@ const HomePageTrabajador: React.FC<HomePageTrabajadorProps> = ({ empresaNombre }
     }
   }, [preloadingSemana]);
 
-  // 🔥 EXTRAEMOS estadoFechas DEL HISTORIAL
   const { historial, estadoFechas, cargando: cargandoHistorial, cargarHistorial } = useHistorial(user?.id, clerkToken);
 
   const estadoFechasVisibles = useMemo(() => {
@@ -271,24 +319,23 @@ const HomePageTrabajador: React.FC<HomePageTrabajadorProps> = ({ empresaNombre }
 
   const fechasBloqueadas = useMemo(() => new Set((Array.isArray(historial) ? historial : []).map((p: any) => String(p?.fecha || '').split('T')[0])), [historial]);
 
-// ELIMINA líneas 166-176 completas y reemplaza por esto:
   const fechaBloqueadaPorHorario = null;
   const fechasVisualmenteBloqueadas = useMemo(() => new Set<string>(), []);
 
   const isSelectedDateToday = diasSemanaArray?.[diaSeleccionadoIdx]?.esHoy ?? false;
   const isDeadlinePassed = false;
-  const numDiaSeleccionado = new Date((fechaSeleccionadaISO || '') + 'T12:00:00').getDay();
+  const numDiaSeleccionado = getDiaSemanaBloqueo(fechaSeleccionadaISO || '');
   const esBloqueadoPermanente = (diasBloqueadosAdmin || []).includes(numDiaSeleccionado);
   const fechaBloqueada = (diasSemanaArray?.[diaSeleccionadoIdx]?.bloqueado ?? false) || esBloqueadoPermanente;
   const fechaSeleccionadaTienePedido = fechasBloqueadas.has(fechaSeleccionadaISO || '');
   const bloquearUI = (isSelectedDateToday && isDeadlinePassed) || (fechaBloqueada && !fechaSeleccionadaTienePedido) || (fechaBloqueadaPorHorario === fechaSeleccionadaISO && !fechaSeleccionadaTienePedido);
 
-  const esFinDeSemana = numDiaSeleccionado === 0 || numDiaSeleccionado === 6;
+  const esFinDeSemana = numDiaSeleccionado === 6 || numDiaSeleccionado === 7;
 
   const todosBloqueados = useMemo(() => {
     return (diasSemanaArray || []).every(dia => {
       if (!dia?.iso) return false;
-      const numDia = new Date(dia.iso + 'T12:00:00').getDay();
+      const numDia = getDiaSemanaBloqueo(dia.iso);
       const bloqueado = dia.bloqueado || (diasBloqueadosAdmin || []).includes(numDia);
       return bloqueado && !fechasBloqueadas.has(dia.iso);
     });
@@ -300,7 +347,7 @@ const HomePageTrabajador: React.FC<HomePageTrabajadorProps> = ({ empresaNombre }
     
     const primerDiaSinPedido = diasSemanaArray.findIndex(dia => {
       if (!dia?.iso) return false;
-      const numDia = new Date(dia.iso + 'T12:00:00').getDay();
+      const numDia = getDiaSemanaBloqueo(dia.iso);
       const bloqueado = dia.bloqueado || (diasBloqueadosAdmin || []).includes(numDia);
       return !bloqueado && !fechasBloqueadas.has(dia.iso);
     });
@@ -466,18 +513,20 @@ const HomePageTrabajador: React.FC<HomePageTrabajadorProps> = ({ empresaNombre }
 
     if (activeTab === 'MENU_DIA' && !menuDiaSeleccionado) { alert('No hay menú disponible para este día.'); return; }
     if (activeTab === 'PERSONALIZADO' || activeTab === 'MENU_DIA') {
+      const postreCantidadMenuDia = menuHoy?.menuDia?.postre ? getPostreCantidadMenuDia(menuHoy.menuDia) : 1;
       const pedidoAEnviar = activeTab === 'MENU_DIA' && menuHoy?.menuDia
         ? {
             ...pedido,
             entradasIds: getEntradasMenuDia(menuHoy.menuDia).map((entrada) => entrada.id),
             fondoId: menuHoy.menuDia.fondo?.id ?? null,
             postreId: menuHoy.menuDia.postre?.id ?? null,
+            postreCantidad: postreCantidadMenuDia,
             guarnicionId: menuHoy.menuDia.guarnicion?.id ?? null,
             jugoId: menuHoy.menuDia.bebida?.id ?? null,
-            isDoblePostre: false,
+            isDoblePostre: postreCantidadMenuDia === 2,
             observacion,
           }
-        : { ...pedido, observacion };
+        : { ...pedido, postreCantidad: pedido.isDoblePostre ? 2 : 1, observacion };
       const exito = await enviarPedido(pedidoAEnviar as any);
       if (exito) { setSeccionAbierta(null); setModoEdicion(false); setObservacion(''); cargarHistorial(); }
       return;
@@ -719,7 +768,7 @@ const HomePageTrabajador: React.FC<HomePageTrabajadorProps> = ({ empresaNombre }
                           {[
                             { label: 'Entrada', plato: entradaMenuDiaPlato, categoriaKey: 'entradaId' as const },
                             { label: 'Fondo', plato: menuHoy.menuDia.fondo, categoriaKey: 'fondoId' as const },
-                            { label: 'Postre', plato: menuHoy.menuDia.postre, categoriaKey: 'postreId' as const },
+                            { label: getPostreCantidadMenuDia(menuHoy.menuDia) === 2 ? 'Postre x2' : 'Postre', plato: menuHoy.menuDia.postre, categoriaKey: 'postreId' as const },
                           ].filter(({ plato }) => Boolean(plato)).map(({ label, plato, categoriaKey }) => (
                             <div key={label} className="space-y-3">
                               <div className="border-b border-gray-200 pb-3 mb-4"><span className="text-xl font-black text-[#1d2d50] uppercase tracking-widest">{label}</span></div>

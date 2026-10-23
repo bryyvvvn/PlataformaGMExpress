@@ -26,7 +26,7 @@ export type EmpresaDia = {
 }
 
 export type DiaData = {
-  dia: "Lunes" | "Martes" | "Miércoles" | "Jueves" | "Viernes"
+  dia: "Lunes" | "Martes" | "Miércoles" | "Jueves" | "Viernes" | "Sábado" | "Domingo"
   fecha: string
   fechaISO: string
   empresas: EmpresaDia[]

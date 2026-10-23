@@ -1,4 +1,3 @@
-// src/hooks/useVerificadorRut.ts
 import { useAuth } from '@clerk/clerk-react';
 import { useEffect, useState } from 'react';
 import { API_BASE_URL } from '../constants/api';

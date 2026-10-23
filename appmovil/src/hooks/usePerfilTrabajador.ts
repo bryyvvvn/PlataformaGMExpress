@@ -1,10 +1,8 @@
-// src/hooks/usePerfilTrabajador.ts
 import { useState, useEffect } from 'react';
 import { API_BASE_URL } from '../constants/api';
 
 export const usePerfilTrabajador = (clerkId: string | undefined) => {
   const [diasBloqueadosAdmin, setDiasBloqueadosAdmin] = useState<number[]>([]);
-  // 🔥 Nuevo estado para guardar el convenio de la empresa
   const [convenio, setConvenio] = useState<any | null>(null);
   const [cargandoPerfil, setCargandoPerfil] = useState(true);
 
@@ -19,12 +17,10 @@ export const usePerfilTrabajador = (clerkId: string | undefined) => {
         if (res.ok) {
           const data = await res.json();
           
-          // 1. Lógica original: Guardamos los días bloqueados
           if (data && data.diasBloqueados) {
             setDiasBloqueadosAdmin(data.diasBloqueados);
           }
           
-          // 2. NUEVA LÓGICA: Guardamos el convenio si es que existe
           if (data && data.empresa && data.empresa.ConvenioEmpresa) {
              setConvenio(data.empresa.ConvenioEmpresa);
           }
@@ -38,6 +34,5 @@ export const usePerfilTrabajador = (clerkId: string | undefined) => {
     fetchPerfil();
   }, [clerkId]);
 
-  // Retornamos el convenio junto a lo que ya retornabas antes
   return { diasBloqueadosAdmin, convenio, cargandoPerfil };
 };

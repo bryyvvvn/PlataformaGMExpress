@@ -8,7 +8,6 @@ export default function AccesoDenegado() {
         Esta plataforma es de uso exclusivo para Administradores. Por favor, utiliza la aplicación móvil de GM Express para gestionar tus pedidos.
       </p>
       
-      {/* 🔥 Simplemente dejamos el botón sin la propiedad */}
       <UserButton /> 
       
     </div>

@@ -6,6 +6,7 @@ export interface PedidoPayload {
   entradasIds?: number[];
   fondoId?: number | null;
   postreId?: number | null;
+  postreCantidad?: number | null;
   jugoId?: number | null;
   guarnicionId?: number | null;
   esFinDeSemana?: boolean;
@@ -282,6 +283,7 @@ export const usePedidos = (
         entradasIds: pedido.entradasIds || [],
         fondoId: pedido.fondoId ?? null,
         postreId: pedido.postreId ?? null,
+        postreCantidad: pedido.postreCantidad ?? undefined,
         jugoId: pedido.jugoId ?? null,
         guarnicionId: pedido.guarnicionId === -1 ? null : pedido.guarnicionId ?? null,
         fecha: fechaNormalizada || undefined,
@@ -309,7 +311,7 @@ export const usePedidos = (
       }
 
       let errorData: any = null;
-      try { errorData = await respuesta.json(); } catch (e) { /* ignore */ }
+      try { errorData = await respuesta.json(); } catch { }
 
       if (respuesta.status === 403) { alert('El horario de pedidos ha cerrado.'); return false; }
       if (respuesta.status === 409) { setYaPedioHoy(true); return false; }
@@ -376,7 +378,7 @@ export const usePedidos = (
       }
 
       let errorData: any = null;
-      try { errorData = await respuesta.json(); } catch (e) { /* ignore */ }
+      try { errorData = await respuesta.json(); } catch { }
 
       if (respuesta.status === 403) { alert('El horario de pedidos ha cerrado.'); return false; }
       if (respuesta.status === 409) { setYaPedioHoy(true); return false; }

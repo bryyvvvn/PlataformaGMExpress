@@ -5,10 +5,7 @@ import { getMessaging, Message } from 'firebase-admin/messaging';
 
 export const dynamic = 'force-dynamic';
 
-// 🔥 CAMBIADO A GET PARA QUE RAILWAY NO LLORE CON LOS COMANDOS
 export async function GET(request: NextRequest) {
-  
-  // 1. SEGURIDAD: Solo revisamos el parámetro de la URL
   const querySecret = request.nextUrl.searchParams.get('secret');
 
   if (querySecret !== process.env.CRON_SECRET) {
@@ -16,7 +13,6 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // 2. Definir el INICIO y FIN del día de hoy en hora de Chile
     const hoy = new Date();
     const opcionesFecha = { timeZone: 'America/Santiago' };
     const fechaChileString = hoy.toLocaleString('en-US', opcionesFecha);
@@ -28,7 +24,6 @@ export async function GET(request: NextRequest) {
     const finDia = new Date(fechaChile);
     finDia.setHours(23, 59, 59, 999);
 
-    // 3. Buscar trabajadores que NO tengan pedido hoy
     const trabajadoresSinPedido = await db.usuario.findMany({
       where: {
         fcmToken: { not: null },
@@ -47,7 +42,6 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    // 4. Filtro estricto para limpiar basura o tokens malformados de pruebas previas
     const tokens = trabajadoresSinPedido
       .map(t => t.fcmToken)
       .filter((token): token is string => 
@@ -67,7 +61,6 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // 5. Transformar los tokens en un arreglo de mensajes individuales
     const mensajes: Message[] = tokens.map(token => ({
       token: token,
       notification: {
@@ -82,7 +75,6 @@ export async function GET(request: NextRequest) {
       }
     }));
 
-    // 6. Envío individualizado por lote
     const respuestaFCM = await getMessaging().sendEach(mensajes);
 
     let exitosos = 0;

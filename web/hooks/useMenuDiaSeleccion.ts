@@ -70,7 +70,8 @@ export function useMenuDiaSeleccion(actualizarDraft: ActualizarDraft) {
         const primeraSopa = draftEntradaIds
           .map((id) => entradas.find((entrada) => entrada.detalleId === id))
           .find((entrada): entrada is PlatoMenuDia => entrada !== undefined && esEntradaSopa(entrada));
-        const entradasIds = primeraSopa ? [primeraSopa.detalleId] : [];
+        const sopaDisponible = primeraSopa ?? entradas.find(esEntradaSopa);
+        const entradasIds = sopaDisponible ? [sopaDisponible.detalleId] : [];
 
         actualizarDraft(fecha, {
           modalidadHipocalorica: modalidad,

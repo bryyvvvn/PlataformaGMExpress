@@ -18,7 +18,6 @@ async function main() {
   try {
     const EMPRESA_ID = 3;
 
-    // --- LUNES ---
     const pedidosLunes = [
       { cantidad: 1, nombre: 'DANIEL ESPINOSA', fondo: 'FRICASE DE VACUNO', guarnicion: 'DOBLE PROTEINA', entrada: null, bebida: 'AGUA CON SABOR' },
       { cantidad: 1, nombre: 'DON JHON NUÑEZ', fondo: 'HIPOCALORICO DEL DIA', guarnicion: 'NO APLICA', entrada: 'CAMPESINA DE VERDURAS', bebida: 'AGUA CON SABOR' },
@@ -71,7 +70,6 @@ async function main() {
       { cantidad: 5, nombre: 'ALMUERZOS JUAN LEIVA', fondo: 'FRICASE DE VACUNO', guarnicion: 'ARROZ GRANEADO', entrada: null, bebida: 'COCA COLA' }
     ];
 
-    // --- MARTES ---
     const pedidosMartes = [
       { cantidad: 1, nombre: 'DANIEL ESPINOSA', fondo: 'CROQUETAS DE ATUN ATOMATADAS', guarnicion: 'DOBLE PROTEINA', entrada: null, bebida: 'AGUA CON SABOR' },
       { cantidad: 1, nombre: 'DON JHON NUÑEZ', fondo: 'HIPOCALORICO DEL DIA', guarnicion: 'NO APLICA', entrada: 'POLLO MEDITERRANEO', bebida: 'AGUA CON SABOR' },
@@ -123,7 +121,6 @@ async function main() {
       { cantidad: 5, nombre: 'APOYO JUAN LEIVA', fondo: 'CROQUETAS DE ATUN ATOMATADAS', guarnicion: 'QUIFAROS AL OREGANO', entrada: null, bebida: 'COCA COLA' }
     ];
 
-    // --- MIÉRCOLES ---
     const pedidosMiercoles = [
       { cantidad: 1, nombre: 'DANIEL ESPINOSA', fondo: 'CERDO BRASEADO AL ROMERO', guarnicion: 'DOBLE PROTEINA', entrada: null, bebida: 'AGUA CON SABOR' },
       { cantidad: 1, nombre: 'DON JHON NUÑEZ', fondo: 'CERDO BRASEADO AL ROMERO', guarnicion: 'ENSALADA GRANDE', entrada: 'GRANDE SURTIDA', bebida: 'COCA COLA' },
@@ -175,7 +172,6 @@ async function main() {
       { cantidad: 1, nombre: 'VISITA SANTIAGO', fondo: 'CAZUELA DE POLLO', guarnicion: null, entrada: 'SURTIDA', bebida: 'JUGO POSTRE' }
     ];
 
-    // --- JUEVES ---
     const pedidosJueves = [
       { cantidad: 1, nombre: 'DANIEL ESPINOSA', fondo: 'POLLO BROASTER', guarnicion: 'DOBLE PROTEINA', entrada: null, bebida: 'AGUA MINERAL SIN GAS' },
       { cantidad: 1, nombre: 'DON JHON NUÑEZ', fondo: 'BOX GM SANDWICH', guarnicion: 'PAPAS FRITAS', entrada: null, bebida: 'AGUA MINERAL SIN GAS' },
@@ -226,7 +222,6 @@ async function main() {
       { cantidad: 5, nombre: 'APOYO JUAN LEIVA', fondo: 'POLLO BROASTER', guarnicion: 'ARROZ Y PAPAS FRITAS', entrada: null, bebida: 'COCA COLA' }
     ];
 
-    // --- VIERNES ---
     const pedidosViernes = [
       { cantidad: 10, nombre: 'MECANICOS', fondo: 'POLLO CON SALSA BLANCA', guarnicion: 'PURE DE PAPAS', entrada: null, bebida: 'COCA COLA' },
       { cantidad: 2, nombre: 'APOYO FERIA', fondo: 'POLLO CON SALSA BLANCA', guarnicion: 'PURE DE PAPAS', entrada: null, bebida: 'COCA COLA' },
@@ -293,7 +288,6 @@ async function main() {
 
     let totalInsertados = 0;
 
-    // 🔥 MEMORIA PARA NOMBRES RANDOM: Para que el camión del martes se llame igual que el del lunes
     const nombresAleatoriosAsignados = new Map<string, string>();
 
     for (const dia of diasData) {
@@ -312,7 +306,6 @@ async function main() {
             nombreFinal = nombresAleatoriosAsignados.get(clave)!;
           }
 
-          // 🔥 BUSCADOR: Evita clonar a los usuarios si ya existen
           let usuario = await db.usuario.findFirst({
             where: {
               nombreUsuario: nombreFinal,

@@ -3,15 +3,15 @@ import type { ItemConsolidado, FilaPacking } from "@/lib/admin/generar-consolida
 import { CHILE_TZ, getChileDayName, nowChile } from "@/lib/chile-time"
 
 export type BreakdownDia = {
-  fecha: string // "Lunes 16/06"
-  fechaISO: string // "YYYY-MM-DD" para debugging
+  fecha: string
+  fechaISO: string
   zonaFriaCount: number
   zonaCalienteCount: number
   totalPedidos: number
 }
 
 export type ConsolidadoSemana = {
-  semana: string // "16/06/2025 – 22/06/2025"
+  semana: string
   zonaFria: ItemConsolidado[]
   zonaCaliente: ItemConsolidado[]
   packing: FilaPacking[]
@@ -121,7 +121,7 @@ export async function getConsolidadoSemana(fecha?: Date): Promise<ConsolidadoSem
   const fechaISOReferencia = fecha ? toChileISODate(fecha) : nowChile().iso
 
   const refNoon = new Date(`${fechaISOReferencia}T12:00:00Z`)
-  const diaSemana = refNoon.getUTCDay() // 0 = domingo, 1 = lunes, ..., 6 = sábado
+  const diaSemana = refNoon.getUTCDay()
   const diasARetroceder = diaSemana === 0 ? 6 : diaSemana - 1
   const lunesISO = sumarDiasISO(fechaISOReferencia, -diasARetroceder)
 

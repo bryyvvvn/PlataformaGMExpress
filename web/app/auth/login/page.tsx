@@ -145,7 +145,6 @@ function LoginScreen({
                   </p>
                 </div>
 
-                {/* 🔥 Aquí se eliminó el borde y la sombra. Ahora solo centra el contenido */}
                 <div className="flex w-full flex-col items-center justify-center">
                   {showNoAdminError && (
                     <div className="mb-4 w-full max-w-[400px] rounded-md border border-red-200 bg-red-50 px-4 py-3 text-center text-sm font-semibold leading-5 text-red-700">

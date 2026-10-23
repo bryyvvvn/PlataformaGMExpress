@@ -1,4 +1,3 @@
-// src/pages/auth/AccesoDenegado.tsx
 import React from 'react';
 import { useAuth } from '@clerk/clerk-react';
 

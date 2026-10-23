@@ -1,4 +1,3 @@
-// TarjetaPlato.tsx
 import React from 'react';
 import { CheckCircle2 } from 'lucide-react';
 
@@ -37,7 +36,6 @@ export const TarjetaPlato: React.FC<TarjetaPlatoProps> = ({
       } ${ !readOnly && (isDeadlinePassed || disabled) ? 'opacity-60 cursor-not-allowed' : ''}`}
     >
       
-      {/* 🔴 FILA 1: FOTO, NOMBRE Y CHECKBOX */}
       <div className="flex w-full items-center gap-4">
         <img 
           src={plato.url_imagen || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c'} 
@@ -107,12 +105,9 @@ export const TarjetaPlato: React.FC<TarjetaPlatoProps> = ({
         )}
       </div>
 
-      {/* 🔴 FILA 2: DISEÑO NUTRICIONAL */}
-      {/* Se asegura de que se renderice si AL MENOS uno de los macros existe (incluso si es 0) */}
       {(plato.calorias != null || plato.proteinas != null || plato.carbohidratos != null) && (
         <div className="w-full mt-1 flex items-center gap-2.5">
           
-          {/* Se usa != null para que el 0 sea un valor válido y dibuje la cajita */}
           {plato.calorias != null && (
             <div className="flex-1 flex flex-col items-center justify-center bg-orange-50/80 rounded-xl py-2 border border-orange-100/50">
               <span className="text-base font-black text-orange-600 leading-none mb-1">{plato.calorias}</span>

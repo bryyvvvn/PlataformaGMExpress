@@ -27,15 +27,6 @@ export function AccionesProduccion({
   const cambiarEstado = async (estadoActual: string, nuevoEstado: string) => {
     setLoading(true)
     try {
-      // API Call comentada para el futuro
-      /*
-      await fetch(`/api/admin/pedidos/bulk-update`, {
-        method: "PATCH",
-        body: JSON.stringify({ empresaId, estadoActual, nuevoEstado })
-      })
-      */
-      
-      // Simulador de carga por ahora
       await new Promise(resolve => setTimeout(resolve, 800))
       
       router.refresh()
@@ -48,7 +39,6 @@ export function AccionesProduccion({
 
   return (
     <DropdownMenu>
-      {/* SOLUCIÓN: Quitamos asChild y aplicamos los estilos del botón directamente al Trigger */}
       <DropdownMenuTrigger 
         disabled={loading}
         className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 bg-white hover:bg-slate-100 disabled:pointer-events-none disabled:opacity-50"

@@ -37,7 +37,6 @@ export function TimePickerBlock({
   const [hora, setHora] = useState(() => parsearValor(value).hora)
   const [minutos, setMinutos] = useState(() => parsearValor(value).minutos)
 
-  // Resincroniza con `value` cuando cambia desde el padre (ej. tras cargar datos async)
   useEffect(() => {
     const parsed = parsearValor(value)
     setHora(parsed.hora)
@@ -47,8 +46,6 @@ export function TimePickerBlock({
   const valorActual = `${String(hora).padStart(2, "0")}:${String(minutos).padStart(2, "0")}`
   const dentroDeRango = valorActual >= min && valorActual <= max
 
-  // `onChange` se omite a propósito de las dependencias: es una función inline
-  // en los consumidores y depender de ella provocaría un loop de renders.
   useEffect(() => {
     if (dentroDeRango) {
       onChange(valorActual)
@@ -91,7 +88,6 @@ export function TimePickerBlock({
 
   return (
     <div className="flex items-center gap-2">
-      {/* Bloque HORA */}
       <div className="flex flex-col items-center gap-1">
         <button
           type="button"
@@ -114,10 +110,8 @@ export function TimePickerBlock({
         </button>
       </div>
 
-      {/* Separador */}
       <span className="mb-1 text-3xl font-bold text-[#1b2c56]">:</span>
 
-      {/* Bloque MINUTOS */}
       <div className="flex flex-col items-center gap-1">
         <button
           type="button"

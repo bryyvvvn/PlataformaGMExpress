@@ -9,7 +9,6 @@ async function main() {
   try {
     const EMPRESA_ID = 11;
 
-    // --- LUNES (1 DE JUNIO) ---
     const pedidosLunes = [
       { nombre: 'JOEL', fondo: 'LENTEJAS CON SOFRITO', guarnicion: null, entrada: null, bebida: 'COCA COLA' },
       { nombre: 'IAN CORTES', fondo: 'FRICASE DE VACUNO', guarnicion: 'ARROZ GRANEADO', entrada: null, bebida: 'COCA COLA' },
@@ -30,7 +29,6 @@ async function main() {
       { nombre: 'VANESSA PASTEN', fondo: 'HIPOCALORICO DEL DIA', guarnicion: null, entrada: null, bebida: 'AGUA MINERAL SIN GAS' }
     ];
 
-    // --- MARTES (2 DE JUNIO) ---
     const pedidosMartes = [
       { nombre: 'JOEL', fondo: 'CROQUETAS DE ATUN ATOMATADAS', guarnicion: 'QUIFAROS AL OREGANO', entrada: null, bebida: 'COCA COLA' },
       { nombre: 'IAN CORTES', fondo: 'CROQUETAS DE ATUN ATOMATADAS', guarnicion: 'PAPAS RUSTICAS', entrada: null, bebida: 'COCA COLA' },
@@ -49,7 +47,6 @@ async function main() {
       { nombre: 'ROBERTO', fondo: 'PASTEL DE ZAPALLO ITALIANO', guarnicion: 'PAPAS RUSTICAS', entrada: null, bebida: 'COCA COLA' }
     ];
 
-    // --- MIÉRCOLES (3 DE JUNIO) ---
     const pedidosMiercoles = [
       { nombre: 'JOEL', fondo: 'CERDO BRASEADO AL ROMERO', guarnicion: 'CORBATITAS AL POMODORO', entrada: null, bebida: 'COCA COLA' },
       { nombre: 'IAN CORTES', fondo: 'CERDO BRASEADO AL ROMERO', guarnicion: 'CORBATITAS AL POMODORO', entrada: null, bebida: 'COCA COLA' },
@@ -70,7 +67,6 @@ async function main() {
       { nombre: 'VANESSA PASTEN', fondo: 'HUEVO FRITO', guarnicion: 'CORBATITAS AL POMODORO', entrada: null, bebida: 'PEPSI CERO' }
     ];
 
-    // --- JUEVES (4 DE JUNIO) ---
     const pedidosJueves = [
       { nombre: 'JOEL', fondo: 'POLLO BROASTER', guarnicion: 'ARROZ Y PAPAS FRITAS', entrada: null, bebida: 'COCA COLA' },
       { nombre: 'IAN CORTES', fondo: 'POLLO BROASTER', guarnicion: 'PAPAS FRITAS', entrada: null, bebida: 'COCA COLA' },
@@ -91,7 +87,6 @@ async function main() {
       { nombre: 'VANESSA PASTEN', fondo: 'POLLO BROASTER', guarnicion: 'PAPAS FRITAS', entrada: null, bebida: 'PEPSI CERO' }
     ];
 
-    // --- VIERNES (5 DE JUNIO) ---
     const pedidosViernes = [
       { nombre: 'ROBERTO', fondo: 'LASAÑA JAMON QUESO', guarnicion: null, entrada: null, bebida: 'COCA COLA' },
       { nombre: 'FELIPE', fondo: 'LASAÑA JAMON QUESO', guarnicion: null, entrada: null, bebida: 'COCA COLA' },

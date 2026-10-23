@@ -10,7 +10,6 @@ export type EstadoFechas = Record<string, EstadoFecha>;
 
 export const useHistorial = (usuarioId: string | undefined, token?: string | null) => {
   const [historial, setHistorial] = useState<any[]>([]);
-  // 🔥 NUEVO: Creamos un mapa inteligente que guardará qué comidas se pidieron cada día
   const [estadoFechas, setEstadoFechas] = useState<Record<string, { almuerzo: boolean, cena: boolean }>>({});
   const [cargando, setCargando] = useState(false);
 
@@ -25,7 +24,6 @@ export const useHistorial = (usuarioId: string | undefined, token?: string | nul
       });
       const data = await res.json();
 
-      // Si la respuesta no es un array, retornar vacío
       if (!Array.isArray(data)) {
         setHistorial([]);
         setEstadoFechas({});
@@ -34,7 +32,6 @@ export const useHistorial = (usuarioId: string | undefined, token?: string | nul
 
       setHistorial(data);
 
-      // 🔥 PROCESAMOS LOS DATOS PARA SEPARAR ALMUERZO Y CENA
       const nuevoEstado: Record<string, { almuerzo: boolean, cena: boolean }> = {};
       
       if (Array.isArray(data)) {

@@ -62,7 +62,6 @@ export function HistorialExportaciones() {
         }
       })
       .catch(() => {
-        // estado vacío si falla la red
       })
       .finally(() => {
         if (!cancelado) setCargando(false)

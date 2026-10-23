@@ -1,23 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import db from '../../../../lib/db';
 import { getHoraLimiteEfectiva } from '../../../../lib/horario-pedidos';
+import { chileStartOfDay, chileEndOfDay } from '../../../../lib/chile-time';
 
 export const dynamic = 'force-dynamic';
 
-const VENTANA_MIN_MINUTOS = 5;
-const VENTANA_MAX_MINUTOS = 10;
+const VENTANA_MIN_MINUTOS = 1;
+const VENTANA_MAX_MINUTOS = 15;
 
 export async function GET(request: NextRequest) {
-  // 1. SEGURIDAD: Acepta Header O Parámetro en la URL
   const authHeader = request.headers.get('authorization');
   const querySecret = request.nextUrl.searchParams.get('secret');
 
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}` && querySecret !== process.env.CRON_SECRET) {
     return new NextResponse('Acceso denegado', { status: 401 });
   }
-// pelao puro wn
+
   try {
-    // 2. HORA ACTUAL EN CHILE, en minutos desde medianoche
     const ahora = new Date();
     const formatter = new Intl.DateTimeFormat('es-CL', {
       timeZone: 'America/Santiago',
@@ -30,14 +29,31 @@ export async function GET(request: NextRequest) {
 
     console.log(`[CRON CONFIRMAR-PLANILLA] Ejecutando a las ${horaStr}:${minutoStr} (Chile)`);
 
-    // 3. CONFIGURACIÓN GLOBAL (hora límite por defecto si la empresa no tiene horaDespacho)
+    const hoyChile = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Santiago" }));
+    const diaSemana = hoyChile.getDay() || 7; 
+    
+    const lunes = new Date(hoyChile);
+    lunes.setDate(hoyChile.getDate() - diaSemana + 1);
+    
+    const domingo = new Date(hoyChile);
+    domingo.setDate(hoyChile.getDate() - diaSemana + 7);
+
+    const formatIso = (d: Date) => {
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    };
+
+    const inicioSemana = chileStartOfDay(formatIso(lunes));
+    const finSemana = chileEndOfDay(formatIso(domingo));
+
     const configuracion = await db.configuracionSistema.findUnique({
       where: { id: 1 },
       select: { horaLimite: true },
     });
     const horaGlobal = configuracion?.horaLimite ?? '17:00';
 
-    // 4. TRAER TODAS LAS EMPRESAS ACTIVAS CON SU horaDespacho Y CONVENIO
     const empresas = await db.empresa.findMany({
       where: { estado: 'ACTIVA' },
       select: {
@@ -50,7 +66,6 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // 5. FILTRAR EMPRESAS CUYA HORA LÍMITE EFECTIVA CAE EN LA VENTANA [5, 10] MIN
     const empresasEnVentana = empresas.filter((empresa) => {
       const { horaLimite } = getHoraLimiteEfectiva(empresa.horaDespacho, horaGlobal);
       const [hLimite, mLimite] = horaLimite.split(':').map(Number);
@@ -64,7 +79,7 @@ export async function GET(request: NextRequest) {
     if (empresasEnVentana.length === 0) {
       return NextResponse.json({
         success: true,
-        mensaje: 'Ninguna empresa está dentro de la ventana de cierre (5-10 min) en este momento.',
+        mensaje: 'Ninguna empresa está dentro de la ventana de cierre (1-15 min) en este momento.',
       });
     }
 
@@ -73,7 +88,6 @@ export async function GET(request: NextRequest) {
       empresasEnVentana.map((e) => e.nombre)
     );
 
-    // 6. CONFIRMAR PEDIDOS PENDIENTES PARA CADA EMPRESA EN VENTANA
     const resultados: { empresa: string; confirmados: number }[] = [];
 
     for (const empresa of empresasEnVentana) {
@@ -83,6 +97,10 @@ export async function GET(request: NextRequest) {
         where: {
           empresaId: empresa.id,
           estado: 'PENDIENTE',
+          fecha: {
+            gte: inicioSemana,
+            lte: finSemana,
+          },
           ...(permiteCena ? {} : { esCena: false }),
         },
         data: { estado: 'CONFIRMADO' },
@@ -91,7 +109,7 @@ export async function GET(request: NextRequest) {
       if (actualizados.count > 0) {
         resultados.push({ empresa: empresa.nombre, confirmados: actualizados.count });
         console.log(
-          `[CRON CONFIRMAR-PLANILLA] ${empresa.nombre}: ${actualizados.count} pedidos confirmados automáticamente.`
+          `[CRON CONFIRMAR-PLANILLA] ${empresa.nombre}: ${actualizados.count} pedidos confirmados automáticamente (Semana actual).`
         );
       }
     }

@@ -1,107 +1,131 @@
 import { NextResponse } from 'next/server';
-import db from '../../../../lib/db';
+import db from '@/lib/db';
 import { verificarRepresentante } from '@/lib/representante/verificar-representante';
+import { normalizarFechaEmpleados } from '@/lib/representante/trabajadores-cache';
 
-async function obtenerConvenioEmpresa(empresaId: number) {
-  const empresa = await db.empresa.findUnique({
-    where: { id: empresaId },
-    select: {
-      ConvenioEmpresa: {
-        select: { trabajaFinDeSemana: true, permiteCena: true },
-      },
-    },
-  });
-
-  return {
-    trabajaFinDeSemana: Boolean(empresa?.ConvenioEmpresa?.trabajaFinDeSemana),
-    permiteCena: Boolean(empresa?.ConvenioEmpresa?.permiteCena),
-  };
+function dateFromISO(fechaISO: string, finDia = false) {
+  const date = new Date(`${fechaISO}T12:00:00`);
+  date.setHours(finDia ? 23 : 0, finDia ? 59 : 0, finDia ? 59 : 0, finDia ? 999 : 0);
+  return date;
 }
 
 export async function GET(request: Request) {
-  const rep = await verificarRepresentante(request);
-  if ('error' in rep) {
-    return NextResponse.json({ error: rep.error }, { status: rep.status });
+  const { searchParams } = new URL(request.url);
+  const fecha = searchParams.get('fecha');
+  const fechaInicio = searchParams.get('fechaInicio');
+  const fechaFin = searchParams.get('fechaFin');
+  const secret = searchParams.get('secret');
+
+  let empresaId: number;
+
+  if (secret === process.env.CRON_SECRET) {
+    const empIdStr = searchParams.get('empresaId');
+    if (!empIdStr) return NextResponse.json({ error: 'Falta empresaId para el cron' }, { status: 400 });
+
+    empresaId = parseInt(empIdStr, 10);
+    if (!Number.isFinite(empresaId)) {
+      return NextResponse.json({ error: 'empresaId invalido' }, { status: 400 });
+    }
+  } else {
+    const rep = await verificarRepresentante(request);
+    if ('error' in rep) {
+      return NextResponse.json({ error: rep.error }, { status: rep.status });
+    }
+    empresaId = rep.empresaId;
   }
 
-  const { searchParams } = new URL(request.url);
-  const fechaStr = searchParams.get('fecha');
-  const empresaId = rep.empresaId;
-
   try {
-    let fechaBase = new Date(); 
-    
-    if (fechaStr && !isNaN(Date.parse(fechaStr))) {
-      const safeDate = fechaStr.includes('T') ? fechaStr : `${fechaStr}T12:00:00`;
-      fechaBase = new Date(safeDate);
+    const fechaISO = normalizarFechaEmpleados(fecha);
+    const fechaInicioISO = fechaInicio ? normalizarFechaEmpleados(fechaInicio) : undefined;
+    const fechaFinISO = fechaFin ? normalizarFechaEmpleados(fechaFin) : undefined;
+
+    const empresa = await db.empresa.findUnique({
+      where: { id: empresaId },
+      select: {
+        ConvenioEmpresa: {
+          select: {
+            trabajaFinDeSemana: true,
+            permiteCena: true,
+          },
+        },
+      },
+    });
+    const convenio = {
+      trabajaFinDeSemana: Boolean(empresa?.ConvenioEmpresa?.trabajaFinDeSemana),
+      permiteCena: Boolean(empresa?.ConvenioEmpresa?.permiteCena),
+    };
+
+    let fechaInicioRango = fechaInicioISO;
+    let fechaFinRango = fechaFinISO;
+
+    if (!fechaInicioRango || !fechaFinRango) {
+      const fechaBase = new Date(`${fechaISO}T12:00:00`);
+      const diaSemana = fechaBase.getDay() || 7;
+      const inicioSemana = new Date(fechaBase);
+      inicioSemana.setDate(fechaBase.getDate() - diaSemana + 1);
+
+      const finSemana = new Date(inicioSemana);
+      finSemana.setDate(inicioSemana.getDate() + (convenio.trabajaFinDeSemana ? 6 : 4));
+
+      fechaInicioRango = inicioSemana.toISOString().slice(0, 10);
+      fechaFinRango = finSemana.toISOString().slice(0, 10);
     }
 
-    const diaSemana = fechaBase.getDay() || 7;
-    const inicioSemana = new Date(fechaBase);
-    inicioSemana.setDate(fechaBase.getDate() - diaSemana + 1);
-    inicioSemana.setHours(0, 0, 0, 0);
-
-    const finSemana = new Date(inicioSemana);
-    const convenio = await obtenerConvenioEmpresa(empresaId);
-    finSemana.setDate(inicioSemana.getDate() + (convenio.trabajaFinDeSemana ? 6 : 4));
-    finSemana.setHours(23, 59, 59, 999);
+    const inicioSemana = dateFromISO(fechaInicioRango);
+    const finSemana = dateFromISO(fechaFinRango, true);
 
     const usuarios = await db.usuario.findMany({
       where: { empresaId, rol: 'TRABAJADOR' },
+      orderBy: [{ nombre: 'asc' }, { id: 'asc' }],
       select: {
         id: true,
         nombre: true,
         rut: true,
-        diasBloqueados: true, 
+        diasBloqueados: true,
         pedidos: {
           where: {
             fecha: { gte: inicioSemana, lte: finSemana },
             ...(convenio.permiteCena ? {} : { esCena: false }),
           },
           orderBy: { fecha: 'asc' },
-          select: {  
+          select: {
             id: true,
             fecha: true,
             estado: true,
-            esCena: true, // 🔥 SE AGREGÓ: Ahora traemos la propiedad esCena desde la base de datos
+            esCena: true,
             detalles: {
-              include: {
-                plato: true,
-                guarnicion: true
-              }
-            }
-          }
-        }
-      }
+              select: {
+                plato: { select: { nombre: true } },
+                guarnicion: { select: { nombre: true } },
+              },
+            },
+          },
+        },
+      },
     });
 
-    const planillaFormateada = usuarios.map(usuario => {
-        const pedidosFormateados = usuario.pedidos.map(p => {
-          const listaPlatos = p.detalles.map(d => {
-            let texto = d.plato.nombre;
-            if (d.guarnicion) texto += ` + ${d.guarnicion.nombre}`;
-            return texto;
-          });
-
-          return {
-            id: p.id,
-            fecha: p.fecha.toISOString(),
-            estado: p.estado,
-            esCena: p.esCena, // 🔥 SE AGREGÓ: Pasamos el valor al frontend para que la tarjeta lo pueda filtrar
-            listaPlatos: listaPlatos.length > 0 ? listaPlatos : ['Menú Seleccionado']
-          };
+    const data = usuarios.map((usuario) => ({
+      id: usuario.id,
+      nombre: usuario.nombre,
+      rut: usuario.rut,
+      diasBloqueados: usuario.diasBloqueados,
+      pedidos: usuario.pedidos.map((pedido) => {
+        const listaPlatos = pedido.detalles.map((detalle) => {
+          if (detalle.guarnicion) return `${detalle.plato.nombre} + ${detalle.guarnicion.nombre}`;
+          return detalle.plato.nombre;
         });
 
         return {
-          id: usuario.id,
-          nombre: usuario.nombre,
-          rut: usuario.rut,
-          diasBloqueados: usuario.diasBloqueados, 
-          pedidos: pedidosFormateados
+          id: pedido.id,
+          fecha: pedido.fecha.toISOString(),
+          estado: pedido.estado,
+          esCena: pedido.esCena,
+          listaPlatos: listaPlatos.length > 0 ? listaPlatos : ['Menu Seleccionado'],
         };
-      });
+      }),
+    }));
 
-    return NextResponse.json(planillaFormateada);
+    return NextResponse.json(data);
   } catch (error) {
     console.error('[API REPRESENTANTE EMPLEADOS] Error:', error);
     return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });

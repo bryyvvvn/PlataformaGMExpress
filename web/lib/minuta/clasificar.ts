@@ -24,7 +24,7 @@ export function clasificarFila(etiqueta: string): ClasificacionFila {
     return { categoria: "FONDO", variante: "HIPOCALORICO", esGuarnicion: false, ignorar: false };
   }
 
-  if (label.includes("ENSALADA") || label.includes("SOPA")) {
+  if (label.includes("ENSALADA") || label.includes("SOPA") || label.includes("CREMA")) {
     return { categoria: "ENTRADA", variante: "NORMAL", esGuarnicion: false, ignorar: false };
   }
 

@@ -82,13 +82,17 @@ const ORDEN_CATEGORIA: Partial<Record<CategoriaPlato, number>> = {
   [CategoriaPlato.AGUA_SABORIZADA]: 5,
 }
 
+function formatearNombreConCantidad(nombre: string, cantidad: number): string {
+  return cantidad > 1 ? `${nombre} x${cantidad}` : nombre
+}
+
 function unirPlatos(
   detalles: DetallePedidoExcel[],
   categoria: CategoriaPlato
 ): string {
   return detalles
     .filter((detalle) => detalle.plato.categoria === categoria)
-    .map((detalle) => detalle.plato.nombre)
+    .map((detalle) => formatearNombreConCantidad(detalle.plato.nombre, detalle.cantidad))
     .join(", ")
 }
 
@@ -98,8 +102,16 @@ function unirPlatosPorCategorias(
 ): string {
   return detalles
     .filter((detalle) => categorias.includes(detalle.plato.categoria))
-    .map((detalle) => detalle.plato.nombre)
+    .map((detalle) => formatearNombreConCantidad(detalle.plato.nombre, detalle.cantidad))
     .join(" | ")
+}
+
+function resolverEntradas(detalles: DetallePedidoExcel[]): string {
+  const entradas = detalles.filter(
+    (d) => d.plato.categoria === CategoriaPlato.ENTRADA
+  )
+  if (entradas.length === 3) return "Ensalada Surtida"
+  return entradas.map((d) => formatearNombreConCantidad(d.plato.nombre, d.cantidad)).join(", ")
 }
 
 function formatearTipoEmpaquetado(tipo: string | null | undefined): string {
@@ -233,7 +245,7 @@ function agregarHojaHistorico(
       empresa:       pedido.empresa.nombre,
       usuario:       pedido.usuario.nombre,
       estado:        pedido.estado,
-      entradas:      unirPlatos(detalles, CategoriaPlato.ENTRADA),
+      entradas:      resolverEntradas(detalles),
       fondo:         fondo?.plato.nombre ?? "",
       guarnicion:    fondo?.guarnicion?.nombre ?? "",
       postres:       unirPlatos(detalles, CategoriaPlato.POSTRE),
@@ -399,7 +411,7 @@ function agregarHojaProduccionDetallada(
       empresa:       pedido.empresa.nombre,
       usuario:       pedido.usuario.nombre,
       estado:        pedido.estado,
-      entradas:      unirPlatos(detalles, CategoriaPlato.ENTRADA),
+      entradas:      resolverEntradas(detalles),
       fondo:         fondo?.plato.nombre ?? "",
       guarnicion:    fondo?.guarnicion?.nombre ?? "",
       postres:       unirPlatos(detalles, CategoriaPlato.POSTRE),

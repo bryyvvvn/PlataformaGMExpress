@@ -13,11 +13,12 @@ const isPublicRoute = createRouteMatcher([
   '/api/cron/auto-asignar',
   '/api/cron/auto-confirmar', 
   '/api/cron/primera-carga-menu', 
+  '/api/cron/auto-asignar-global',
   '/api/representante/bloqueos',
+  '/api/cron/primera-carga-trabajadores',
 ])
 
 export default clerkMiddleware(async (auth, request) => {
-  // 🔥 ESTO ES LO QUE ARREGLA LA APP MÓVIL: Deja pasar el OPTIONS sin chistar
   if (request.method === 'OPTIONS') {
     return new NextResponse(null, {
       status: 200,

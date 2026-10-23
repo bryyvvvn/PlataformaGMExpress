@@ -6,6 +6,8 @@ export const DIAS_HABILES = [
   "Miércoles",
   "Jueves",
   "Viernes",
+  "Sábado",
+  "Domingo",
 ] as const
 
 export type DiaHabil = (typeof DIAS_HABILES)[number]

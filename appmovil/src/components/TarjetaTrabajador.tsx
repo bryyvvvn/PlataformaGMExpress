@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { ChevronDown, ChevronUp, Utensils, CheckCircle2, CalendarPlus } from 'lucide-react';
-// 🔥 Importamos tu nuevo hook
+import { ChevronDown, ChevronUp, Utensils, CheckCircle2, CalendarPlus, Lock } from 'lucide-react';
 import { useAsignarManual } from '../hooks/useAsignarManual';
 
 interface Pedido {
@@ -13,12 +12,15 @@ interface Pedido {
 
 interface TarjetaTrabajadorProps {
   trabajador: {
-    id: number;
+    id: number | string;
     nombre: string;
+    diasBloqueados?: number[];
     pedidos?: Pedido[];
   };
   permiteCena?: boolean;
-  token?: string | null; // 🔥 Agregamos el token a las Props
+  token?: string | null; 
+  diasSemana?: Array<{ iso: string }>;
+  onPedidoAsignado?: () => void | Promise<void>;
 }
 
 const getNombreDia = (fechaStr: string) => {
@@ -27,12 +29,54 @@ const getNombreDia = (fechaStr: string) => {
   return dias[d.getDay()];
 };
 
-export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({ trabajador, permiteCena = false, token }) => {
+const getDiaSemanaBloqueo = (fechaStr: string) => {
+  const dia = new Date(`${fechaStr}T12:00:00`).getDay();
+  return dia === 0 ? 7 : dia;
+};
+
+const getEstadoColors = (estado?: string) => {
+  if (['EN_PRODUCCION', 'ENTREGADO'].includes(estado || '')) {
+    return {
+      activeBg: 'bg-purple-500 border-purple-500',
+      panelBg: 'bg-purple-50 border-purple-200',
+      textColor: 'text-purple-600',
+      dot: 'bg-purple-500'
+    };
+  }
+  if (estado === 'CONFIRMADO') {
+    return {
+      activeBg: 'bg-[#70a344] border-[#70a344]',
+      panelBg: 'bg-[#70a344]/10 border-[#70a344]/30',
+      textColor: 'text-[#70a344]',
+      dot: 'bg-[#70a344]'
+    };
+  }
+  return {
+    activeBg: 'bg-slate-400 border-slate-400',
+    panelBg: 'bg-slate-50 border-slate-200',
+    textColor: 'text-slate-500',
+    dot: 'bg-slate-300'
+  };
+};
+
+export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({
+  trabajador,
+  permiteCena = false,
+  token,
+  diasSemana: diasSemanaProp,
+  onPedidoAsignado,
+}) => {
   const nombreTrabajador = trabajador?.nombre?.trim() || 'Usuario sin nombre';
   const [isExpanded, setIsExpanded] = useState(false);
   const [modoComida, setModoComida] = useState<'ALMUERZO' | 'CENA'>('ALMUERZO');
   
   const pedidosTotales = Array.isArray(trabajador?.pedidos) ? trabajador.pedidos : [];
+  const diasBloqueados = useMemo(
+    () => Array.isArray(trabajador?.diasBloqueados)
+      ? trabajador.diasBloqueados.map(Number).filter((dia) => Number.isInteger(dia) && dia >= 1 && dia <= 7)
+      : [],
+    [trabajador?.diasBloqueados]
+  );
   const pedidosVisibles = useMemo(
     () => (permiteCena ? pedidosTotales : pedidosTotales.filter(p => !p.esCena)),
     [permiteCena, pedidosTotales]
@@ -42,11 +86,13 @@ export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({ trabajador
   const [pedidoActivoId, setPedidoActivoId] = useState<number | null>(null);
   const [diaManualActivo, setDiaManualActivo] = useState<string | null>(null);
 
-  // 🔥 Usamos el nuevo hook pasándole el token
   const { asignarPedido, isSubmitting } = useAsignarManual(token);
 
-  // ... (getDiasSemana y useEffects se mantienen igualitos) ...
-  const getDiasSemana = () => {
+  const getDiasSemana = useMemo(() => {
+    if (diasSemanaProp?.length) {
+      return diasSemanaProp.map((dia) => dia.iso).filter(Boolean);
+    }
+
     let refDate = new Date();
     if (pedidosVisibles.length > 0 && pedidosVisibles[0].fecha) {
       refDate = new Date(pedidosVisibles[0].fecha.split('T')[0] + 'T12:00:00');
@@ -62,8 +108,8 @@ export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({ trabajador
       semana.push(d.toISOString().split('T')[0]);
     }
     return semana;
-  };
-  const diasSemana = getDiasSemana();
+  }, [diasSemanaProp, pedidosVisibles]);
+  const diasSemana = getDiasSemana;
 
   useEffect(() => {
     if (pedidosFiltrados.length > 0) {
@@ -71,9 +117,10 @@ export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({ trabajador
       setDiaManualActivo(null);
     } else {
       setPedidoActivoId(null);
-      setDiaManualActivo(diasSemana[0]);
+      const primerDiaDisponible = diasSemana.find((fecha) => !diasBloqueados.includes(getDiaSemanaBloqueo(fecha)));
+      setDiaManualActivo(primerDiaDisponible ?? null);
     }
-  }, [modoComida, pedidosVisibles]);
+  }, [modoComida, pedidosVisibles, diasSemana, diasBloqueados]);
 
   useEffect(() => {
     if (!permiteCena && modoComida === 'CENA') {
@@ -82,13 +129,12 @@ export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({ trabajador
   }, [permiteCena, modoComida]);
 
   const pedidoSeleccionado = pedidosFiltrados.find(p => p.id === pedidoActivoId);
+  
   const cantidadPedidos = pedidosVisibles.length;
-  const cantidadConfirmados = pedidosVisibles.filter(p => p.estado === 'CONFIRMADO').length;
-  const cantidadPendientes = cantidadPedidos - cantidadConfirmados;
-  const estaTotalmenteConfirmado = cantidadPedidos > 0 && cantidadPendientes === 0;
-  const tieneParciales = cantidadConfirmados > 0 && cantidadPendientes > 0;
+  const countConfirmado = pedidosVisibles.filter(p => p.estado === 'CONFIRMADO').length;
+  const countProduccion = pedidosVisibles.filter(p => ['EN_PRODUCCION', 'ENTREGADO'].includes(p.estado || '')).length;
+  const countPendiente = pedidosVisibles.filter(p => !p.estado || p.estado === 'PENDIENTE').length;
 
-  // 🔥 Nueva función súper limpia llamando al hook
   const manejarAsignacionManual = async (tipo: string) => {
     if (!diaManualActivo) return;
     const exito = await asignarPedido(
@@ -99,54 +145,57 @@ export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({ trabajador
     );
     
     if (exito) {
-      window.location.reload(); // Recarga para ver los cambios
+      await onPedidoAsignado?.();
     }
   };
 
-  // 🔥 COLORES DINÁMICOS Y EL RESTO DEL COMPONENTE QUEDAN INTACTOS
-  const isAlmuerzo = modoComida === 'ALMUERZO';
-  const themeActiveBg = isAlmuerzo ? 'bg-[#70a344] border-[#70a344]' : 'bg-[#1d2d50] border-[#1d2d50]';
-  const themeHoverBorder = isAlmuerzo ? 'hover:border-[#70a344]/50' : 'hover:border-[#1d2d50]/50';
-  const themeDot = isAlmuerzo ? 'bg-[#70a344]' : 'bg-[#1d2d50]';
-  const themePanelBg = isAlmuerzo ? 'bg-[#70a344]/5 border-[#70a344]/20' : 'bg-[#1d2d50]/5 border-[#1d2d50]/20';
-  const themeText = isAlmuerzo ? 'text-[#70a344]' : 'text-[#1d2d50]';
-
   return (
-    <div className={`bg-white rounded-3xl border shadow-sm overflow-hidden transition-all mb-4 ${estaTotalmenteConfirmado ? 'border-[#70a344]/30' : tieneParciales ? 'border-amber-200' : 'border-slate-200'}`}>
+    <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden transition-all mb-4">
       <button 
         onClick={() => setIsExpanded(!isExpanded)}
-        className={`w-full flex items-center justify-between p-5 active:bg-slate-50/70 transition-colors ${estaTotalmenteConfirmado ? 'bg-[#70a344]/5' : tieneParciales ? 'bg-amber-50/50' : 'bg-white'}`}
+        className="w-full flex flex-col p-5 active:bg-slate-50/70 transition-colors bg-white hover:bg-slate-50"
       >
-        <div className="flex items-center gap-4">
-          <div className={`w-12 h-12 rounded-full flex items-center justify-center font-black text-lg shadow-sm ${estaTotalmenteConfirmado ? 'bg-[#70a344] text-white' : tieneParciales ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-[#1d2d50]'}`}>
-            {nombreTrabajador.charAt(0).toUpperCase()}
-          </div>
-          
-          <div className="flex flex-col text-left">
-            <span className="font-black text-lg text-[#1d2d50] leading-tight capitalize">
+        <div className="flex items-center justify-between w-full">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 shrink-0 rounded-full flex items-center justify-center font-black text-lg shadow-sm bg-slate-100 text-[#1d2d50]">
+              {nombreTrabajador.charAt(0).toUpperCase()}
+            </div>
+            <span className="font-black text-lg text-[#1d2d50] leading-tight capitalize text-left">
               {nombreTrabajador.toLowerCase()}
             </span>
-            
-            {cantidadPedidos === 0 ? (
-               <span className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-1 mt-1 text-slate-400">
-                 <span className="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
-                 SIN PEDIDOS
-               </span>
-            ) : estaTotalmenteConfirmado ? (
-               <span className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-1 mt-1 text-[#70a344]">
-                 <CheckCircle2 size={12} strokeWidth={3} />
-                 {cantidadPedidos} {cantidadPedidos === 1 ? 'PEDIDO' : 'PEDIDOS'}
-               </span>
-            ) : (
-               <span className={`text-[10px] font-bold uppercase tracking-widest flex items-center gap-1 mt-1 ${tieneParciales ? 'text-amber-500' : 'text-slate-500'}`}>
-                 <span className={`w-1.5 h-1.5 rounded-full ${tieneParciales ? 'bg-amber-400' : 'bg-slate-400'}`}></span>
-                 {cantidadPendientes} {cantidadPendientes === 1 ? 'PENDIENTE' : 'PENDIENTES'}
-               </span>
-            )}
+          </div>
+          
+          <div className="text-slate-400 shrink-0 ml-4">
+            {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
           </div>
         </div>
         
-        {isExpanded ? <ChevronUp size={20} className={estaTotalmenteConfirmado ? 'text-[#70a344]' : tieneParciales ? 'text-amber-500' : 'text-slate-400'} /> : <ChevronDown size={20} className={estaTotalmenteConfirmado ? 'text-[#70a344]' : tieneParciales ? 'text-amber-500' : 'text-slate-400'} />}
+        <div className="flex flex-col gap-1.5 mt-4 pl-2 w-full text-left">
+          {cantidadPedidos === 0 && (
+            <span className="text-[12px] font-bold uppercase tracking-widest flex items-center gap-1.5 text-slate-400">
+              <span className="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
+              SIN PEDIDOS
+            </span>
+          )}
+          {countConfirmado > 0 && (
+            <span className="text-[12px] font-bold uppercase tracking-widest flex items-center gap-1.5 text-[#70a344]">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#70a344]"></span>
+              {countConfirmado} {countConfirmado === 1 ? 'CONFIRMADO' : 'CONFIRMADOS'}
+            </span>
+          )}
+          {countProduccion > 0 && (
+            <span className="text-[12px] font-bold uppercase tracking-widest flex items-center gap-1.5 text-purple-600">
+              <span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
+              {countProduccion} {countProduccion === 1 ? 'PRODUCCIÓN' : 'PRODUCCIÓN'}
+            </span>
+          )}
+          {countPendiente > 0 && (
+            <span className="text-[12px] font-bold uppercase tracking-widest flex items-center gap-1.5 text-slate-500">
+              <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+              {countPendiente} {countPendiente === 1 ? 'PENDIENTE' : 'PENDIENTES'}
+            </span>
+          )}
+        </div>
       </button>
 
       {isExpanded && (
@@ -169,31 +218,33 @@ export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({ trabajador
           </div>
           )}
           
-          {/* TIMELINE DE DÍAS */}
           <div className="flex gap-2 pb-4 overflow-x-auto [&::-webkit-scrollbar]:hidden">
             {diasSemana.map((fechaString) => {
               const pedido = pedidosFiltrados.find(p => p.fecha?.startsWith(fechaString));
               const diaCorto = getNombreDia(fechaString);
               const numeroDia = fechaString.split('-')[2];
+              const diaBloqueado = diasBloqueados.includes(getDiaSemanaBloqueo(fechaString));
 
               if (pedido) {
                 const isActive = pedidoActivoId === pedido.id;
+                
+                const coloresDia = getEstadoColors(pedido.estado);
+
                 return (
                   <button
                     key={fechaString}
                     onClick={() => { setPedidoActivoId(pedido.id); setDiaManualActivo(null); }}
                     className={`h-[64px] min-w-[56px] shrink-0 rounded-2xl flex flex-col items-center justify-center gap-0.5 transition-all relative border ${
                       isActive 
-                        ? `${themeActiveBg} text-white shadow-md scale-105` // 🔥 SE APLICA EL COLOR DINÁMICO AQUÍ
-                        : `bg-white border-slate-200 text-[#1d2d50] ${themeHoverBorder}`
+                        ? `${coloresDia.activeBg} text-white shadow-md scale-105` 
+                        : `bg-white border-slate-200 text-[#1d2d50] hover:border-slate-300`
                     }`}
                   >
                     <span className={`text-[9px] font-black uppercase tracking-wider ${isActive ? 'text-white/90' : 'text-slate-400'}`}>{diaCorto}</span>
                     <span className={`text-base font-black ${isActive ? 'text-white' : 'text-[#1d2d50]'}`}>{numeroDia}</span>
                     
-                    {/* Puntito del mismo color del turno */}
-                    {pedido.estado === 'CONFIRMADO' && !isActive && (
-                      <div className={`absolute bottom-1.5 w-1.5 h-1.5 rounded-full ${themeDot}`}></div>
+                    {!isActive && (
+                      <div className={`absolute bottom-1.5 w-1.5 h-1.5 rounded-full ${coloresDia.dot}`}></div>
                     )}
                   </button>
                 );
@@ -202,56 +253,69 @@ export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({ trabajador
                 return (
                   <button
                     key={fechaString}
-                    onClick={() => { setPedidoActivoId(null); setDiaManualActivo(fechaString); }}
+                    onClick={() => {
+                      if (diaBloqueado) return;
+                      setPedidoActivoId(null);
+                      setDiaManualActivo(fechaString);
+                    }}
+                    disabled={diaBloqueado}
                     className={`h-[64px] min-w-[56px] shrink-0 rounded-2xl flex flex-col items-center justify-center gap-0.5 transition-all relative border ${
-                      isActive 
+                      diaBloqueado
+                        ? 'bg-gray-100 border-gray-200 text-gray-300 cursor-not-allowed'
+                        : isActive 
                         ? 'bg-slate-200 border-slate-300 text-[#1d2d50] shadow-inner scale-105' 
                         : 'bg-slate-50 border-transparent text-slate-400 hover:bg-slate-100'
                     }`}
                   >
                     <span className="text-[9px] font-black uppercase tracking-wider">{diaCorto}</span>
-                    <span className="text-base font-black">{numeroDia}</span>
+                    {diaBloqueado ? <Lock size={15} /> : <span className="text-base font-black">{numeroDia}</span>}
                   </button>
                 );
               }
             })}
           </div>
 
-          {/* PANEL DE DETALLE DEL PEDIDO */}
-          {pedidoSeleccionado && (
-            <div className={`p-4 rounded-2xl border animate-in fade-in duration-200 mt-2 ${themePanelBg}`}>
-              <div className="flex items-center justify-between mb-3">
-                <span className={`text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 ${themeText}`}>
-                  <Utensils size={14} /> Detalle
-                </span>
+          {pedidoSeleccionado && (() => {
+            const coloresPanel = getEstadoColors(pedidoSeleccionado.estado);
+            
+            return (
+              <div className={`p-4 rounded-2xl border animate-in fade-in duration-200 mt-2 ${coloresPanel.panelBg}`}>
+                <div className="flex items-center justify-between mb-3">
+                  <span className={`text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 ${coloresPanel.textColor}`}>
+                    <Utensils size={14} /> Detalle
+                  </span>
+                  
+                  {pedidoSeleccionado.estado === 'CONFIRMADO' ? (
+                    <span className={`flex items-center gap-1 bg-white text-[9px] font-black uppercase px-2 py-1 rounded-md tracking-widest shadow-sm text-[#70a344]`}>
+                      <CheckCircle2 size={12} strokeWidth={3} /> CONFIRMADO
+                    </span>
+                  ) : ['EN_PRODUCCION', 'ENTREGADO'].includes(pedidoSeleccionado.estado || '') ? (
+                    <span className={`flex items-center gap-1 bg-white text-[9px] font-black uppercase px-2 py-1 rounded-md tracking-widest shadow-sm text-purple-600`}>
+                      <CheckCircle2 size={12} strokeWidth={3} /> {pedidoSeleccionado.estado === 'EN_PRODUCCION' ? 'EN PRODUCCIÓN' : 'ENTREGADO'}
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 bg-white text-slate-500 text-[9px] font-black uppercase px-2 py-1 rounded-md tracking-widest shadow-sm">
+                      PENDIENTE
+                    </span>
+                  )}
+                </div>
                 
-                {pedidoSeleccionado.estado === 'CONFIRMADO' ? (
-                  <span className={`flex items-center gap-1 bg-white text-[9px] font-black uppercase px-2 py-1 rounded-md tracking-widest shadow-sm ${themeText}`}>
-                    <CheckCircle2 size={12} strokeWidth={3} /> Confirmado
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-1 bg-white text-slate-500 text-[9px] font-black uppercase px-2 py-1 rounded-md tracking-widest shadow-sm">
-                    Pendiente
-                  </span>
-                )}
+                <ul className="space-y-2 mt-2">
+                  {Array.isArray(pedidoSeleccionado.listaPlatos) && pedidoSeleccionado.listaPlatos.length > 0 ? (
+                    pedidoSeleccionado.listaPlatos.map((plato, index) => (
+                      <li key={index} className="flex items-start gap-2 text-[13px] font-bold text-[#1d2d50] leading-snug">
+                        <span className={coloresPanel.textColor}>•</span>
+                        <span>{plato}</span>
+                      </li>
+                    ))
+                  ) : (
+                    <li className="text-xs font-bold text-slate-400 uppercase">Sin detalles</li>
+                  )}
+                </ul>
               </div>
-              
-              <ul className="space-y-2 mt-2">
-                {Array.isArray(pedidoSeleccionado.listaPlatos) && pedidoSeleccionado.listaPlatos.length > 0 ? (
-                  pedidoSeleccionado.listaPlatos.map((plato, index) => (
-                    <li key={index} className="flex items-start gap-2 text-[13px] font-bold text-[#1d2d50] leading-snug">
-                      <span className={themeText}>•</span>
-                      <span>{plato}</span>
-                    </li>
-                  ))
-                ) : (
-                  <li className="text-xs font-bold text-slate-400 uppercase">Sin detalles</li>
-                )}
-              </ul>
-            </div>
-          )}
+            );
+          })()}
 
-          {/* PANEL DE ASIGNACIÓN MANUAL (SE MANTIENE IGUAL DE LIMPIO) */}
           {diaManualActivo && !pedidoSeleccionado && (
             <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 animate-in fade-in duration-200 mt-2">
               <div className="flex items-center justify-between mb-3">
@@ -268,7 +332,7 @@ export const TarjetaTrabajador: React.FC<TarjetaTrabajadorProps> = ({ trabajador
                   <button 
                     key={tipo}
                     disabled={isSubmitting}
-                    onClick={() => manejarAsignacionManual(tipo)} // 🔥 Llamamos a la nueva función
+                    onClick={() => manejarAsignacionManual(tipo)}
                     className="text-[10px] font-bold text-[#1d2d50] bg-white border border-slate-200 py-3 rounded-xl hover:border-slate-300 hover:bg-slate-100 transition-all disabled:opacity-50"
                   >
                     {tipo.replace('_', ' ')}

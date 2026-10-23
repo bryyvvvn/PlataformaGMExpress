@@ -15,12 +15,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, rolPropVisibl
   const { user } = useUser();
   const { openUserProfile } = useClerk();
   
-  // Extraemos el rol para renderizar los botones correctos
   const { rol } = usePerfil();
 
   return (
     <>
-      {/* Overlay */}
       <div 
         className={`fixed inset-0 bg-black/50 z-40 transition-opacity duration-300 ${
           isOpen ? 'opacity-100 visible' : 'opacity-0 invisible'
@@ -28,21 +26,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, rolPropVisibl
         onClick={onClose}
       />
 
-      {/* Panel a la Derecha */}
       <div 
         className={`fixed top-0 right-0 h-full w-[75%] max-w-[320px] bg-white z-50 shadow-2xl transform transition-transform duration-300 ease-out flex flex-col ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
-        {/* Header con diseño de dos líneas y tipografía reducida */}
         <div className="p-5 flex justify-between items-center border-b border-gray-50">
           {rolPropVisible && empresaNombre ? (
             <div className="flex flex-col leading-none gap-1 overflow-hidden pr-4">
-              {/* Línea 1: El Rol (Chiquito y gris sutil) */}
               <span className="text-xs font-black text-gray-400 uppercase tracking-widest">
                 {rolPropVisible}
               </span>
-              {/* Línea 2: El Nombre de la empresa (Un poco más chico y truncado por si acaso) */}
               <span className="text-xl font-black text-[#1d2d50] uppercase tracking-wide truncate">
                 {empresaNombre}
               </span>
@@ -62,7 +56,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, rolPropVisibl
         </div>
 
         <div className="flex-1 overflow-y-auto p-5">
-          {/* Perfil Compacto */}
           <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-[1.5rem] mb-6 border border-gray-100">
             {user?.imageUrl ? (
               <img 
@@ -81,10 +74,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, rolPropVisibl
             </div>
           </div>
 
-          {/* Navegación Principal */}
           <nav className="space-y-3">
             
-            {/* SOLO PARA TRABAJADORES: Ver Mis Pedidos */}
             {rol === 'TRABAJADOR' && (
               <Link 
                 to="/historial" 
@@ -101,7 +92,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, rolPropVisibl
               </Link>
             )}
 
-            {/* SOLO PARA REPRESENTANTES: Ver pantalla de Trabajadores */}
             {rol === 'REPRESENTANTE' && (
               <Link 
                 to="/trabajadores" 
@@ -118,7 +108,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, rolPropVisibl
               </Link>
             )}
 
-            {/* BOTÓN COMPARTIDO: Ajustes de Perfil */}
             <button 
               onClick={() => { openUserProfile(); onClose(); }}
               className="w-full flex justify-between items-center p-4 bg-white border border-gray-100 rounded-[1.5rem] active:scale-95 transition-all group shadow-sm"
@@ -134,7 +123,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, rolPropVisibl
           </nav>
         </div>
 
-        {/* Botón de Salir */}
         <div className="p-5 border-t border-gray-50">
           <SignOutButton>
             <button className="w-full h-14 flex items-center justify-center gap-2 bg-red-50 text-red-500 rounded-2xl font-black hover:bg-red-100 transition-colors active:scale-95 text-s">

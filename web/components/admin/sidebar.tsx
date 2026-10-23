@@ -53,7 +53,6 @@ export function Sidebar() {
 
   return (
     <aside className="fixed inset-y-0 left-0 z-50 flex h-full w-64 flex-col border-r border-slate-800 bg-[#1B2C56] shadow-2xl">
-      {/* Cabecera / Logo */}
       <div className="flex h-24 items-center justify-center border-b border-white/10 bg-[#122042] px-4">
         <Link
           href="/dashboard"
@@ -71,7 +70,6 @@ export function Sidebar() {
         </Link>
       </div>
 
-      {/* Navegación */}
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-6">
         <div className="mb-4 px-3 text-[11px] font-bold uppercase tracking-widest text-slate-400">
           Menú Principal
@@ -106,7 +104,6 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* Administración */}
       <div className="border-t border-white/10 p-3">
         <DropdownMenu>
           <DropdownMenuTrigger className="group flex w-full items-center gap-3 rounded-xl border border-white/15 bg-[#263B70] px-3 py-3 text-left text-sm font-medium text-slate-300 shadow-sm outline-none transition-all duration-150 hover:border-white/25 hover:bg-[#30477D] hover:text-white data-[state=open]:border-white/25 data-[state=open]:bg-[#30477D]">

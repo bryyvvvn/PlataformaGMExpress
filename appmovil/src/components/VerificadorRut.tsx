@@ -1,4 +1,3 @@
-// src/components/VerificadorRut.tsx
 import { useClerk } from '@clerk/clerk-react';
 import React, { useState } from 'react';
 import {

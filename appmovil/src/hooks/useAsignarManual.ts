@@ -4,11 +4,10 @@ import { API_BASE_URL } from '../constants/api';
 export const useAsignarManual = (token?: string | null) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // Usamos useRef para tener siempre el token más fresco sin re-renderizar
   const tokenRef = useRef(token);
   tokenRef.current = token;
 
-  const asignarPedido = async (usuarioId: number, fecha: string, tipoMenu: string, esCena: boolean) => {
+  const asignarPedido = async (usuarioId: number | string, fecha: string, tipoMenu: string, esCena: boolean) => {
     if (!tokenRef.current) {
       console.error("No hay token de autenticación");
       return false;
@@ -20,7 +19,7 @@ export const useAsignarManual = (token?: string | null) => {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${tokenRef.current}` // 🔥 Aquí va el pase VIP
+          'Authorization': `Bearer ${tokenRef.current}`
         },
         body: JSON.stringify({ usuarioId, fecha, tipoMenu, esCena })
       });

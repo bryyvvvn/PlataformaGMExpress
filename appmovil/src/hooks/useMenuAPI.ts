@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { API_BASE_URL } from "../constants/api";
 
 export interface Guarnicion { id: number; nombre: string; }
 export interface Plato { id: number; nombre: string; url_imagen: string | null; categoria: "ENTRADA" | "FONDO" | "POSTRE" | "JUGO" | "BEBIDA" | "AGUA_SABORIZADA" | "CANJE" | "SANDWICH" | "SNACK"; tipo: "NORMAL" | "VEGANO" | "VEGETARIANO" | "HIPOCALORICO" | "PLATO_UNICO"; calorias?: number | null; proteinas?: number | null; carbohidratos?: number | null; grasas?: number | null; guarniciones: Guarnicion[]; menuDetalleId?: number; }
-export interface MenuDia { entradas: Plato[]; fondos: Plato[]; postres: Plato[]; menuDia: { entrada?: Plato | null; fondo?: Plato | null; postre?: Plato | null; guarnicion?: Guarnicion | null; entradasSeleccionadas?: Plato[]; entradaDisplay?: string | null; bebida?: Plato | null; } | null; convenio?: { trabajaFinDeSemana?: boolean | null; permiteCena?: boolean | null; }; }
+export interface MenuDia { entradas: Plato[]; fondos: Plato[]; postres: Plato[]; menuDia: { entrada?: Plato | null; fondo?: Plato | null; postre?: Plato | null; postreCantidad?: number | null; isDoblePostre?: boolean | null; guarnicion?: Guarnicion | null; entradasSeleccionadas?: Plato[]; entradaDisplay?: string | null; bebida?: Plato | null; } | null; convenio?: { trabajaFinDeSemana?: boolean | null; permiteCena?: boolean | null; }; }
 
 type MenuDateInput = string | Date;
 
@@ -313,12 +313,45 @@ export const useMenuAPI = (
       });
 
     return () => { cancelado = true; };
-  }, [cacheKey, fechaNormalizada, usuarioId, token]);
+  }, [cacheKey, esCena, fechaNormalizada, usuarioId, token]);
 
   const menuEnCache = cacheKey ? menuCache.get(cacheKey) : undefined;
 
+  const refrescarMenu = useCallback(async () => {
+    if (!cacheKey || !usuarioId || !fechaNormalizada || !token) {
+      return MENU_VACIO;
+    }
+
+    bumpMenuCacheVersion(cacheKey);
+    menuCache.delete(cacheKey);
+    menuRequestsInFlight.delete(cacheKey);
+    setCargando(true);
+
+    const requestVersion = getMenuCacheVersion(cacheKey);
+
+    try {
+      const datos = await fetchMenuBackend({
+        cacheKey,
+        esCena,
+        fechaNormalizada,
+        requestVersion,
+        token,
+        usuarioId,
+      });
+      setMenuFetch(datos);
+      return datos;
+    } catch (error) {
+      console.error("[useMenuAPI] Error al refrescar menu:", error);
+      setMenuFetch(MENU_VACIO);
+      return MENU_VACIO;
+    } finally {
+      setCargando(false);
+    }
+  }, [cacheKey, esCena, fechaNormalizada, token, usuarioId]);
+
   return {
     menuHoy: menuEnCache ?? menuFetch,
-    cargando: menuEnCache ? false : cargando
+    cargando: menuEnCache ? false : cargando,
+    refrescarMenu
   };
 };

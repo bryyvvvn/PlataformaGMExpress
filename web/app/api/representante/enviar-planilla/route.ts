@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import db from '../../../../lib/db';
-import nodemailer from 'nodemailer'; // 🔥 IMPORTAMOS NODEMAILER
+import nodemailer from 'nodemailer'; 
 
 import type { Prisma } from '@prisma/client';
 import { enviarPlanillaSchema } from '@/lib/schemas/representante';
@@ -65,7 +65,7 @@ export async function POST(request: Request) {
   }
 
   const { usuarioId, fecha } = result.data;
-  const empresaIdSeguro = rep.empresaId; // ignorar body.empresaId
+  const empresaIdSeguro = rep.empresaId; 
 
   try {
     if (usuarioId) {
@@ -82,21 +82,29 @@ export async function POST(request: Request) {
       }
     }
 
-    let fechaBase = new Date();
-    if (fecha) {
-      const safeDate = fecha.includes('T') ? fecha : `${fecha}T12:00:00`;
-      fechaBase = new Date(safeDate);
+    let fechaString = fecha;
+    if (!fechaString) {
+      const now = new Date();
+      now.setUTCHours(now.getUTCHours() - 4);
+      fechaString = now.toISOString().split('T')[0];
+    } else if (fechaString.includes('T')) {
+      fechaString = fechaString.split('T')[0];
     }
 
-    const diaSemana = fechaBase.getDay() || 7;
+    const [year, month, day] = fechaString.split('-').map(Number);
+    
+    const fechaBase = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+    const diaSemana = fechaBase.getUTCDay() || 7; 
+    
     const inicioSemana = new Date(fechaBase);
-    inicioSemana.setDate(fechaBase.getDate() - diaSemana + 1);
-    inicioSemana.setHours(0, 0, 0, 0);
+    inicioSemana.setUTCDate(fechaBase.getUTCDate() - diaSemana + 1);
+    inicioSemana.setUTCHours(0, 0, 0, 0);
 
-    const finSemana = new Date(inicioSemana);
     const convenio = await obtenerConvenioEmpresa(empresaIdSeguro, usuarioId);
-    finSemana.setDate(inicioSemana.getDate() + (convenio.trabajaFinDeSemana ? 6 : 4));
-    finSemana.setHours(23, 59, 59, 999);
+    
+    const finSemana = new Date(inicioSemana);
+    finSemana.setUTCDate(inicioSemana.getUTCDate() + (convenio.trabajaFinDeSemana ? 6 : 4));
+    finSemana.setUTCHours(23, 59, 59, 999);
 
     const whereClause: Prisma.PedidoWhereInput = {
       estado: 'PENDIENTE',
@@ -110,16 +118,13 @@ export async function POST(request: Request) {
     if (usuarioId) whereClause.usuarioId = usuarioId;
     else whereClause.empresaId = empresaIdSeguro;
 
-    // 1. ACTUALIZAMOS LA BASE DE DATOS (Tu código original)
     const actualizados = await db.pedido.updateMany({
       where: whereClause,
       data: { estado: 'CONFIRMADO' },
     });
 
-    // 🔥 2. SI SE CONFIRMARON PEDIDOS, MANDAMOS EL CORREO
     if (actualizados.count > 0) {
       try {
-        // Buscamos el nombre de la empresa para personalizar el correo
         const empresaData = await db.empresa.findUnique({
           where: { id: empresaIdSeguro },
           select: { nombre: true }
@@ -128,7 +133,6 @@ export async function POST(request: Request) {
         const nombreEmpresa = empresaData?.nombre || 'Una empresa';
         const correoAdmin = process.env.ADMIN_EMAIL || 'maickol@ejemplo.com';
 
-        // Configuramos el "Cartero" de Nodemailer
         const transporter = nodemailer.createTransport({
           service: 'gmail',
           auth: {
@@ -137,7 +141,6 @@ export async function POST(request: Request) {
           },
         });
 
-        // Armamos el correo
         const mailOptions = {
           from: `"GM Express Sistema" <${process.env.EMAIL_USER}>`,
           to: correoAdmin,
@@ -166,14 +169,16 @@ export async function POST(request: Request) {
           `,
         };
 
-        // Disparamos el correo
-        await transporter.sendMail(mailOptions);
-        console.log(`[CORREO] Aviso enviado a ${correoAdmin} por consolidación de ${nombreEmpresa}`);
+        transporter.sendMail(mailOptions)
+          .then(() => {
+            console.log(`[CORREO] Aviso enviado a ${correoAdmin} por consolidación de ${nombreEmpresa}`);
+          })
+          .catch((emailError) => {
+            console.error('[CORREO ERROR] Falló el envío de consolidación:', emailError);
+          });
 
-      } catch (emailError) {
-        // Si el correo falla (ej. clave mal puesta), lo registramos en consola 
-        // pero NO rompemos la ejecución, para que la app del usuario diga "Éxito".
-        console.error('[CORREO ERROR] Falló el envío de consolidación:', emailError);
+      } catch (errorGeneral) {
+        console.error('[PROCESO ERROR] Error al armar el correo:', errorGeneral);
       }
     }
 
